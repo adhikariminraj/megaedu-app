@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as any)?.id as string | undefined;
+  const roles = (session?.user as any)?.roles as string[] | undefined;
+  if (!userId) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
+  if (!roles?.includes("SCHOOL_ADMIN")) {
+    return NextResponse.json({ error: "Your MEGA ID isn't registered as a School." }, { status: 403 });
+  }
+
+  const existing = await prisma.schoolAdmin.findFirst({ where: { userId } });
+  if (existing) {
+    return NextResponse.json({ error: "You already administer a school." }, { status: 409 });
+  }
+
+  const { schoolName, location, gradesOffered } = await req.json();
+  if (!schoolName?.trim()) {
+    return NextResponse.json({ error: "School name is required." }, { status: 400 });
+  }
+
+  let slug = slugify(schoolName);
+  const slugTaken = await prisma.school.findUnique({ where: { slug } });
+  if (slugTaken) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const school = await prisma.$transaction(async (tx) => {
+    const created = await tx.school.create({
+      data: { name: schoolName, slug, location, gradesOffered, verified: false },
+    });
+    await tx.schoolAdmin.create({ data: { userId, schoolId: created.id } });
+    return created;
+  });
+
+  return NextResponse.json({ ok: true, school });
+}

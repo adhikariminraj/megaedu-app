@@ -1,0 +1,393 @@
+// MEGA.EDU — Database Schema (Prisma)
+// Maps directly onto the ER model in the System Architecture & Design doc.
+// Local dev uses SQLite (see .env); production should point DATABASE_URL
+// at a real Postgres instance (e.g. Neon) — no schema changes needed,
+// just change `provider` below to "postgresql" and update DATABASE_URL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // change to "postgresql" for production
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MEGA ID — unified identity. One account, one or more roles.
+// ============================================================
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Role assignments — a single MEGA ID can hold several roles at once
+  // (e.g. a Teacher who is also a Course Instructor).
+  roles         UserRole[]
+
+  // Direct relationships depending on role
+  teacherProfile   Teacher?
+  studentProfile   Student?
+  parentProfile    Parent?
+
+  // Schools/Organizations this user administers
+  administeredSchools       SchoolAdmin[]
+  administeredOrganizations OrganizationAdmin[]
+
+  subscriptions Subscription[]
+  payments      Payment[]
+  notifications Notification[]
+}
+
+// Role is a plain String (not a Prisma enum) so this schema works
+// unchanged on both SQLite (local dev) and Postgres (production) — SQLite's
+// Prisma connector doesn't support native enum types. Valid values:
+// PLATFORM_ADMIN | SCHOOL_ADMIN | TEACHER | STUDENT | PARENT | ORGANIZATION_ADMIN
+// (see src/types/next-auth.d.ts for the matching TypeScript union type)
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  role   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+}
+
+// ============================================================
+// SCHOOL — the anchor entity. Each school is a logical tenant.
+// ============================================================
+model School {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  type          String? // e.g. "Private", "Public", "Community"
+  location      String?
+  district      String?
+  contactEmail  String?
+  contactPhone  String?
+  gradesOffered String? // e.g. "1-10"
+  description   String?
+  logoUrl       String?
+  coverImageUrl String?
+
+  verified      Boolean  @default(false)
+  subscriptionTier String @default("FREE") // FREE | PRO
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  admins        SchoolAdmin[]
+  teachers      Teacher[]
+  students      Student[]
+  programs      Program[]
+  events        Event[]
+  opportunities Opportunity[]
+  news          NewsPost[]
+  approaches    SchoolApproach[]
+  resources     Resource[]
+  subscriptions Subscription[]
+}
+
+// join table: which Users administer which Schools (many-to-many, role-scoped)
+model SchoolAdmin {
+  id       String @id @default(cuid())
+  userId   String
+  schoolId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+}
+
+model Program {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name     String
+  description String?
+}
+
+model NewsPost {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  publishedAt DateTime @default(now())
+}
+
+// ============================================================
+// PEOPLE — Teacher / Student / Parent profiles, linked to a School
+// ============================================================
+model Teacher {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  bio       String?
+  subjects  String?
+  // Covers any school staff role, not just classroom teachers — e.g.
+  // "Teacher", "Librarian", "Counselor", "Coach", "Administrative Staff",
+  // "Nurse". Defaults to "Teacher" so existing behavior is unchanged.
+  position  String   @default("Teacher")
+  // A staff join request must be approved by that school's admin before
+  // they show up as staff — same pattern as School verification by the
+  // Platform Admin.
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  courseEnrollments CourseEnrollment[]
+  certificates      Certificate[]
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  gradeLevel String?
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  parents   ParentStudent[]
+  courseEnrollments CourseEnrollment[]
+}
+
+model Parent {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  children ParentStudent[]
+}
+
+model ParentStudent {
+  id        String  @id @default(cuid())
+  parentId  String
+  studentId String
+  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+}
+
+// ============================================================
+// ORGANIZATIONS — verified course/resource/event providers
+// ============================================================
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  website     String?
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  admins    OrganizationAdmin[]
+  courses   Course[]
+  events    Event[]
+  opportunities Opportunity[]
+  resources Resource[]
+}
+
+model OrganizationAdmin {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// ============================================================
+// EDUCATIONAL APPROACHES — CBE, STEM, Montessori, etc.
+// ============================================================
+model EducationalApproach {
+  id          String @id @default(cuid())
+  name        String @unique
+  slug        String @unique
+  description String?
+
+  schools   SchoolApproach[]
+  courses   Course[]
+  resources Resource[]
+}
+
+model SchoolApproach {
+  id         String @id @default(cuid())
+  schoolId   String
+  approachId String
+  school     School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  approach   EducationalApproach @relation(fields: [approachId], references: [id], onDelete: Cascade)
+
+  @@unique([schoolId, approachId])
+}
+
+// ============================================================
+// MEGA ACADEMY — courses, enrollment, certificates
+// ============================================================
+model Course {
+  id             String   @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  approachId     String?
+  approach       EducationalApproach? @relation(fields: [approachId], references: [id])
+
+  title       String
+  slug        String   @unique
+  description String?
+  priceCents  Int      @default(0) // 0 = free
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  modules     CourseModule[]
+  enrollments CourseEnrollment[]
+}
+
+model CourseModule {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title    String
+  order    Int
+
+  lessons  Lesson[]
+}
+
+model Lesson {
+  id       String @id @default(cuid())
+  moduleId String
+  module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title    String
+  content  String // plain text/markdown for MVP — no rich editor yet
+  videoUrl String?
+  order    Int
+}
+
+model CourseEnrollment {
+  id          String    @id @default(cuid())
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId   String?
+  teacher     Teacher?  @relation(fields: [teacherId], references: [id])
+  studentId   String?
+  student     Student?  @relation(fields: [studentId], references: [id])
+  progress    Int       @default(0) // percent complete
+  completedAt DateTime?
+  enrolledAt  DateTime  @default(now())
+
+  certificate Certificate?
+}
+
+model Certificate {
+  id           String   @id @default(cuid())
+  enrollmentId String   @unique
+  enrollment   CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  teacherId    String?
+  teacher      Teacher? @relation(fields: [teacherId], references: [id])
+  verificationCode String @unique @default(cuid())
+  issuedAt     DateTime @default(now())
+}
+
+// ============================================================
+// RESOURCES, EVENTS
+// ============================================================
+model Resource {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  fileUrl        String?
+  subject        String?
+  gradeLevel     String?
+  approachId     String?
+  approach       EducationalApproach? @relation(fields: [approachId], references: [id])
+  schoolId       String?
+  school         School? @relation(fields: [schoolId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model Event {
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  startsAt       DateTime
+  location       String?
+  onlineUrl      String?
+  schoolId       String?
+  school         School? @relation(fields: [schoolId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+// Scholarships, competitions, jobs, and other opportunities — the piece
+// of the "education network" (not just a school management tool) that
+// students and parents actually come back for. Posted by verified
+// Schools or Organizations, same trust model as everything else.
+model Opportunity {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  type           String    // "Scholarship" | "Competition" | "Event" | "Job" | "Other"
+  deadline       DateTime?
+  applyUrl       String?
+  schoolId       String?
+  school         School?       @relation(fields: [schoolId], references: [id])
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime  @default(now())
+}
+
+// ============================================================
+// SUBSCRIPTIONS & PAYMENTS — single pipeline for all monetization
+// ============================================================
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  plan      String   // e.g. "SCHOOL_PRO"
+  status    String   @default("ACTIVE") // ACTIVE | CANCELED | PAST_DUE
+  startedAt DateTime @default(now())
+  endsAt    DateTime?
+
+  payments  Payment[]
+}
+
+model Payment {
+  id             String   @id @default(cuid())
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  amountCents    Int
+  currency       String   @default("NPR")
+  status         String   @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
+  provider       String?  // e.g. "stripe", "esewa", "khalti"
+  providerRef    String?
+  createdAt      DateTime @default(now())
+}
+
+// ============================================================
+// NOTIFICATIONS — one shared engine for all notification types
+// ============================================================
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // e.g. "COURSE_STARTING", "CERTIFICATE_ISSUED", "SCHOOL_ANNOUNCEMENT"
+  title     String
+  body      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
