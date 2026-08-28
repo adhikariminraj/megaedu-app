@@ -1,6 +1,8 @@
 import Link from "next/link";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import JoinSchoolPrompt from "@/components/JoinSchoolPrompt";
+import InterestManager from "@/components/InterestManager";
+import StudentSkillManager from "@/components/StudentSkillManager";
 
 type Teacher = {
   id: string;
@@ -8,18 +10,17 @@ type Teacher = {
   subjects: string | null;
   position: string;
   approved: boolean;
-  user: { name: string; email: string };
-  school: { name: string; slug: string } | null;
+  user: { name: string; email: string; interests: { id: string; name: string }[] };
+  school: { id: string; name: string; slug: string } | null;
   courseEnrollments: {
     id: string;
     progress: number;
     course: { title: string; slug: string };
-    certificate: { verificationCode: string } | null;
+    certificate: { id: string; verificationCode: string } | null;
   }[];
 };
 
 export default function TeacherDashboard({ teacher, userName }: { teacher: Teacher; userName: string }) {
-  // Registered via the unified /register flow with no school chosen yet.
   if (!teacher.school) {
     return (
       <div className="max-w-xl mx-auto px-6 py-12">
@@ -81,7 +82,7 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
         cards={heroCards.slice(0, 3)}
       />
 
-      <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-8">
+      <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-500">School</p>
@@ -98,6 +99,22 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
           </span>
         </div>
       </div>
+
+      <div className="mb-6">
+        <InterestManager interests={teacher.user.interests} />
+      </div>
+
+      {teacher.approved && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-800 mb-1">Your Students</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            Add Skills & Competencies for approved students at {teacher.school.name}.
+            Every approved teacher can currently manage any approved student
+            at the school — grade-specific scoping arrives in a later phase.
+          </p>
+          <StudentSkillManager schoolId={teacher.school.id} />
+        </div>
+      )}
 
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -121,7 +138,7 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
                   <p className="font-medium text-slate-800">{e.course.title}</p>
                   {e.certificate && (
                     <a
-                      href={`/verify/${e.certificate.verificationCode}`}
+                      href={`/dashboard/certificates/${e.certificate.id}/preview`}
                       className="text-xs text-mega-blue"
                     >
                       View certificate →

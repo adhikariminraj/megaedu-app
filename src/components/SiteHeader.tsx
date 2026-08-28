@@ -2,9 +2,22 @@
 
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
+import { useEffect, useState } from "react";
 
 export default function SiteHeader() {
   const { data: session, status } = useSession();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (status !== "authenticated") {
+      setUnreadCount(0);
+      return;
+    }
+    fetch("/api/notifications/unread-count")
+      .then((res) => res.json())
+      .then((data) => setUnreadCount(data.count || 0))
+      .catch(() => {});
+  }, [status]);
 
   return (
     <header className="border-b border-slate-200 bg-white sticky top-0 z-40">
@@ -23,6 +36,7 @@ export default function SiteHeader() {
           <Link href="/schools" className="hover:text-mega-navy">Schools</Link>
           <Link href="/courses" className="hover:text-mega-navy">Courses</Link>
           <Link href="/opportunities" className="hover:text-mega-navy">Opportunities</Link>
+          <Link href="/calendar" className="hover:text-mega-navy">Calendar</Link>
           <Link href="/organizations" className="hover:text-mega-navy">Organizations</Link>
           <Link href="/resources" className="hover:text-mega-navy">Resources</Link>
           <Link href="/approaches" className="hover:text-mega-navy">Approaches</Link>
@@ -39,6 +53,18 @@ export default function SiteHeader() {
                   Admin
                 </Link>
               )}
+              <Link
+                href="/notifications"
+                className="relative text-sm font-medium text-slate-700 hover:text-mega-navy"
+                title="Notifications"
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-mega-red text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
               <Link
                 href="/dashboard"
                 className="text-sm font-medium text-slate-700 hover:text-mega-navy"

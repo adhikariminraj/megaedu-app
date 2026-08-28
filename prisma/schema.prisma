@@ -1,8 +1,8 @@
 // MEGA.EDU — Database Schema (Prisma)
-// Maps directly onto the ER model in the System Architecture & Design doc.
-// Local dev uses SQLite (see .env); production should point DATABASE_URL
-// at a real Postgres instance (e.g. Neon) — no schema changes needed,
-// just change `provider` below to "postgresql" and update DATABASE_URL.
+// PHASE 1, PASS 2: the old Certificate model has been removed and
+// replaced by the redesigned one below (recipient/instructor/issuer
+// split, with a display-text snapshot). Apply this only after the
+// backfill script has been run and its output reviewed.
 
 generator client {
   provider = "prisma-client-js"
@@ -17,37 +17,41 @@ datasource db {
 // MEGA ID — unified identity. One account, one or more roles.
 // ============================================================
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  // Role assignments — a single MEGA ID can hold several roles at once
-  // (e.g. a Teacher who is also a Course Instructor).
-  roles         UserRole[]
+  roles UserRole[]
 
-  // Direct relationships depending on role
-  teacherProfile   Teacher?
-  studentProfile   Student?
-  parentProfile    Parent?
+  teacherProfile Teacher?
+  studentProfile Student?
+  parentProfile  Parent?
 
-  // Schools/Organizations this user administers
   administeredSchools       SchoolAdmin[]
   administeredOrganizations OrganizationAdmin[]
+  schoolAccountantOf        SchoolAccountant[]
+  organizationAccountantOf  OrganizationAccountant[]
 
   subscriptions Subscription[]
   payments      Payment[]
   notifications Notification[]
+
+  interests           Interest[]
+  skillsAdded          Skill[]         @relation("SkillAddedBy")
+  instructorProfile    Instructor?
+  certificatesReceived Certificate[] @relation("CertificateRecipient")
+
+  gradeDecisionsMade    GradeHistory[]      @relation("GradeHistoryDecidedBy")
+  gradeHistoryAuditsMade GradeHistoryAudit[] @relation("GradeHistoryAuditChangedBy")
 }
 
-// Role is a plain String (not a Prisma enum) so this schema works
-// unchanged on both SQLite (local dev) and Postgres (production) — SQLite's
-// Prisma connector doesn't support native enum types. Valid values:
-// PLATFORM_ADMIN | SCHOOL_ADMIN | TEACHER | STUDENT | PARENT | ORGANIZATION_ADMIN
-// (see src/types/next-auth.d.ts for the matching TypeScript union type)
-
+// Role is a plain String below, not a Prisma enum — SQLite's connector
+// doesn't support native enums, even unused ones. Valid values:
+// PLATFORM_ADMIN | SCHOOL_ADMIN | TEACHER | STUDENT | PARENT |
+// ORGANIZATION_ADMIN | ACCOUNTANT
 model UserRole {
   id     String @id @default(cuid())
   userId String
@@ -58,29 +62,30 @@ model UserRole {
 }
 
 // ============================================================
-// SCHOOL — the anchor entity. Each school is a logical tenant.
+// SCHOOL
 // ============================================================
 model School {
-  id            String   @id @default(cuid())
-  name          String
-  slug          String   @unique
-  type          String? // e.g. "Private", "Public", "Community"
-  location      String?
-  district      String?
-  contactEmail  String?
-  contactPhone  String?
-  gradesOffered String? // e.g. "1-10"
-  description   String?
-  logoUrl       String?
-  coverImageUrl String?
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  type             String?
+  location         String?
+  district         String?
+  contactEmail     String?
+  contactPhone     String?
+  gradesOffered    String?
+  description      String?
+  logoUrl          String?
+  coverImageUrl    String?
+  verified         Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  subscriptionTier String   @default("FREE")
 
-  verified      Boolean  @default(false)
-  subscriptionTier String @default("FREE") // FREE | PRO
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   admins        SchoolAdmin[]
+  accountants   SchoolAccountant[]
   teachers      Teacher[]
   students      Student[]
   programs      Program[]
@@ -90,9 +95,14 @@ model School {
   approaches    SchoolApproach[]
   resources     Resource[]
   subscriptions Subscription[]
+
+  issuedCertificates     Certificate[] @relation("CertificateIssuerSchool")
+  associatedCertificates Certificate[] @relation("CertificateAssociatedSchool")
+
+  academicSessions AcademicSession[]
+  grades           SchoolGrade[]
 }
 
-// join table: which Users administer which Schools (many-to-many, role-scoped)
 model SchoolAdmin {
   id       String @id @default(cuid())
   userId   String
@@ -103,25 +113,35 @@ model SchoolAdmin {
   @@unique([userId, schoolId])
 }
 
-model Program {
+model SchoolAccountant {
   id       String @id @default(cuid())
+  userId   String
   schoolId String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  name     String
+
+  @@unique([userId, schoolId])
+}
+
+model Program {
+  id          String @id @default(cuid())
+  schoolId    String
+  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name        String
   description String?
 }
 
 model NewsPost {
-  id        String   @id @default(cuid())
-  schoolId  String
-  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
+  id          String   @id @default(cuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
   publishedAt DateTime @default(now())
 }
 
 // ============================================================
-// PEOPLE — Teacher / Student / Parent profiles, linked to a School
+// PEOPLE
 // ============================================================
 model Teacher {
   id        String   @id @default(cuid())
@@ -131,32 +151,40 @@ model Teacher {
   school    School?  @relation(fields: [schoolId], references: [id])
   bio       String?
   subjects  String?
-  // Covers any school staff role, not just classroom teachers — e.g.
-  // "Teacher", "Librarian", "Counselor", "Coach", "Administrative Staff",
-  // "Nurse". Defaults to "Teacher" so existing behavior is unchanged.
   position  String   @default("Teacher")
-  // A staff join request must be approved by that school's admin before
-  // they show up as staff — same pattern as School verification by the
-  // Platform Admin.
   approved  Boolean  @default(false)
   createdAt DateTime @default(now())
 
   courseEnrollments CourseEnrollment[]
-  certificates      Certificate[]
+  // Certificates are tracked via User.certificatesReceived now (the new
+  // Certificate model has no direct teacherId link) — access a teacher's
+  // certificates through teacher.user.certificatesReceived.
+
+  gradeAssignments TeacherGradeAssignment[]
+
+  @@index([schoolId])
 }
 
 model Student {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  schoolId  String?
-  school    School?  @relation(fields: [schoolId], references: [id])
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId   String?
+  school     School?  @relation(fields: [schoolId], references: [id])
+  // Legacy free-text grade. Left in place deliberately — becomes a
+  // fallback that's simply no longer written to once a school completes
+  // Initial Setup (see GradeHistory below), not something with a single
+  // safe moment to drop across every school at once.
   gradeLevel String?
-  approved  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  approved   Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
-  parents   ParentStudent[]
+  parents           ParentStudent[]
   courseEnrollments CourseEnrollment[]
+  skills            Skill[]
+  gradeHistory      GradeHistory[]
+
+  @@index([schoolId])
 }
 
 model Parent {
@@ -178,7 +206,126 @@ model ParentStudent {
 }
 
 // ============================================================
-// ORGANIZATIONS — verified course/resource/event providers
+// ACADEMIC SESSIONS & GRADES — Phase 2
+// Additive alongside the legacy Student.gradeLevel free-text field
+// above — schools adopt this structure at different times, so there's
+// no single moment it becomes safe to drop that field.
+// ============================================================
+
+// One school year window for a school. App-level rule (not a DB
+// constraint, since SQLite can't express a partial unique index here):
+// a school may have at most one row with status "ACTIVE" at a time —
+// enforced by checking before create.
+model AcademicSession {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    String   @default("ACTIVE") // "ACTIVE" | "CLOSED"
+
+  teacherGradeAssignments TeacherGradeAssignment[]
+  gradeHistories          GradeHistory[]
+
+  @@index([schoolId])
+}
+
+// Platform-wide, fixed grade ladder (PP1-PP3, Y1-Y10). Seeded once in
+// seed.ts and never school-editable — a school opts into entries from
+// this list via SchoolGrade instead of defining its own grades.
+model GradeReference {
+  id    String @id @default(cuid())
+  code  String @unique
+  order Int    @unique
+
+  schoolGrades SchoolGrade[]
+}
+
+// A school's opt-in to one GradeReference, with its own display label
+// ("Class 6" vs "Grade 6" vs just the GradeReference code).
+model SchoolGrade {
+  id               String         @id @default(cuid())
+  schoolId         String
+  school           School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  gradeReferenceId String
+  gradeReference   GradeReference @relation(fields: [gradeReferenceId], references: [id])
+  displayName      String
+
+  teacherAssignments TeacherGradeAssignment[]
+  gradeHistories     GradeHistory[] @relation("GradeHistoryGrade")
+  outcomeOfHistories GradeHistory[] @relation("GradeHistoryOutcome")
+
+  @@unique([schoolId, gradeReferenceId])
+  @@index([schoolId])
+}
+
+// Per-session teacher-to-grade assignment. Deliberately not carried
+// forward automatically when a new session starts — each session gets
+// its own assignment rows.
+model TeacherGradeAssignment {
+  id                String          @id @default(cuid())
+  teacherId         String
+  teacher           Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+
+  @@unique([teacherId, schoolGradeId, academicSessionId])
+  @@index([academicSessionId])
+}
+
+// A student's grade placement for one session — the permanent record.
+// Nothing is ever deleted or overwritten in place; a repeat or
+// promotion creates a new row in the next session. status/outcomeGradeId
+// must only ever be written through recordGradeDecision() in
+// src/lib/gradeHistory.ts, which pairs every write with a
+// GradeHistoryAudit row in the same transaction — including the very
+// first placement decision, not just later corrections.
+model GradeHistory {
+  id                String          @id @default(cuid())
+  studentId         String
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation("GradeHistoryGrade", fields: [schoolGradeId], references: [id])
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  status            String          @default("ENROLLED") // "ENROLLED" | "COMPLETED" | "REPEATED" | "TRANSFERRED" | "LEFT"
+  enrolledAt        DateTime        @default(now())
+  decidedAt         DateTime?
+  decidedByUserId   String?
+  decidedBy         User?           @relation("GradeHistoryDecidedBy", fields: [decidedByUserId], references: [id])
+  outcomeGradeId    String?
+  outcomeGrade      SchoolGrade?    @relation("GradeHistoryOutcome", fields: [outcomeGradeId], references: [id])
+
+  audits GradeHistoryAudit[]
+
+  @@unique([studentId, academicSessionId])
+  @@index([schoolGradeId])
+  @@index([academicSessionId])
+}
+
+// Append-only audit trail for GradeHistory decisions. No update or
+// delete route may ever touch this table — recordGradeDecision() is
+// the only writer, and it only ever inserts.
+model GradeHistoryAudit {
+  id                     String       @id @default(cuid())
+  gradeHistoryId         String
+  gradeHistory           GradeHistory @relation(fields: [gradeHistoryId], references: [id], onDelete: Cascade)
+  changedByUserId        String
+  changedBy              User         @relation("GradeHistoryAuditChangedBy", fields: [changedByUserId], references: [id])
+  changedAt              DateTime     @default(now())
+  previousStatus         String
+  previousOutcomeGradeId String?
+  newStatus              String
+  newOutcomeGradeId      String?
+
+  @@index([gradeHistoryId])
+}
+
+// ============================================================
+// ORGANIZATIONS
 // ============================================================
 model Organization {
   id          String   @id @default(cuid())
@@ -187,13 +334,17 @@ model Organization {
   description String?
   website     String?
   verified    Boolean  @default(false)
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  admins    OrganizationAdmin[]
-  courses   Course[]
-  events    Event[]
+  admins        OrganizationAdmin[]
+  accountants   OrganizationAccountant[]
+  courses       Course[]
+  events        Event[]
   opportunities Opportunity[]
-  resources Resource[]
+  resources     Resource[]
+
+  issuedCertificates Certificate[] @relation("CertificateIssuerOrg")
 }
 
 model OrganizationAdmin {
@@ -206,13 +357,23 @@ model OrganizationAdmin {
   @@unique([userId, organizationId])
 }
 
+model OrganizationAccountant {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
 // ============================================================
-// EDUCATIONAL APPROACHES — CBE, STEM, Montessori, etc.
+// EDUCATIONAL APPROACHES
 // ============================================================
 model EducationalApproach {
-  id          String @id @default(cuid())
-  name        String @unique
-  slug        String @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
   description String?
 
   schools   SchoolApproach[]
@@ -221,7 +382,7 @@ model EducationalApproach {
 }
 
 model SchoolApproach {
-  id         String @id @default(cuid())
+  id         String              @id @default(cuid())
   schoolId   String
   approachId String
   school     School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
@@ -236,14 +397,16 @@ model SchoolApproach {
 model Course {
   id             String   @id @default(cuid())
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organization   Organization?        @relation(fields: [organizationId], references: [id])
   approachId     String?
   approach       EducationalApproach? @relation(fields: [approachId], references: [id])
+  instructorId   String?
+  instructor     Instructor?          @relation(fields: [instructorId], references: [id])
 
   title       String
   slug        String   @unique
   description String?
-  priceCents  Int      @default(0) // 0 = free
+  priceCents  Int      @default(0)
   published   Boolean  @default(false)
   createdAt   DateTime @default(now())
 
@@ -258,15 +421,15 @@ model CourseModule {
   title    String
   order    Int
 
-  lessons  Lesson[]
+  lessons Lesson[]
 }
 
 model Lesson {
-  id       String @id @default(cuid())
+  id       String       @id @default(cuid())
   moduleId String
   module   CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title    String
-  content  String // plain text/markdown for MVP — no rich editor yet
+  content  String
   videoUrl String?
   order    Int
 }
@@ -279,25 +442,83 @@ model CourseEnrollment {
   teacher     Teacher?  @relation(fields: [teacherId], references: [id])
   studentId   String?
   student     Student?  @relation(fields: [studentId], references: [id])
-  progress    Int       @default(0) // percent complete
+  progress    Int       @default(0)
   completedAt DateTime?
   enrolledAt  DateTime  @default(now())
 
-  certificate Certificate?
+  certificate   Certificate?
 }
 
+// --- Certificate — the redesigned model, replacing the old one that
+// only supported a single ambiguous teacherId field ---
 model Certificate {
+  id                String            @id @default(cuid())
+  verificationCode  String            @unique @default(cuid())
+  recipientUserId   String
+  recipient         User              @relation("CertificateRecipient", fields: [recipientUserId], references: [id])
+  enrollmentId      String?           @unique
+  enrollment        CourseEnrollment? @relation(fields: [enrollmentId], references: [id])
+  gradeHistoryId    String?           @unique // reserved for Phase 2
+  instructorId      String?
+  instructor        Instructor?       @relation(fields: [instructorId], references: [id])
+
+  issuerType            String // "MEGA_EDU" | "ORGANIZATION" | "SCHOOL" | "JOINT"
+  issuerOrganizationId  String?
+  issuerOrganization    Organization? @relation("CertificateIssuerOrg", fields: [issuerOrganizationId], references: [id])
+  issuerSchoolId        String?
+  issuerSchool          School?       @relation("CertificateIssuerSchool", fields: [issuerSchoolId], references: [id])
+  associatedSchoolId    String?
+  associatedSchool      School?       @relation("CertificateAssociatedSchool", fields: [associatedSchoolId], references: [id])
+
+  title String
+
+  recipientNameSnapshot        String
+  recipientMegaIdSnapshot      String
+  issuerNameSnapshot           String
+  associatedSchoolNameSnapshot String?
+  instructorNameSnapshot       String?
+
+  issuedAt DateTime @default(now())
+}
+
+model Instructor {
   id           String   @id @default(cuid())
-  enrollmentId String   @unique
-  enrollment   CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
-  teacherId    String?
-  teacher      Teacher? @relation(fields: [teacherId], references: [id])
-  verificationCode String @unique @default(cuid())
-  issuedAt     DateTime @default(now())
+  name         String
+  megaIdUserId String?  @unique
+  megaIdUser   User?    @relation(fields: [megaIdUserId], references: [id])
+  createdAt    DateTime @default(now())
+
+  courses      Course[]
+  certificates Certificate[]
 }
 
 // ============================================================
-// RESOURCES, EVENTS
+// IDENTITY LAYER — Interests & Skills
+// ============================================================
+model Interest {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, name])
+}
+
+model Skill {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  addedByUserId String
+  addedBy       User     @relation("SkillAddedBy", fields: [addedByUserId], references: [id])
+  name          String
+  createdAt     DateTime @default(now())
+
+  @@unique([studentId, addedByUserId, name])
+}
+
+// ============================================================
+// RESOURCES, EVENTS, OPPORTUNITIES
 // ============================================================
 model Resource {
   id             String   @id @default(cuid())
@@ -309,9 +530,9 @@ model Resource {
   approachId     String?
   approach       EducationalApproach? @relation(fields: [approachId], references: [id])
   schoolId       String?
-  school         School? @relation(fields: [schoolId], references: [id])
+  school         School?              @relation(fields: [schoolId], references: [id])
   organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organization   Organization?        @relation(fields: [organizationId], references: [id])
   createdAt      DateTime @default(now())
 }
 
@@ -323,69 +544,65 @@ model Event {
   location       String?
   onlineUrl      String?
   schoolId       String?
-  school         School? @relation(fields: [schoolId], references: [id])
+  school         School?       @relation(fields: [schoolId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
   createdAt      DateTime @default(now())
 }
 
-// Scholarships, competitions, jobs, and other opportunities — the piece
-// of the "education network" (not just a school management tool) that
-// students and parents actually come back for. Posted by verified
-// Schools or Organizations, same trust model as everything else.
 model Opportunity {
   id             String    @id @default(cuid())
   title          String
   description    String?
-  type           String    // "Scholarship" | "Competition" | "Event" | "Job" | "Other"
+  type           String
   deadline       DateTime?
   applyUrl       String?
   schoolId       String?
   school         School?       @relation(fields: [schoolId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime  @default(now())
-}
-
-// ============================================================
-// SUBSCRIPTIONS & PAYMENTS — single pipeline for all monetization
-// ============================================================
-model Subscription {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  schoolId  String?
-  school    School?  @relation(fields: [schoolId], references: [id])
-  plan      String   // e.g. "SCHOOL_PRO"
-  status    String   @default("ACTIVE") // ACTIVE | CANCELED | PAST_DUE
-  startedAt DateTime @default(now())
-  endsAt    DateTime?
-
-  payments  Payment[]
-}
-
-model Payment {
-  id             String   @id @default(cuid())
-  userId         String?
-  user           User?    @relation(fields: [userId], references: [id])
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-  amountCents    Int
-  currency       String   @default("NPR")
-  status         String   @default("PENDING") // PENDING | PAID | FAILED | REFUNDED
-  provider       String?  // e.g. "stripe", "esewa", "khalti"
-  providerRef    String?
   createdAt      DateTime @default(now())
 }
 
 // ============================================================
-// NOTIFICATIONS — one shared engine for all notification types
+// SUBSCRIPTIONS & PAYMENTS
+// ============================================================
+model Subscription {
+  id        String    @id @default(cuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id])
+  schoolId  String?
+  school    School?   @relation(fields: [schoolId], references: [id])
+  plan      String
+  status    String    @default("ACTIVE")
+  startedAt DateTime  @default(now())
+  endsAt    DateTime?
+
+  payments Payment[]
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+  amountCents    Int
+  currency       String        @default("NPR")
+  status         String        @default("PENDING")
+  provider       String?
+  providerRef    String?
+  createdAt      DateTime      @default(now())
+}
+
+// ============================================================
+// NOTIFICATIONS
 // ============================================================
 model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // e.g. "COURSE_STARTING", "CERTIFICATE_ISSUED", "SCHOOL_ANNOUNCEMENT"
+  type      String
   title     String
   body      String?
   read      Boolean  @default(false)

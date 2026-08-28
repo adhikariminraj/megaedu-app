@@ -1,18 +1,20 @@
 import Link from "next/link";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import JoinSchoolPrompt from "@/components/JoinSchoolPrompt";
+import InterestManager from "@/components/InterestManager";
 
 type Student = {
   id: string;
   gradeLevel: string | null;
   approved: boolean;
-  user: { name: string; email: string };
+  user: { name: string; email: string; interests: { id: string; name: string }[] };
   school: { name: string; slug: string } | null;
+  skills: { id: string; name: string; addedBy: { name: string } }[];
   courseEnrollments: {
     id: string;
     progress: number;
     course: { title: string; slug: string };
-    certificate: { verificationCode: string } | null;
+    certificate: { id: string; verificationCode: string } | null;
   }[];
 };
 
@@ -25,6 +27,9 @@ export default function StudentDashboard({ student, userName }: { student: Stude
           subtitle="One more step — connect your MEGA ID to your school."
           cards={[]}
         />
+        <div className="mb-6">
+          <InterestManager interests={student.user.interests} />
+        </div>
         <JoinSchoolPrompt role="STUDENT" endpoint="/api/student/join-school" />
       </div>
     );
@@ -78,7 +83,7 @@ export default function StudentDashboard({ student, userName }: { student: Stude
         cards={heroCards.slice(0, 3)}
       />
 
-      <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-8">
+      <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-500">School</p>
@@ -93,6 +98,33 @@ export default function StudentDashboard({ student, userName }: { student: Stude
           >
             {student.approved ? "Approved" : "Pending School Approval"}
           </span>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <InterestManager interests={student.user.interests} />
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-5 mb-8">
+        <h3 className="font-semibold text-slate-800 mb-1">Skills & Competencies</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Added by your teachers — you can view these, but only a teacher
+          or your School Admin can add or change them.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {student.skills.length === 0 ? (
+            <p className="text-sm text-slate-400">No skills recorded yet.</p>
+          ) : (
+            student.skills.map((sk) => (
+              <span
+                key={sk.id}
+                title={`Added by ${sk.addedBy.name}`}
+                className="text-xs bg-green-50 text-mega-green font-medium rounded-full px-3 py-1"
+              >
+                {sk.name} · {sk.addedBy.name}
+              </span>
+            ))
+          )}
         </div>
       </div>
 
@@ -118,7 +150,7 @@ export default function StudentDashboard({ student, userName }: { student: Stude
                   <p className="font-medium text-slate-800">{e.course.title}</p>
                   {e.certificate && (
                     <a
-                      href={`/verify/${e.certificate.verificationCode}`}
+                      href={`/dashboard/certificates/${e.certificate.id}/preview`}
                       className="text-xs text-mega-blue"
                     >
                       View certificate →

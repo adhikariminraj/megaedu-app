@@ -16,7 +16,7 @@ export default function SchoolPicker({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (value) return; // don't re-search once a school is selected
+    if (value) return;
     const timeout = setTimeout(async () => {
       const res = await fetch(`/api/schools/search?q=${encodeURIComponent(query)}`);
       const data = await res.json();

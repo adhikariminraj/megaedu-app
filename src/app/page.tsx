@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,9 @@ const FEATURES = [
 ];
 
 export default async function HomePage() {
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = !!session?.user;
+
   const schoolCount = await prisma.school.count({ where: { verified: true } });
   const recentSchools = await prisma.school.findMany({
     where: { verified: true },
@@ -48,12 +53,22 @@ export default async function HomePage() {
             training, resources and opportunities.
           </p>
           <div className="flex items-center justify-center gap-6 flex-wrap">
-            <Link
-              href="/register"
-              className="bg-mega-navy text-white font-semibold px-12 py-4 rounded-full hover:bg-mega-blue transition text-lg shadow-lg"
-            >
-              Register
-            </Link>
+            {isLoggedIn ? (
+              <span
+                title="You already have a MEGA ID"
+                aria-disabled="true"
+                className="bg-mega-navy/40 text-white/70 font-semibold px-12 py-4 rounded-full text-lg shadow-lg cursor-not-allowed select-none"
+              >
+                Register
+              </span>
+            ) : (
+              <Link
+                href="/register"
+                className="bg-mega-navy text-white font-semibold px-12 py-4 rounded-full hover:bg-mega-blue transition text-lg shadow-lg"
+              >
+                Register
+              </Link>
+            )}
             <span className="text-xl font-semibold drop-shadow-md bg-white/95 rounded-full px-5 py-3 shadow-lg inline-flex items-baseline">
               <span className="text-mega-navy">mega</span>
               <span className="text-mega-red">.</span>
@@ -63,9 +78,9 @@ export default async function HomePage() {
             </span>
             <a
               href="#explore"
-              className="bg-white/95 text-mega-navy font-semibold px-12 py-4 rounded-full hover:bg-white transition text-lg shadow-lg"
+              className="bg-orange-500 text-white font-semibold px-12 py-4 rounded-full hover:bg-orange-600 transition text-lg shadow-lg"
             >
-              Explore mega.edu
+              Explore
             </a>
           </div>
         </div>

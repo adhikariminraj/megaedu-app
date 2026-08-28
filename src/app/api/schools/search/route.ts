@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const schools = await prisma.school.findMany({
     where: {
       verified: true,
+      isActive: true,
       ...(q ? { name: { contains: q } } : {}),
     },
     select: { id: true, name: true, location: true },

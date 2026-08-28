@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { notify } from "@/lib/notify";
+import { issueCourseCertificate } from "@/lib/certificates";
 
 export async function POST(_req: Request, { params }: { params: { enrollmentId: string } }) {
   const session = await getServerSession(authOptions);
@@ -10,11 +12,15 @@ export async function POST(_req: Request, { params }: { params: { enrollmentId: 
 
   const enrollment = await prisma.courseEnrollment.findUnique({
     where: { id: params.enrollmentId },
-    include: { teacher: true, student: true, certificate: true },
+    include: {
+      teacher: { include: { user: true, school: true } },
+      student: { include: { user: true, school: true } },
+      certificate: true,
+      course: { include: { organization: true, instructor: true } },
+    },
   });
   if (!enrollment) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Confirm this enrollment actually belongs to the logged-in user.
   const owns =
     (enrollment.teacher && enrollment.teacher.userId === userId) ||
     (enrollment.student && enrollment.student.userId === userId);
@@ -24,18 +30,46 @@ export async function POST(_req: Request, { params }: { params: { enrollmentId: 
     return NextResponse.json({ ok: true, alreadyCompleted: true, certificate: enrollment.certificate });
   }
 
-  const [updated, certificate] = await prisma.$transaction([
-    prisma.courseEnrollment.update({
+  const recipient = enrollment.teacher?.user || enrollment.student?.user;
+  const associatedSchool = enrollment.teacher?.school || enrollment.student?.school;
+  if (!recipient) {
+    return NextResponse.json({ error: "No recipient found for this enrollment." }, { status: 400 });
+  }
+
+  // Marking the enrollment complete and issuing its certificate happen
+  // together, atomically — an enrollment should never end up "complete"
+  // with no certificate, or vice versa.
+  const [updatedEnrollment, certificate] = await prisma.$transaction(async (tx) => {
+    const updated = await tx.courseEnrollment.update({
       where: { id: params.enrollmentId },
       data: { progress: 100, completedAt: new Date() },
-    }),
-    prisma.certificate.create({
-      data: {
-        enrollmentId: params.enrollmentId,
-        teacherId: enrollment.teacherId,
-      },
-    }),
-  ]);
+    });
 
-  return NextResponse.json({ ok: true, enrollment: updated, certificate });
+    const cert = await issueCourseCertificate(
+      {
+        enrollmentId: params.enrollmentId,
+        recipientUserId: recipient.id,
+        recipientName: recipient.name,
+        courseTitle: enrollment.course.title,
+        organizationId: enrollment.course.organizationId,
+        organizationName: enrollment.course.organization?.name,
+        instructorId: enrollment.course.instructorId,
+        instructorName: enrollment.course.instructor?.name,
+        associatedSchoolId: associatedSchool?.id,
+        associatedSchoolName: associatedSchool?.name,
+      },
+      tx
+    );
+
+    return [updated, cert] as const;
+  });
+
+  await notify(
+    userId,
+    "CERTIFICATE_ISSUED",
+    `Certificate earned: ${enrollment.course.title}`,
+    "Congratulations on completing the course! Your certificate is ready to view and share."
+  );
+
+  return NextResponse.json({ ok: true, enrollment: updatedEnrollment, certificate });
 }

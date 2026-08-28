@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { notify } from "@/lib/notify";
 
 export async function POST(
   _req: Request,
@@ -14,6 +15,15 @@ export async function POST(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const school = await prisma.school.findUnique({ where: { id: params.id }, select: { name: true } });
+
   await prisma.teacher.update({ where: { id: params.teacherId }, data: { approved: true } });
+  await notify(
+    teacher.userId,
+    "STAFF_APPROVED",
+    `You're approved at ${school?.name || "your school"}!`,
+    "Your account is now active — you have full access to your school dashboard."
+  );
+
   return NextResponse.json({ ok: true });
 }

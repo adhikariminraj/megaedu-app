@@ -260,6 +260,33 @@ async function main() {
     },
   });
   console.log("Demo opportunities ready — visible at /opportunities");
+
+  // Platform-wide grade ladder (Phase 2: Academic Sessions & Grades).
+  // Fixed and seeded once — schools opt into these via SchoolGrade,
+  // they never edit this list themselves.
+  const gradeReferences = [
+    { code: "PP1", order: 1 },
+    { code: "PP2", order: 2 },
+    { code: "PP3", order: 3 },
+    { code: "Y1", order: 4 },
+    { code: "Y2", order: 5 },
+    { code: "Y3", order: 6 },
+    { code: "Y4", order: 7 },
+    { code: "Y5", order: 8 },
+    { code: "Y6", order: 9 },
+    { code: "Y7", order: 10 },
+    { code: "Y8", order: 11 },
+    { code: "Y9", order: 12 },
+    { code: "Y10", order: 13 },
+  ];
+  for (const g of gradeReferences) {
+    await prisma.gradeReference.upsert({
+      where: { code: g.code },
+      update: { order: g.order },
+      create: g,
+    });
+  }
+  console.log(`Seeded ${gradeReferences.length} grade references (PP1-PP3, Y1-Y10).`);
 }
 
 main()

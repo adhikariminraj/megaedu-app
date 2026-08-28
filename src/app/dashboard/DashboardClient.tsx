@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import OpportunityPoster from "@/components/OpportunityPoster";
+import AccountantGrantForm from "@/components/AccountantGrantForm";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 
 type School = {
@@ -32,11 +33,12 @@ type School = {
     gradeLevel: string | null;
     user: { name: string; email: string };
   }[];
+  accountants: { user: { name: string; email: string } }[];
 };
 
 export default function DashboardClient({ school, userName }: { school: School; userName: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"profile" | "programs" | "news" | "staff" | "students" | "opportunities">("profile");
+  const [tab, setTab] = useState<"profile" | "programs" | "news" | "opportunities" | "staff" | "students" | "finance">("profile");
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
     description: school.description || "",
@@ -47,6 +49,56 @@ export default function DashboardClient({ school, userName }: { school: School; 
   });
   const [newProgram, setNewProgram] = useState({ name: "", description: "" });
   const [newNews, setNewNews] = useState({ title: "", body: "" });
+
+  const pendingStaff = school.teachers.filter((x) => !x.approved).length;
+  const pendingStudents = school.students.filter((x) => !x.approved).length;
+  const pendingTotal = pendingStaff + pendingStudents;
+
+  const heroCards: HeroCard[] = [];
+  if (pendingTotal > 0) {
+    heroCards.push({
+      icon: "✅",
+      title: `${pendingTotal} waiting for approval`,
+      description: `${pendingStaff} staff, ${pendingStudents} students ready for review.`,
+      onClick: () => setTab(pendingStaff > 0 ? "staff" : "students"),
+      cta: "Review now",
+      accent: "gold",
+    });
+  }
+  if (!school.verified) {
+    heroCards.push({
+      icon: "⏳",
+      title: "Your school is pending verification",
+      description: "A Platform Admin needs to verify you before you're public.",
+      onClick: () => setTab("profile"),
+      cta: "View profile",
+      accent: "gold",
+    });
+  }
+  heroCards.push({
+    icon: "📚",
+    title: "Academic Sessions & Grades",
+    description: "Set up grades and sessions, then promote students grade by grade.",
+    href: "/dashboard/grades",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
+    icon: "📢",
+    title: "Post an opportunity",
+    description: "Scholarships, competitions, or events for your students.",
+    onClick: () => setTab("opportunities"),
+    cta: "Post now",
+    accent: "purple",
+  });
+  heroCards.push({
+    icon: "🎓",
+    title: "Browse MEGA Academy",
+    description: "See what courses are available for your staff and students.",
+    href: "/courses",
+    cta: "Explore courses",
+    accent: "navy",
+  });
 
   async function saveProfile() {
     setSaving(true);
@@ -91,48 +143,6 @@ export default function DashboardClient({ school, userName }: { school: School; 
     router.refresh();
   }
 
-  const pendingStaff = school.teachers.filter((x) => !x.approved).length;
-  const pendingStudents = school.students.filter((x) => !x.approved).length;
-  const pendingTotal = pendingStaff + pendingStudents;
-
-  const heroCards: HeroCard[] = [];
-  if (pendingTotal > 0) {
-    heroCards.push({
-      icon: "✅",
-      title: `${pendingTotal} waiting for approval`,
-      description: `${pendingStaff} staff, ${pendingStudents} students ready for review.`,
-      onClick: () => setTab(pendingStaff > 0 ? "staff" : "students"),
-      cta: "Review now",
-      accent: "gold",
-    });
-  }
-  if (!school.verified) {
-    heroCards.push({
-      icon: "⏳",
-      title: "Your school is pending verification",
-      description: "A Platform Admin needs to verify you before you're public.",
-      onClick: () => setTab("profile"),
-      cta: "View profile",
-      accent: "gold",
-    });
-  }
-  heroCards.push({
-    icon: "📢",
-    title: "Post an opportunity",
-    description: "Scholarships, competitions, or events for your students.",
-    onClick: () => setTab("opportunities"),
-    cta: "Post now",
-    accent: "purple",
-  });
-  heroCards.push({
-    icon: "🎓",
-    title: "Browse MEGA Academy",
-    description: "See what courses are available for your staff and students.",
-    href: "/courses",
-    cta: "Explore courses",
-    accent: "navy",
-  });
-
   return (
     <div className="max-w-4xl mx-auto px-6 py-12">
       <DashboardHero
@@ -145,9 +155,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
         <h1 className="text-2xl font-bold text-slate-800">{school.name}</h1>
         <span
           className={`text-xs font-semibold px-3 py-1 rounded-full ${
-            school.verified
-              ? "bg-green-100 text-green-700"
-              : "bg-amber-100 text-amber-700"
+            school.verified ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
           }`}
         >
           {school.verified ? "Verified" : "Pending Verification"}
@@ -160,7 +168,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
       </p>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8 flex-wrap">
-        {(["profile", "programs", "news", "opportunities", "staff", "students"] as const).map((t) => {
+        {(["profile", "programs", "news", "opportunities", "staff", "students", "finance"] as const).map((t) => {
           const pendingCount =
             t === "staff"
               ? school.teachers.filter((x) => !x.approved).length
@@ -191,9 +199,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
       {tab === "profile" && (
         <div className="space-y-4 max-w-lg">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea
               value={profile.description}
               onChange={(e) => setProfile({ ...profile, description: e.target.value })}
@@ -203,9 +209,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Contact email
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Contact email</label>
               <input
                 value={profile.contactEmail}
                 onChange={(e) => setProfile({ ...profile, contactEmail: e.target.value })}
@@ -213,9 +217,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Contact phone
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Contact phone</label>
               <input
                 value={profile.contactPhone}
                 onChange={(e) => setProfile({ ...profile, contactPhone: e.target.value })}
@@ -225,9 +227,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Location
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
               <input
                 value={profile.location}
                 onChange={(e) => setProfile({ ...profile, location: e.target.value })}
@@ -235,9 +235,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Grades offered
-              </label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Grades offered</label>
               <input
                 value={profile.gradesOffered}
                 onChange={(e) => setProfile({ ...profile, gradesOffered: e.target.value })}
@@ -331,12 +329,19 @@ export default function DashboardClient({ school, userName }: { school: School; 
         </div>
       )}
 
+      {tab === "opportunities" && (
+        <OpportunityPoster
+          postEndpoint={`/api/schools/${school.id}/opportunities`}
+          opportunities={school.opportunities}
+        />
+      )}
+
       {tab === "staff" && (
         <div className="space-y-3 max-w-lg">
           {school.teachers.length === 0 ? (
             <p className="text-slate-400 text-sm">
               No teachers have requested to join yet. Share your school&apos;s
-              name with staff so they can register at /register-teacher.
+              name with staff so they can register.
             </p>
           ) : (
             school.teachers.map((t) => (
@@ -378,8 +383,7 @@ export default function DashboardClient({ school, userName }: { school: School; 
         <div className="space-y-3 max-w-lg">
           {school.students.length === 0 ? (
             <p className="text-slate-400 text-sm">
-              No students have requested to join yet. Share your school&apos;s
-              name with students so they can register at /register-student.
+              No students have requested to join yet.
             </p>
           ) : (
             school.students.map((s) => (
@@ -412,11 +416,10 @@ export default function DashboardClient({ school, userName }: { school: School; 
         </div>
       )}
 
-      {tab === "opportunities" && (
-        <OpportunityPoster
-          postEndpoint={`/api/schools/${school.id}/opportunities`}
-          opportunities={school.opportunities}
-        />
+      {tab === "finance" && (
+        <div className="max-w-lg">
+          <AccountantGrantForm grantEndpoint={`/api/schools/${school.id}/accountants`} accountants={school.accountants} />
+        </div>
       )}
     </div>
   );
