@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-29 (Phase 3B), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -143,6 +143,55 @@ This document collects every business rule and architectural decision that was *
 **Rule**: none of these three tables is audited, and `GradeSubject`/`TeacherAcademicAssignment` both have real `DELETE` routes — freely re-creatable/removable operational data, not permanent decisions. This is a deliberate contrast with `GradeHistory`/`GradeHistoryAudit`, which remain the one audited, permanent placement record.
 **Why**: matches the exact distinction already established for `TeacherGradeAssignment` (never audited, has a real delete route) — Phase 3A's new tables answer "what's the current teaching structure," not "what decision was made and when," so applying the audited pattern to them would be over-engineering, not more rigor (the same reasoning already stated for why Initial Setup placements aren't audited).
 **Applies to**: `Subject`, `GradeSubject`, `TeacherAcademicAssignment`.
+
+---
+
+## School Academic Operations (Phase 3B)
+
+### Class/Section Teacher assignment allows grade-wide and section-specific to coexist — the opposite of Phase 3A's overlap rule ✅
+**Rule**: `ClassTeacherAssignment` has no overlap-blocking rule between a grade-wide (Grade Class Teacher) and section-specific (Section Teacher) row for the same grade — both may exist simultaneously (e.g. a grade-wide coordinator plus a Section Teacher for each individual section). Uniqueness is on the *slot* (`schoolGradeId, sectionId, academicSessionId`), not the teacher, so at most one Class/Section Teacher per slot, per session — but different slots (the whole grade, and each of its sections) can each have their own holder at once.
+**Why**: explicitly decided when approving Phase 3B — "This is valid and should not use Phase 3A's overlap-blocking rule," a deliberate contrast with `TeacherAcademicAssignment`'s own grade-wide/section-specific exclusivity rule.
+**Applies to**: `ClassTeacherAssignment` and `POST /api/schools/[id]/class-teacher-assignments`.
+
+### A slot's uniqueness constraint has the same NULL-vs-NULL gap as elsewhere — caught by a live test, fixed before shipping ✅
+**Rule**: `@@unique([schoolGradeId, sectionId, academicSessionId])` reliably blocks a duplicate section-specific slot but not a duplicate grade-wide (`sectionId: null`) one, so the create route pre-checks grade-wide requests explicitly, inside the same transaction, before relying on the DB constraint at all.
+**Why**: this is the exact same `NULL ≠ NULL` unique-index behavior already documented for `TeacherAcademicAssignment`'s overlap rule — but it was still missed on first pass for `ClassTeacherAssignment` and only caught by a live duplicate-creation test during Phase 3B verification (a second grade-wide Class Teacher was wrongly accepted). Recorded here explicitly as a reminder: **any new model with an optional `sectionId` in its unique key needs this same app-level check**, not just the two places it's been caught so far.
+**Applies to**: `ClassTeacherAssignment`. Verified fixed in both a single-request and an in-batch duplicate scenario.
+
+### `requireTeacherAssignment()`'s section scope has three states, not two — corrected before Phase 3B's first real caller ✅
+**Rule**: a permission check's `sectionId` scope must distinguish *omitted* ("no section restriction, match any assignment"), *`null`* ("the target is grade-wide — require a grade-wide assignment specifically"), and *a real section id* ("grade-wide OR that exact section covers it"). The original Phase 3A implementation collapsed `null` and *omitted* into the same code path (both are falsy in JavaScript), which never mattered while nothing called the function, but would have wrongly let a section-specific-only teacher pass a check meant to require grade-wide access — exactly the situation a grade-wide `TeachingUnit` creates.
+**Why**: found and fixed during Phase 3B, explicitly *before* any Teaching Unit/Test route was built on top of it, per the explicit instruction to verify this semantics rather than assume it. A shared `sectionScopeWhere()` helper in `authorize.ts` now implements the three-way logic for both `requireTeacherAssignment()` and the new `requireClassTeacher()`.
+**Applies to**: `requireTeacherAssignment()`, `requireClassTeacher()`, and any future `requireX` helper that accepts an optional `sectionId` scope. Verified independently (six scenarios against real assignment data, for each helper) before any Phase 3B feature depended on either function, and re-confirmed live through a real 403 rejection when a Section Teacher attempted a whole-grade-unscoped action.
+
+### Attendance is once per student per calendar day, never subject-based, and corrections are audited including remarks ✅
+**Rule**: `Attendance.date` is a calendar day, `@@unique([studentId, date])` globally (not per-session) — a student has exactly one status for a given day, full stop. Once marked, a status/remarks change goes only through `correctAttendance()`, which updates the row and inserts an `AttendanceAudit` row capturing `previousStatus`/`newStatus`/`previousRemarks`/`newRemarks` together, every time — even a remarks-only edit records status unchanged, and vice versa, so nothing is ever silently overwritten.
+**Why**: explicitly required — "Attendance is taken once per student per day. It is not subject-based attendance," plus an explicit follow-up to also audit remarks, not just status, "so they cannot be silently overwritten."
+**Applies to**: `Attendance`, `AttendanceAudit`, `correctAttendance()` (`src/lib/attendance.ts`).
+
+### A calendar date is always derived from an explicit client-sent string, never the server's own clock ✅
+**Rule**: `Attendance.date` (and any future date-only field) must come from a `"YYYY-MM-DD"` string supplied by the caller, converted via `new Date(dateString)` — the same convention already in place for `AcademicSession.startDate`/`endDate` — never from `new Date()` evaluated server-side.
+**Why**: explicitly required — "date handling consistently represents the school's local calendar day" — a server-computed "today" would silently assume the server's own timezone rather than the school's actual local day. Verified live: a client string `"2026-08-29"` round-tripped through the API and came back as `2026-08-29T00:00:00.000Z`, with no drift.
+**Applies to**: `POST /api/schools/[id]/attendance` and any future route accepting a calendar date.
+
+### Planned totals live in a separate model from the units themselves ✅
+**Rule**: `TeachingPlan.plannedTotal` is not a field added to `TeachingUnit` or computed by simply counting existing unit rows — it's a standalone target on its own model, independently settable before, during, or regardless of how many `TeachingUnit` rows actually exist.
+**Why**: explicitly required — "the total should not simply equal the number of TeachingUnit rows currently created" — a school's plan (e.g. "12 chapters planned") and its current progress (e.g. "8 created, 5 completed") are two different facts that must be able to disagree.
+**Applies to**: `TeachingPlan`, kept deliberately separate from `TeachingUnit`.
+
+### Display terminology (Unit vs. Chapter) is a plain string field, never a second model or an enum ✅
+**Rule**: `TeachingPlan.unitLabel` is free text (defaulting to `"Unit"`), never validated against a fixed list and never implemented as a separate `Unit`/`Chapter` model pair.
+**Why**: explicitly required — "support either display terminology... without requiring separate underlying database models." A plain string satisfies this directly; anything more structured would be over-engineering for a display preference.
+**Applies to**: `TeachingPlan.unitLabel`.
+
+### A Unit/Chapter Test can only be created once its unit has actually started ✅
+**Rule**: `POST .../units/[unitId]/tests` returns `400` if the parent `TeachingUnit.status` is still `NOT_STARTED` — a test may only be created once the unit is `IN_PROGRESS` or `COMPLETED`.
+**Why**: explicitly required as a design preference — a test for material that hasn't been taught yet doesn't make sense.
+**Applies to**: `POST /api/schools/[id]/units/[unitId]/tests`. Verified live: rejected for a `NOT_STARTED` unit, accepted once the same unit was moved to `IN_PROGRESS`.
+
+### A test's student roster is fixed at creation time, not computed later ✅
+**Rule**: `UnitTestResult` rows are pre-created (`status: "PENDING"`) for every student currently enrolled in the test's scope (via `GradeHistory`, matching the unit's grade and, if set, section) at the moment the `UnitTest` is created — never inferred afterward by diffing the current roster against existing results.
+**Why**: explicitly approved — "This creates a stable test roster and allows direct tracking of Pending / Evaluated / Absent" — a roster that could silently change after the fact (a transfer, a late enrollment) would make "who's still pending" ambiguous.
+**Applies to**: `POST /api/schools/[id]/units/[unitId]/tests`.
 
 ---
 

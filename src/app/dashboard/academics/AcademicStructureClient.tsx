@@ -15,12 +15,20 @@ type Assignment = {
   sectionId: string | null;
   sectionName: string | null;
 };
+type ClassTeacher = {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  sectionId: string | null;
+  sectionName: string | null;
+};
 type Grade = {
   id: string;
   displayName: string;
   sections: { id: string; name: string }[];
   offeredSubjects: OfferedSubject[];
   assignments: Assignment[];
+  classTeachers: ClassTeacher[];
 };
 type Teacher = { id: string; name: string };
 
@@ -48,6 +56,7 @@ export default function AcademicStructureClient({
   const [assignPick, setAssignPick] = useState<
     Record<string, { teacherId: string; subjectId: string; sectionId: string }>
   >({});
+  const [classTeacherPick, setClassTeacherPick] = useState<Record<string, { teacherId: string; sectionId: string }>>({});
 
   async function call(url: string, options: RequestInit) {
     setError(null);
@@ -144,6 +153,33 @@ export default function AcademicStructureClient({
 
   async function removeAssignment(assignmentId: string) {
     await call(`/api/schools/${schoolId}/teacher-academic-assignments/${assignmentId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async function assignClassTeacher(gradeId: string) {
+    const pick = classTeacherPick[gradeId];
+    if (!pick?.teacherId || !activeSession) return;
+    const result = await call(`/api/schools/${schoolId}/class-teacher-assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        academicSessionId: activeSession.id,
+        assignments: [{ teacherId: pick.teacherId, schoolGradeId: gradeId, sectionId: pick.sectionId || null }],
+      }),
+    });
+    if (result?.created === 0) {
+      setError(
+        pick.sectionId
+          ? "That section already has a Section Teacher — remove the existing one first."
+          : "This grade already has a Grade Class Teacher — remove the existing one first."
+      );
+    }
+    setClassTeacherPick((p) => ({ ...p, [gradeId]: { teacherId: "", sectionId: "" } }));
+  }
+
+  async function removeClassTeacher(assignmentId: string) {
+    await call(`/api/schools/${schoolId}/class-teacher-assignments/${assignmentId}`, {
       method: "DELETE",
     });
   }
@@ -267,6 +303,83 @@ export default function AcademicStructureClient({
                     <div className="mt-4 space-y-4">
                       <div>
                         <p className="text-xs font-semibold text-slate-500 mb-2">
+                          Class &amp; Section Teachers
+                        </p>
+                        <p className="text-xs text-slate-400 mb-2">
+                          A Grade Class Teacher covers every section; a Section Teacher covers only
+                          their own section. Both may coexist for the same grade.
+                        </p>
+                        {g.classTeachers.length === 0 ? (
+                          <p className="text-slate-400 text-xs mb-2">None assigned yet.</p>
+                        ) : (
+                          <div className="space-y-1 mb-2">
+                            {g.classTeachers.map((c) => (
+                              <div
+                                key={c.id}
+                                className="flex items-center justify-between text-sm border border-slate-100 rounded-lg px-3 py-2"
+                              >
+                                <span>
+                                  {c.teacherName} —{" "}
+                                  <span className="text-slate-400">
+                                    {c.sectionName ? `Section Teacher — Section ${c.sectionName}` : "Grade Class Teacher"}
+                                  </span>
+                                </span>
+                                <button
+                                  onClick={() => removeClassTeacher(c.id)}
+                                  className="text-xs text-red-500 hover:text-red-700"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <select
+                            value={classTeacherPick[g.id]?.teacherId || ""}
+                            onChange={(e) =>
+                              setClassTeacherPick((p) => ({
+                                ...p,
+                                [g.id]: { teacherId: e.target.value, sectionId: p[g.id]?.sectionId || "" },
+                              }))
+                            }
+                            className="flex-1 text-sm border border-slate-200 rounded-lg px-2 py-1.5"
+                          >
+                            <option value="">Teacher...</option>
+                            {teachers.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={classTeacherPick[g.id]?.sectionId || ""}
+                            onChange={(e) =>
+                              setClassTeacherPick((p) => ({
+                                ...p,
+                                [g.id]: { teacherId: p[g.id]?.teacherId || "", sectionId: e.target.value },
+                              }))
+                            }
+                            className="text-sm border border-slate-200 rounded-lg px-2 py-1.5"
+                          >
+                            <option value="">Whole grade (Grade Class Teacher)</option>
+                            {g.sections.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                Section {s.name} (Section Teacher)
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => assignClassTeacher(g.id)}
+                            className="text-xs font-semibold text-white bg-mega-navy rounded-lg px-3 py-1.5"
+                          >
+                            Assign
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-2">
                           Subjects offered this session
                         </p>
                         {g.offeredSubjects.length === 0 ? (
@@ -278,7 +391,9 @@ export default function AcademicStructureClient({
                                 key={o.id}
                                 className="text-xs bg-blue-50 text-mega-navy rounded-full px-3 py-1 flex items-center gap-2"
                               >
-                                {o.subjectName}
+                                <Link href={`/dashboard/academics/${o.id}`} className="hover:underline">
+                                  {o.subjectName}
+                                </Link>
                                 <button
                                   onClick={() => removeOffering(g.id, o.id)}
                                   className="text-mega-navy/60 hover:text-mega-navy"

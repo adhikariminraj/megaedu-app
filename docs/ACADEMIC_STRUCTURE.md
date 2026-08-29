@@ -1,7 +1,7 @@
 # Academic Structure — Subjects & Teacher Academic Assignment (Phase 3A)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase.
+> Last verified: 2026-08-29 (updated for the Phase 3B `requireTeacherAssignment()` correction), against the current codebase.
 > Part of **Phase 3 — School Academic System**. This document covers Phase 3A only. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) for grades/sections/promotion, [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for sessions, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles.
 
 ## Why this exists ✅
@@ -46,13 +46,15 @@ School-Admin-only, gated by `requireSchoolAdmin(schoolId)`:
 
 **Verified live**, in both orderings: grade-wide created first, a section-specific request for the same teacher/subject/grade correctly rejected (and vice versa — section-specific first, then grade-wide correctly rejected); a different section for the same teacher/subject succeeded (not an overlap); a second, different teacher assigned to the exact same subject/grade/section as an existing assignment succeeded (no hierarchy conflict); an exact duplicate rejected via the DB constraint; a subject not offered at that grade this session silently skipped.
 
-## `requireTeacherAssignment()` ✅ — built, no caller yet
+## `requireTeacherAssignment()` ✅ — built in Phase 3A, corrected and in active use since Phase 3B
 
-New helper in `src/lib/authorize.ts`. Returns the caller's `userId` if they're an approved `Teacher` at `schoolId` holding a `TeacherAcademicAssignment` matching the given `{academicSessionId, schoolGradeId, sectionId?, subjectId?}` scope — a grade-wide assignment (`sectionId: null`) always satisfies a scope naming any specific section, matching how sections work everywhere else in this schema. `sectionId`/`subjectId` are both optional so the same primitive can express a broad "assigned here at all" check or a narrow "assigned to teach *this subject* here" check. Deliberately teacher-only, no School-Admin bypass baked in — a caller wanting "Admin or the assigned Teacher" composes both checks inline, same as `students/[studentId]/skills` already does.
+New helper in `src/lib/authorize.ts`, added in Phase 3A. Returns the caller's `userId` if they're an approved `Teacher` at `schoolId` holding a `TeacherAcademicAssignment` matching the given `{academicSessionId, schoolGradeId, sectionId?, subjectId?}` scope. `sectionId`/`subjectId` are both optional so the same primitive can express a broad "assigned here at all" check or a narrow "assigned to teach *this subject* here" check. Deliberately teacher-only, no School-Admin bypass baked in — a caller wanting "Admin or the assigned Teacher" composes both checks inline, same as `students/[studentId]/skills` already does.
 
-**Not called from any route yet** — this is the Phase 3A foundation for Phase 3B's attendance, homework, teaching-progress, and units/lessons work, built ahead of its first caller per the explicit brief.
+**Verified in Phase 3A**: since no route called it yet at the time, its exact query logic was verified directly against real assignment data.
 
-**Verified**: since no route calls it yet, its exact query logic was verified directly against real assignment data — six scenarios (matching subject+section, wrong subject, no-section-filter broadening, no-subject-filter broadening, a teacher scoped to the wrong section, a grade-wide row correctly covering two different specific sections) all returned the expected true/false.
+**Corrected in Phase 3B, before its first real caller**: the original `sectionId` handling collapsed `null` (target is grade-wide, requires a grade-wide assignment) and *omitted* (no restriction) into the same code path, since both are falsy in JavaScript. A shared `sectionScopeWhere()` helper now distinguishes all three cases correctly. See [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for the full fix and its verification, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for why it matters.
+
+**Now called by**: Phase 3B's Teaching Plan, Teaching Unit, and Unit/Chapter Test routes.
 
 ## Read-side UI ✅
 

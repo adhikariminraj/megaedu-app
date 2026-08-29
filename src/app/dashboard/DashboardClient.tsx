@@ -92,6 +92,14 @@ export default function DashboardClient({ school, userName }: { school: School; 
     accent: "purple",
   });
   heroCards.push({
+    icon: "✅",
+    title: "Attendance",
+    description: "Take or review daily attendance for any grade and section.",
+    href: "/dashboard/attendance",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
     icon: "📢",
     title: "Post an opportunity",
     description: "Scholarships, competitions, or events for your students.",

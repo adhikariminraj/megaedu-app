@@ -85,22 +85,51 @@ export async function requireSchoolFinance(schoolId: string): Promise<string | n
 }
 
 /**
+ * Given an optional sectionId "target" describing what's being acted
+ * on, returns the Prisma where-clause fragment that correctly checks a
+ * grade-wide-or-section-specific assignment row against it. THREE
+ * distinct cases, not two — this is the Phase 3B correction to a real
+ * semantic gap found before Teaching Units/Tests had their first real
+ * caller (see PRODUCT_RULES.md):
+ *
+ * - `undefined` (omitted): no section restriction requested — match
+ *   any assignment for the grade/subject regardless of section. Used
+ *   for a broad "is this teacher assigned here at all" check.
+ * - `null`: the target itself is grade-wide (e.g. a grade-wide
+ *   TeachingUnit) — require a grade-wide assignment SPECIFICALLY. A
+ *   section-specific-only teacher must NOT pass this check.
+ * - a real section id: the target is that one section — a grade-wide
+ *   assignment (covers every section) OR that exact section's
+ *   assignment both satisfy it.
+ *
+ * Naively treating `null` and `undefined` the same (both falsy in JS)
+ * was the original Phase 3A bug: it silently collapsed case 2 into
+ * case 1, which never mattered while nothing called this function, but
+ * would have wrongly authorized a section-specific-only teacher to
+ * manage a grade-wide unit once Phase 3B started depending on it.
+ */
+function sectionScopeWhere(sectionId: string | null | undefined) {
+  if (sectionId === undefined) return {};
+  if (sectionId === null) return { sectionId: null };
+  return { OR: [{ sectionId: null }, { sectionId }] };
+}
+
+/**
  * Returns the userId if the current session belongs to an approved
  * Teacher at schoolId who holds a TeacherAcademicAssignment matching
- * the given scope, otherwise null. This is the Phase 3A permission
- * foundation for future teacher-facing academic features (attendance,
- * homework, teaching progress, units/lessons) — nothing calls it yet.
+ * the given scope, otherwise null. The Phase 3A/3B permission
+ * foundation for teacher-facing academic features (Teaching Units,
+ * Unit/Chapter Tests, and future homework/teaching-progress work).
  *
  * scope.subjectId is optional: omit it to check "is this teacher
- * assigned to this grade/section at all, for any subject" (a future
- * homeroom-style check); include it to check a specific subject (a
- * future "can this teacher take attendance for Math" check).
+ * assigned to this grade/section at all, for any subject"; include it
+ * to check a specific subject (e.g. "can this teacher manage this Math
+ * TeachingUnit").
  *
- * scope.sectionId is optional: omit it to match any assignment for the
- * grade/session/subject regardless of section; include it to check one
- * specific section — a grade-wide assignment (sectionId: null on the
- * row) always covers every section, matching how sections work
- * everywhere else in this schema.
+ * scope.sectionId follows the three-way semantics of sectionScopeWhere()
+ * above — pass the TARGET's own sectionId (e.g. a TeachingUnit's
+ * sectionId, which may itself be null for a grade-wide unit), not
+ * omit it, whenever the check is about one specific thing.
  *
  * Deliberately teacher-only — does not fold in a School Admin bypass.
  * A caller that wants "Admin or the assigned Teacher" composes both
@@ -131,7 +160,49 @@ export async function requireTeacherAssignment(
       academicSessionId: scope.academicSessionId,
       schoolGradeId: scope.schoolGradeId,
       ...(scope.subjectId ? { subjectId: scope.subjectId } : {}),
-      ...(scope.sectionId ? { OR: [{ sectionId: null }, { sectionId: scope.sectionId }] } : {}),
+      ...sectionScopeWhere(scope.sectionId),
+    },
+  });
+  return match ? userId : null;
+}
+
+/**
+ * Returns the userId if the current session belongs to an approved
+ * Teacher at schoolId who holds a ClassTeacherAssignment (Grade Class
+ * Teacher or Section Teacher — see PRODUCT_RULES.md) matching the
+ * given scope, otherwise null. Same three-way sectionId semantics as
+ * requireTeacherAssignment() above, via the same sectionScopeWhere()
+ * helper — a Grade Class Teacher (sectionId: null on their row)
+ * satisfies a check for any section under that grade; a Section
+ * Teacher satisfies only their exact section.
+ *
+ * Deliberately teacher-only — does not fold in a School Admin bypass;
+ * callers compose both checks inline, same pattern as every other
+ * requireX helper in this file.
+ */
+export async function requireClassTeacher(
+  schoolId: string,
+  scope: {
+    academicSessionId: string;
+    schoolGradeId: string;
+    sectionId?: string | null;
+  }
+): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as any)?.id as string | undefined;
+  if (!userId) return null;
+
+  const teacher = await prisma.teacher.findFirst({
+    where: { userId, schoolId, approved: true },
+  });
+  if (!teacher) return null;
+
+  const match = await prisma.classTeacherAssignment.findFirst({
+    where: {
+      teacherId: teacher.id,
+      academicSessionId: scope.academicSessionId,
+      schoolGradeId: scope.schoolGradeId,
+      ...sectionScopeWhere(scope.sectionId),
     },
   });
   return match ? userId : null;

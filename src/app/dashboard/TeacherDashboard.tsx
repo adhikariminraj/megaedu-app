@@ -21,8 +21,15 @@ type Teacher = {
   academicAssignments: {
     id: string;
     schoolGrade: { displayName: string };
-    section: { name: string } | null;
+    section: { id: string; name: string } | null;
     subject: { name: string };
+    gradeSubject: { id: string };
+  }[];
+  classTeacherAssignments: {
+    id: string;
+    schoolGradeId: string;
+    schoolGrade: { displayName: string };
+    section: { id: string; name: string } | null;
   }[];
 };
 
@@ -124,18 +131,47 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
           ) : (
             <div className="space-y-2">
               {teacher.academicAssignments.map((a) => (
-                <div
+                <Link
                   key={a.id}
-                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700"
+                  href={`/dashboard/academics/${a.gradeSubject.id}${a.section ? `?section=${a.section.id}` : ""}`}
+                  className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition"
                 >
                   {a.schoolGrade.displayName} — {a.subject.name} —{" "}
                   <span className="text-slate-400">
                     {a.section ? `Section ${a.section.name}` : "All sections"}
                   </span>
-                </div>
+                  <span className="text-mega-blue"> — Manage teaching →</span>
+                </Link>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {teacher.approved && teacher.classTeacherAssignments.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-800 mb-1">
+            Your Class &amp; Section Teacher Responsibilities
+          </h2>
+          <p className="text-xs text-slate-400 mb-4">
+            You're the designated Class or Section Teacher for these — you can take and correct
+            attendance for their students.
+          </p>
+          <div className="space-y-2">
+            {teacher.classTeacherAssignments.map((c) => (
+              <Link
+                key={c.id}
+                href={`/dashboard/attendance?grade=${c.schoolGradeId}${c.section ? `&section=${c.section.id}` : ""}`}
+                className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition"
+              >
+                {c.schoolGrade.displayName} —{" "}
+                <span className="text-slate-400">
+                  {c.section ? `Section Teacher — Section ${c.section.name}` : "Grade Class Teacher"}
+                </span>
+                <span className="text-mega-blue"> — Take attendance →</span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 

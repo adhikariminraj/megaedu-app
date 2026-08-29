@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-29 (Phase 3B), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -150,6 +150,61 @@ Additive on top of Phase 2/the Section system — no existing model's columns ch
 
 ---
 
+## School Academic Operations — Phase 3B ✅ (fully implemented and in active use)
+
+Seven new models, additive on top of Phase 2/3A — no existing model's columns changed, only new relation-array fields. See [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for the full behavioral write-up; this section covers structure only.
+
+### `ClassTeacherAssignment`
+**Purpose**: a designated Grade Class Teacher (`sectionId: null`) or Section Teacher (`sectionId` set) — special day-to-day responsibility, distinct from subject-teaching. **Currently used**: yes.
+**Key fields**: `id, teacherId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), createdAt`.
+**Constraints**: `@@unique([schoolGradeId, sectionId, academicSessionId])` — uniqueness is on the *slot* (at most one Class/Section Teacher per grade-or-section, per session), not the teacher; the same teacher may hold multiple slots across different grades/sections. **Unlike `TeacherAcademicAssignment`, grade-wide and section-specific rows may coexist for the same grade** — no overlap rule.
+**Delete behavior**: cascades from `Teacher`/`AcademicSession`/`SchoolGrade`; a real `DELETE` route exists — not audited, current-state operational data.
+**Notes**: ⚠️ the `@@unique` above reliably catches a duplicate *section-specific* slot but, on its own, does **not** catch a second *grade-wide* row for the same grade/session (`NULL ≠ NULL` in a unique index, same caveat as `TeacherAcademicAssignment`'s overlap rule) — this was found via a live duplicate-creation test during Phase 3B and fixed with an explicit app-level pre-check inside the create route's transaction, re-verified in both a single-request and an in-batch scenario.
+
+### `Attendance`
+**Purpose**: one row per student per calendar day — never subject-based. **Currently used**: yes.
+**Key fields**: `id, studentId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), date, status, remarks?, markedByUserId (FK), markedAt`. Valid `status`: `PRESENT | ABSENT | LATE | EXCUSED`.
+**Constraints**: `@@unique([studentId, date])` — global, not per-session, matching "one status per school day" literally.
+**Delete behavior**: cascades from `Student`; no delete route — corrections go through `correctAttendance()` (updates in place, audited), never a raw delete.
+**Notes**: `date` is always derived from a client-sent `"YYYY-MM-DD"` string via `new Date(dateString)` — the same convention already used for `AcademicSession.startDate`/`endDate` — never from the server's own clock, so the value always represents the school's intended calendar day regardless of server timezone. `schoolGradeId`/`sectionId` are a snapshot of the student's `GradeHistory` placement at marking time, not independently editable.
+
+### `AttendanceAudit`
+**Purpose**: append-only correction log for `Attendance`. **Currently used**: yes.
+**Key fields**: `id, attendanceId (FK), changedByUserId (FK), changedAt, previousStatus, newStatus, previousRemarks?, newRemarks?`.
+**Constraints**: none beyond FKs.
+**Delete behavior**: cascades from `Attendance`; no update or delete route ever touches this table — `correctAttendance()` (`src/lib/attendance.ts`) is the sole writer and only ever inserts.
+**Notes**: every correction records **both** status and remarks, even when only one actually changed (the unchanged field is echoed) — same "full snapshot every time" pattern as `GradeHistoryAudit`.
+
+### `TeachingPlan`
+**Purpose**: a teacher's declared planned-total and display-label (Unit/Chapter) for one subject/grade/section/session. **Currently used**: yes.
+**Key fields**: `id, gradeSubjectId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), subjectId (FK), plannedTotal, unitLabel (default "Unit"), createdByUserId (FK), createdAt, updatedAt`.
+**Constraints**: `@@unique([gradeSubjectId, sectionId])` — at most one plan per grade-subject-and-section scope.
+**Delete behavior**: cascades from `GradeSubject`; no delete route — the creation route is find-or-update-else-create, not a bare insert (same NULL-uniqueness reasoning as above), so a second "create" call updates the existing plan instead.
+**Notes**: deliberately a **separate model from `TeachingUnit`** — the planned total is a standalone target, independent of how many `TeachingUnit` rows currently exist, and can be entered before any exist at all. `unitLabel` is a plain, unvalidated string — the mechanism for supporting "Unit" or "Chapter" terminology without a second model.
+
+### `TeachingUnit`
+**Purpose**: one curriculum unit/chapter under a subject offering, with a teaching-progress status. **Currently used**: yes.
+**Key fields**: `id, gradeSubjectId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), subjectId (FK), title, order, status (default "NOT_STARTED"), startedAt?, completedAt?, createdByUserId (FK), createdAt, updatedAt`. Valid `status`: `NOT_STARTED | IN_PROGRESS | COMPLETED`.
+**Constraints**: none beyond FKs — `order` is app-assigned (current count in its `(gradeSubjectId, sectionId)` scope + 1), deliberately not a DB unique constraint (same NULL-in-unique-index reasoning as elsewhere in this schema).
+**Delete behavior**: cascades from `GradeSubject`; no delete route.
+**Notes**: `sectionId: null` = a grade-wide unit sequence shared by every section; a real value = that section's own, independent sequence. Status transitions manage `startedAt`/`completedAt` automatically (see [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md)).
+
+### `UnitTest`
+**Purpose**: a test tied to one `TeachingUnit`. **Currently used**: yes.
+**Key fields**: `id, unitId (FK), title, testDate, maxMarks, createdByUserId (FK), createdAt`.
+**Constraints**: none — multiple tests per unit are allowed.
+**Delete behavior**: cascades from `TeachingUnit`; no delete route.
+**Notes**: creatable only when the parent unit's `status` is `IN_PROGRESS` or `COMPLETED` — a route-level rule, not a schema constraint.
+
+### `UnitTestResult`
+**Purpose**: one student's evaluation for one `UnitTest`. **Currently used**: yes.
+**Key fields**: `id, unitTestId (FK), studentId (FK), status (default "PENDING"), marksObtained?, remarks?, evaluatedByUserId?, evaluatedAt?`. Valid `status`: `PENDING | EVALUATED | ABSENT`.
+**Constraints**: `@@unique([unitTestId, studentId])`.
+**Delete behavior**: cascades from `UnitTest`/`Student`; no delete route — rows are pre-created for the test's roster at creation time, only ever updated afterward.
+**Notes**: pre-created (`status: "PENDING"`) for every student enrolled in the test's scope (via `GradeHistory`) when the `UnitTest` is created — a stable roster snapshot. `status: "ABSENT"` forces `marksObtained` to `null`; `status: "EVALUATED"` requires `marksObtained` between `0` and the test's `maxMarks`.
+
+---
+
 ## Organizations
 
 ### `Organization` ✅
@@ -237,4 +292,4 @@ Ordered content under a course. Cascades from `Course`/`CourseModule` respective
 - **Snapshot fields for anything that must survive a later rename**: `Certificate.*NameSnapshot`, `GradeHistoryAudit.previous/newOutcomeGradeId`. Logos are the deliberate exception (live-looked-up). Full rationale: [PRODUCT_RULES.md](PRODUCT_RULES.md).
 - **`Student.gradeLevel` is permanent legacy fallback**, not scheduled for removal.
 - **No cascading deletes on cross-reference relations** (e.g. `GradeHistory.schoolGradeId`, `Certificate.issuerOrganizationId`) — only genuine ownership chains cascade.
-- **Most models in this schema have no working delete route in the application** — for those, every "delete behavior" described above is schema-level cascade behavior that would apply *if* a delete ever happened, not something any current UI action triggers. The exceptions, all deliberate: `TeacherGradeAssignment`, `GradeSubject`, and `TeacherAcademicAssignment` each have a real `DELETE` route — all three are current-state, non-historical operational data (never audited, freely re-creatable), not permanent records.
+- **Most models in this schema have no working delete route in the application** — for those, every "delete behavior" described above is schema-level cascade behavior that would apply *if* a delete ever happened, not something any current UI action triggers. The exceptions, all deliberate: `TeacherGradeAssignment`, `GradeSubject`, `TeacherAcademicAssignment`, and `ClassTeacherAssignment` each have a real `DELETE` route — all four are current-state, non-historical operational data (never audited, freely re-creatable), not permanent records. `Attendance` corrections go through an audited update (`correctAttendance()`) instead of a delete-and-recreate — the row itself is never deleted, only its `status`/`remarks` change, each change logged in `AttendanceAudit`.

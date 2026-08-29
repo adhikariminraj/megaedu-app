@@ -46,6 +46,13 @@ model User {
 
   gradeDecisionsMade    GradeHistory[]      @relation("GradeHistoryDecidedBy")
   gradeHistoryAuditsMade GradeHistoryAudit[] @relation("GradeHistoryAuditChangedBy")
+
+  attendancesMarked        Attendance[]       @relation("AttendanceMarkedBy")
+  attendanceAuditsChanged  AttendanceAudit[]  @relation("AttendanceAuditChangedBy")
+  teachingUnitsCreated     TeachingUnit[]     @relation("TeachingUnitCreatedBy")
+  teachingPlansCreated     TeachingPlan[]     @relation("TeachingPlanCreatedBy")
+  unitTestsCreated         UnitTest[]         @relation("UnitTestCreatedBy")
+  unitTestResultsEvaluated UnitTestResult[]   @relation("UnitTestResultEvaluatedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -163,6 +170,7 @@ model Teacher {
 
   gradeAssignments TeacherGradeAssignment[]
   academicAssignments TeacherAcademicAssignment[]
+  classTeacherAssignments ClassTeacherAssignment[]
 
   @@index([schoolId])
 }
@@ -185,6 +193,8 @@ model Student {
   courseEnrollments CourseEnrollment[]
   skills            Skill[]
   gradeHistory      GradeHistory[]
+  attendances       Attendance[]
+  unitTestResults   UnitTestResult[]
 
   @@index([schoolId])
 }
@@ -231,6 +241,10 @@ model AcademicSession {
   gradeHistories          GradeHistory[]
   gradeSubjects           GradeSubject[]
   teacherAcademicAssignments TeacherAcademicAssignment[]
+  classTeacherAssignments ClassTeacherAssignment[]
+  attendances             Attendance[]
+  teachingUnits           TeachingUnit[]
+  teachingPlans           TeachingPlan[]
 
   @@index([schoolId])
 }
@@ -262,6 +276,10 @@ model SchoolGrade {
   sections           Section[]
   gradeSubjects      GradeSubject[]
   teacherAcademicAssignments TeacherAcademicAssignment[]
+  classTeacherAssignments ClassTeacherAssignment[]
+  attendances        Attendance[]
+  teachingUnits      TeachingUnit[]
+  teachingPlans      TeachingPlan[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -284,6 +302,10 @@ model Section {
 
   gradeHistories GradeHistory[]
   teacherAcademicAssignments TeacherAcademicAssignment[]
+  classTeacherAssignments ClassTeacherAssignment[]
+  attendances    Attendance[]
+  teachingUnits  TeachingUnit[]
+  teachingPlans  TeachingPlan[]
 
   @@unique([schoolGradeId, name])
   @@index([schoolGradeId])
@@ -392,6 +414,8 @@ model Subject {
 
   gradeSubjects      GradeSubject[]
   teacherAssignments TeacherAcademicAssignment[]
+  teachingUnits      TeachingUnit[]
+  teachingPlans      TeachingPlan[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -420,6 +444,8 @@ model GradeSubject {
   createdAt         DateTime        @default(now())
 
   teacherAssignments TeacherAcademicAssignment[]
+  teachingUnits      TeachingUnit[]
+  teachingPlans      TeachingPlan[]
 
   @@unique([schoolGradeId, subjectId, academicSessionId])
   @@index([schoolGradeId])
@@ -466,6 +492,210 @@ model TeacherAcademicAssignment {
   @@index([schoolGradeId])
   @@index([subjectId])
   @@index([teacherId])
+}
+
+// ============================================================
+// SCHOOL ACADEMIC OPERATIONS — Phase 3B
+// Additive alongside Phase 2 / the Section system / Phase 3A above.
+// Nothing in this block changes any existing model's columns.
+// ============================================================
+
+// A designated Class Teacher (sectionId: null, whole grade) or Section
+// Teacher (sectionId: set) — special day-to-day responsibility over the
+// students in a class/section, e.g. taking attendance. Deliberately a
+// separate model from TeacherAcademicAssignment (subject-teaching) —
+// different concern, different constraint shape. Unlike
+// TeacherAcademicAssignment, grade-wide and section-specific rows are
+// allowed to coexist for the SAME grade (e.g. a grade-wide Class
+// Teacher plus per-section Section Teachers) — no overlap rule here.
+// Uniqueness is on the SLOT, not the teacher: at most one Class/Section
+// Teacher per class-or-section per session, while the same teacher can
+// hold multiple such slots across different grades/sections. Session-
+// scoped, never carried forward (same as TeacherGradeAssignment/
+// TeacherAcademicAssignment). Not audited, real DELETE route — current-
+// state operational data, not a permanent decision.
+model ClassTeacherAssignment {
+  id                String          @id @default(cuid())
+  teacherId         String
+  teacher           Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  createdAt         DateTime        @default(now())
+
+  @@unique([schoolGradeId, sectionId, academicSessionId])
+  @@index([teacherId])
+  @@index([academicSessionId])
+}
+
+// One row per student per calendar day — never subject-based. date is
+// always derived from a "YYYY-MM-DD" string via new Date(dateString)
+// (same convention as AcademicSession.startDate/endDate), giving a
+// consistent UTC-midnight value regardless of server timezone — the
+// server never computes "today" itself. schoolGradeId/sectionId are a
+// snapshot of the student's GradeHistory placement at marking time.
+model Attendance {
+  id                String          @id @default(cuid())
+  studentId         String
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  date              DateTime
+  status            String          // PRESENT | ABSENT | LATE | EXCUSED
+  remarks           String?
+  markedByUserId    String
+  markedBy          User            @relation("AttendanceMarkedBy", fields: [markedByUserId], references: [id])
+  markedAt          DateTime        @default(now())
+
+  audits AttendanceAudit[]
+
+  @@unique([studentId, date])
+  @@index([schoolGradeId, sectionId, date])
+  @@index([academicSessionId])
+}
+
+// Append-only correction log for Attendance — mirrors GradeHistoryAudit.
+// A correction (status and/or remarks) updates the Attendance row AND
+// inserts one of these in the same transaction, via correctAttendance()
+// in src/lib/attendance.ts — never a silent overwrite. Both status and
+// remarks are captured on every audit row, even if only one changed.
+model AttendanceAudit {
+  id              String     @id @default(cuid())
+  attendanceId    String
+  attendance      Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  changedByUserId String
+  changedBy       User       @relation("AttendanceAuditChangedBy", fields: [changedByUserId], references: [id])
+  changedAt       DateTime   @default(now())
+  previousStatus  String
+  newStatus       String
+  previousRemarks String?
+  newRemarks      String?
+
+  @@index([attendanceId])
+}
+
+// The teacher's declared teaching-plan context for one subject in one
+// grade/section/session: how many Units/Chapters they intend to cover
+// in total, and which display term they use ("Unit"/"Chapter"/free
+// text — display-only, never enforced). Deliberately separate from
+// TeachingUnit — the planned total is a standalone target that doesn't
+// move when units are created or completed, and can be entered before
+// any TeachingUnit row exists. Optional: no row means no plan is set,
+// and progress views fall back to raw counts with no percentage-of-
+// plan. Write path is find-or-update-else-create (app-level, not a
+// bare insert) since at most one plan should exist per
+// (gradeSubjectId, sectionId) — the same low-concurrency reasoning as
+// the one-ACTIVE-session-per-school rule, since a plain @@unique can't
+// reliably catch two sectionId: null rows colliding.
+model TeachingPlan {
+  id                String          @id @default(cuid())
+  gradeSubjectId    String
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  subjectId         String
+  subject           Subject         @relation(fields: [subjectId], references: [id])
+  plannedTotal      Int
+  unitLabel         String          @default("Unit")
+  createdByUserId   String
+  createdBy         User            @relation("TeachingPlanCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([gradeSubjectId, sectionId])
+  @@index([academicSessionId])
+}
+
+// A subject's curriculum unit/chapter — the school/teacher's own
+// wording ("Unit 1: Numbers" or "Chapter 1: Numbers") lives in `title`;
+// nothing here forces either term (see TeachingPlan.unitLabel for the
+// display preference). gradeSubjectId enforces that a unit can only be
+// created for a subject the grade actually offers this session.
+// sectionId null = grade-wide unit sequence (shared by every section);
+// a real value = that section's own, independent sequence. `order` is
+// app-assigned (current count + 1 within its own gradeSubjectId+
+// sectionId scope), not a DB unique constraint — the same NULL-in-
+// unique-index issue as elsewhere in this schema would resurface for
+// grade-wide (sectionId: null) units otherwise.
+model TeachingUnit {
+  id                String          @id @default(cuid())
+  gradeSubjectId    String
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  subjectId         String
+  subject           Subject         @relation(fields: [subjectId], references: [id])
+  title             String
+  order             Int
+  status            String          @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
+  startedAt         DateTime?
+  completedAt        DateTime?
+  createdByUserId   String
+  createdBy         User            @relation("TeachingUnitCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  tests UnitTest[]
+
+  @@index([gradeSubjectId, sectionId])
+  @@index([academicSessionId])
+}
+
+// A Unit/Chapter Test — created only once its TeachingUnit is
+// IN_PROGRESS or COMPLETED (route-level rule, not a DB constraint; see
+// PRODUCT_RULES.md). Multiple tests per unit are allowed (e.g. a quiz
+// and a chapter test) — no uniqueness constraint blocks it.
+model UnitTest {
+  id              String       @id @default(cuid())
+  unitId          String
+  unit            TeachingUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  title           String
+  testDate        DateTime
+  maxMarks        Int
+  createdByUserId String
+  createdBy       User         @relation("UnitTestCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime     @default(now())
+
+  results UnitTestResult[]
+
+  @@index([unitId])
+}
+
+// Pre-created for every currently-enrolled student in the test's scope
+// (via GradeHistory, matching the unit's own schoolGradeId/sectionId)
+// at test-creation time, status PENDING — so "pending vs. evaluated vs.
+// absent" is a real, directly-queryable column, not inferred by
+// diffing against a roster that could change later. No retest concept.
+model UnitTestResult {
+  id                String    @id @default(cuid())
+  unitTestId        String
+  unitTest          UnitTest  @relation(fields: [unitTestId], references: [id], onDelete: Cascade)
+  studentId         String
+  student           Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status            String    @default("PENDING") // PENDING | EVALUATED | ABSENT
+  marksObtained     Float?
+  remarks           String?
+  evaluatedByUserId String?
+  evaluatedBy       User?     @relation("UnitTestResultEvaluatedBy", fields: [evaluatedByUserId], references: [id])
+  evaluatedAt       DateTime?
+
+  @@unique([unitTestId, studentId])
+  @@index([studentId])
 }
 
 // ============================================================

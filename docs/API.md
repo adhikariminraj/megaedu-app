@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-08-29 (Phase 3B), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -85,6 +85,22 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRU
 | `POST` | `/api/schools/[id]/teacher-academic-assignments` | Bulk-create teacher subject-teaching assignments for one session | `{academicSessionId, assignments: [{teacherId, schoolGradeId, sectionId?, subjectId}]}` | `sectionId: null` = grade-wide; subject must be offered at that grade this session (via `GradeSubject`) or the item is skipped; the same teacher can't hold both a grade-wide and section-specific row for the same subject/grade/session (skipped, not errored) — see [PRODUCT_RULES.md](PRODUCT_RULES.md) |
 | `DELETE` | `/api/schools/[id]/teacher-academic-assignments/[assignmentId]` | Remove one teacher academic assignment | — | `404` if not found or wrong school |
 
+## Schools — School Academic Operations (Phase 3B)
+
+Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTeacherAssignment` scope noted per route — see [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for full behavioral detail; this table is structural.
+
+| Method | Endpoint | Purpose | Important request data | Important response / errors |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/class-teacher-assignments` | Bulk-create Grade Class Teacher / Section Teacher assignments | `{academicSessionId, assignments: [{teacherId, schoolGradeId, sectionId?}]}` | No overlap rule (grade-wide and section-specific may coexist); an already-filled slot is silently skipped |
+| `DELETE` | `/api/schools/[id]/class-teacher-assignments/[assignmentId]` | Remove one Class/Section Teacher assignment | — | `404` if not found or wrong school |
+| `POST` | `/api/schools/[id]/attendance` | Bulk-mark attendance for one date | `{academicSessionId, schoolGradeId, sectionId?, date: "YYYY-MM-DD", records: [{studentId, status, remarks?}]}` | Auth: `requireSchoolAdmin` OR `requireClassTeacher` scoped to `sectionId` (omitted = whole grade, requires a Grade Class Teacher). A student whose actual `GradeHistory` placement doesn't match the target is skipped; an already-marked student for that date is skipped, not erroneous |
+| `PATCH` | `/api/schools/[id]/attendance/[attendanceId]` | Correct an already-marked day's status/remarks | `{status?, remarks?}` | Audited via `correctAttendance()` — inserts an `AttendanceAudit` row every time, capturing both fields even if only one changed. Auth scope resolved from the record itself, not client input |
+| `POST` | `/api/schools/[id]/grades/[schoolGradeId]/subjects/[gradeSubjectId]/teaching-plan` | Set or update the planned-total/display-label plan for one scope | `{sectionId?, plannedTotal, unitLabel?}` | Find-or-update-else-create — never a duplicate row per `(gradeSubjectId, sectionId)` |
+| `POST` | `/api/schools/[id]/grades/[schoolGradeId]/subjects/[gradeSubjectId]/units` | Create one TeachingUnit (Unit/Chapter) | `{sectionId?, title}` | `order` auto-assigned (current count in scope + 1) |
+| `PATCH` | `/api/schools/[id]/units/[unitId]` | Update a unit's title and/or teaching-progress status | `{title?, status?}` | Status transitions manage `startedAt`/`completedAt` automatically |
+| `POST` | `/api/schools/[id]/units/[unitId]/tests` | Create a Unit/Chapter Test | `{title, testDate, maxMarks}` | `400` if the unit is still `NOT_STARTED`; pre-creates a `PENDING` `UnitTestResult` row for every enrolled student in the unit's scope |
+| `PATCH` | `/api/schools/[id]/tests/[unitTestId]/results` | Bulk-record student evaluations | `{results: [{studentId, status, marksObtained?, remarks?}]}` | `status: "ABSENT"` forces `marksObtained: null`; `status: "EVALUATED"` requires `0 ≤ marksObtained ≤ maxMarks`, otherwise skipped |
+
 ## Organizations
 
 | Method | Endpoint | Purpose | Auth | Authz | Notes |
@@ -119,4 +135,4 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRU
 
 ## Not implemented / not applicable
 
-No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`/`Subject`, deactivating a school/organization (`isActive` is read but never set by any route), section-level teacher assignment, section-level analytics/reporting, copying a `GradeSubject` offering forward from a prior session (each session is configured from scratch, deliberately), teaching hierarchy (primary/assistant/substitute teacher), attendance, homework/assignments, teaching progress, units/lessons, examinations/results, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
+No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`/`Subject`/`TeachingUnit`/`UnitTest`, deactivating a school/organization (`isActive` is read but never set by any route), section-level analytics/reporting, copying a `GradeSubject` offering or `TeachingPlan`/`TeachingUnit` set forward from a prior session (each session is configured from scratch, deliberately), teaching hierarchy (primary/assistant/substitute teacher, for either `TeacherAcademicAssignment` or `ClassTeacherAssignment`), retesting a `UnitTestResult`, homework/assignments, examinations beyond Unit/Chapter Tests, report cards, analytics, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).

@@ -1,7 +1,7 @@
 # User Roles
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
 
 All seven roles below are ✅ implemented and stored identically: a `UserRole` row (`{ userId, role }`, plain string, `@@unique([userId, role])`). A single MEGA ID (`User`) can hold **multiple roles at once** — see [MEGA_ID.md](MEGA_ID.md). `dashboard/page.tsx` picks which dashboard to show using a fixed priority order (below), not a strict one-role-per-account rule.
 
@@ -27,6 +27,10 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - **Phase 3A — Subjects & Teacher Academic Assignment**, same access pattern:
   - `/dashboard/academics` — manage the subject catalog (create/rename/deactivate), configure which subjects each grade offers for the current session, and assign/remove teacher subject-teaching assignments (grade-wide or section-specific).
   - The only role that can do any of this — no hard-delete exists for `Subject` (deactivate only); `GradeSubject`/`TeacherAcademicAssignment` do have real delete routes since they're current-state, non-historical data. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md).
+- **Phase 3B — School Academic Operations**, same access pattern, plus full oversight of everything Teachers can do below:
+  - Assign/remove Grade Class Teachers and Section Teachers (`/dashboard/academics`'s per-grade panel) — no overlap rule, unlike subject assignment.
+  - `/dashboard/attendance` — mark or correct attendance for any grade/section/date.
+  - `/dashboard/academics/[gradeSubjectId]` — set/edit Teaching Plans, create Units/Chapters and mark their progress, create Unit/Chapter Tests and evaluate every student, for any grade/section/subject at the school (not gated by having a personal `TeacherAcademicAssignment`, unlike a Teacher). See [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md).
 - Gated by `requireSchoolAdmin(schoolId)` on every underlying write route.
 - Also has finance access via `requireSchoolFinance` (admin **or** accountant link).
 
@@ -37,7 +41,8 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - Can enroll in and complete MEGA Academy courses.
 - Can add `Skill` records to any approved student at their school.
 - **Phase 2**: can be assigned to grades via `TeacherGradeAssignment` (done by a School Admin during Initial Setup), but has no dashboard view of their own assignment or their assigned students' grade rosters — that surface belongs to the School Admin today. 🔭
-- **Phase 3A**: can be assigned to a specific (session, grade, section-or-whole-grade, subject) via `TeacherAcademicAssignment` (done by a School Admin on `/dashboard/academics`). Unlike `TeacherGradeAssignment` above, a Teacher **does** now see their own current assignments — a read-only "Your Academic Assignments" section on their dashboard, scoped to the active session. Still no write action of their own, and no route yet checks `requireTeacherAssignment()` (built in Phase 3A, awaiting its first caller in a later sub-phase).
+- **Phase 3A**: can be assigned to a specific (session, grade, section-or-whole-grade, subject) via `TeacherAcademicAssignment` (done by a School Admin on `/dashboard/academics`). Unlike `TeacherGradeAssignment` above, a Teacher **does** now see their own current assignments — a "Your Academic Assignments" section on their dashboard, scoped to the active session, each now linking into the Phase 3B units page below.
+- **Phase 3B**: within each `TeacherAcademicAssignment`'s own scope (grade-wide covers every section; section-specific covers only that section — enforced server-side via `requireTeacherAssignment()`), a Teacher can set the Teaching Plan, create/manage Units or Chapters and their progress status, create Unit/Chapter Tests (once a unit is `IN_PROGRESS` or `COMPLETED`), and evaluate students on them — all at `/dashboard/academics/[gradeSubjectId]`. If also holding a `ClassTeacherAssignment` (Grade Class Teacher or Section Teacher), a Teacher sees a "Your Class & Section Teacher Responsibilities" dashboard section and can take/correct attendance at `/dashboard/attendance`, scoped to exactly the grades/sections that assignment covers (verified: a Section Teacher cannot mark another section, or the whole grade unscoped). Neither of these is gated only in the UI — every write route enforces the same scope server-side.
 
 ## STUDENT
 
@@ -45,6 +50,7 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - Dashboard: school status, interests, read-only Skills list, enrolled courses with certificate links.
 - Certificate recipient for course completions.
 - **Phase 2**: is placed into `GradeHistory` rows by a School Admin; has no dashboard visibility into their own current grade, promotion history, or session status. 🔭
+- **Phase 3B**: does now see, read-only, three new dashboard sections scoped to the active session and their own current `GradeHistory` placement: **Teaching Progress** (per subject: completed/in-progress/total units), **Test Results** (per `UnitTestResult`: marks, status, remarks), and **Recent Attendance** (last 15 days, reflecting any corrections — verified live). No write action of any kind.
 
 ## PARENT
 

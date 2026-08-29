@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -42,9 +42,9 @@ The simplest form — `roles?.includes("SCHOOL_ADMIN")` — is used where there'
 
 **Deliberate design note** (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): the finance helpers check *both* the Admin and Accountant relationships on purpose — an Admin keeps full authority (finance included), a bare Accountant gets finance access *only*.
 
-## Teacher academic authorization — `requireTeacherAssignment()` ✅ (built, no caller yet)
+## Teacher academic authorization — `requireTeacherAssignment()` and `requireClassTeacher()` ✅
 
-Added in Phase 3A, alongside the `requireX` suite but with a different shape — it checks a *specific academic assignment*, not a blanket school-wide relationship:
+`requireTeacherAssignment()` was added in Phase 3A, alongside the `requireX` suite but with a different shape — it checks a *specific academic assignment*, not a blanket school-wide relationship:
 
 ```ts
 requireTeacherAssignment(
@@ -53,9 +53,26 @@ requireTeacherAssignment(
 ): Promise<string | null>
 ```
 
-Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for a `TeacherAcademicAssignment` matching `academicSessionId` + `schoolGradeId`, where a grade-wide assignment (`sectionId: null` on the row) satisfies any `scope.sectionId` given — a grade-wide row always "covers" every section, matching how sections work everywhere else in this schema. `scope.sectionId`/`scope.subjectId` are both optional, so the same primitive expresses either a broad "assigned here at all" check or a narrow "assigned to teach *this subject* here" check.
+Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for a `TeacherAcademicAssignment` matching `academicSessionId` + `schoolGradeId` (+ `subjectId` if given). `scope.sectionId` follows **three distinct states**, via a shared `sectionScopeWhere()` helper — this is a Phase 3B correction to the original Phase 3A code, made before the function had any real caller:
 
-**No route calls this yet** — it's the Phase 3A foundation for Phase 3B's attendance, homework, teaching-progress, and units/lessons work. Deliberately teacher-only, no School-Admin bypass baked in; a future caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) and [PRODUCT_RULES.md](PRODUCT_RULES.md).
+- **omitted**: no section restriction — matches any assignment for the grade/subject regardless of section.
+- **`null`**: the target itself is grade-wide (e.g. a grade-wide `TeachingUnit`) — requires a grade-wide assignment *specifically*; a section-specific-only teacher does not pass.
+- **a real section id**: the target is one specific section — a grade-wide assignment (covers every section) or that exact section's assignment both satisfy it.
+
+The original implementation treated `null` and *omitted* identically (both are falsy in JS), which never mattered while nothing called it, but would have wrongly authorized a section-specific-only teacher to manage a grade-wide unit once Phase 3B started depending on it. Verified independently against real assignment data (six scenarios, including the specific `null`-requires-grade-wide case) *before* any Teaching Unit/Test route was built on top of it.
+
+`requireClassTeacher()`, new in Phase 3B, checks a `ClassTeacherAssignment` (Grade Class Teacher / Section Teacher) with the identical three-way `sectionId` semantics, via the same `sectionScopeWhere()` helper:
+
+```ts
+requireClassTeacher(
+  schoolId: string,
+  scope: { academicSessionId: string; schoolGradeId: string; sectionId?: string | null }
+): Promise<string | null>
+```
+
+Both gate Phase 3B's operational routes: `requireTeacherAssignment()` for Teaching Units, Teaching Plans, and Unit/Chapter Tests (scoped to the unit/plan/test's own grade/section/subject); `requireClassTeacher()` for Attendance (scoped to the grade/section being marked — passing `sectionId: null` when marking the whole grade correctly requires a Grade Class Teacher, not just any Section Teacher). Verified live through a real logged-in Section Teacher account: marking their own section succeeded, marking a different section or the whole grade unscoped both returned `403`.
+
+Both are deliberately teacher-only, no School-Admin bypass baked in; a caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`, and every Phase 3B write route does the same (`requireSchoolAdmin(...) || requireClassTeacher(...)` / `requireTeacherAssignment(...)`). See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md), and [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
 ## Access patterns not covered by `authorize.ts` ✅
 

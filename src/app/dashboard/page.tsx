@@ -133,8 +133,13 @@ export default async function DashboardPage() {
         courseEnrollments: { include: { course: true, certificate: true } },
         academicAssignments: {
           where: { academicSession: { status: "ACTIVE" } },
-          include: { schoolGrade: true, section: true, subject: true },
+          include: { schoolGrade: true, section: true, subject: true, gradeSubject: true },
           orderBy: [{ schoolGrade: { gradeReference: { order: "asc" } } }, { subject: { name: "asc" } }],
+        },
+        classTeacherAssignments: {
+          where: { academicSession: { status: "ACTIVE" } },
+          include: { schoolGrade: true, section: true },
+          orderBy: { schoolGrade: { gradeReference: { order: "asc" } } },
         },
       },
     });
@@ -151,7 +156,75 @@ export default async function DashboardPage() {
         skills: { include: { addedBy: true }, orderBy: { createdAt: "desc" } },
       },
     });
-    if (student) return <StudentDashboard student={student} userName={userName} />;
+    if (student) {
+      const [recentAttendance, currentPlacement, testResults] = await Promise.all([
+        prisma.attendance.findMany({
+          where: { studentId: student.id },
+          orderBy: { date: "desc" },
+          take: 15,
+        }),
+        prisma.gradeHistory.findFirst({
+          where: { studentId: student.id, academicSession: { status: "ACTIVE" } },
+          include: { schoolGrade: true, section: true },
+        }),
+        prisma.unitTestResult.findMany({
+          where: { studentId: student.id },
+          include: { unitTest: { include: { unit: { include: { subject: true } } } } },
+          orderBy: { unitTest: { testDate: "desc" } },
+          take: 20,
+        }),
+      ]);
+
+      let teachingProgress: {
+        subjectName: string;
+        total: number;
+        completed: number;
+        inProgress: number;
+      }[] = [];
+      if (currentPlacement) {
+        const gradeSubjects = await prisma.gradeSubject.findMany({
+          where: { schoolGradeId: currentPlacement.schoolGradeId, academicSessionId: currentPlacement.academicSessionId },
+          include: {
+            subject: true,
+            teachingUnits: {
+              where: currentPlacement.sectionId
+                ? { OR: [{ sectionId: null }, { sectionId: currentPlacement.sectionId }] }
+                : { sectionId: null },
+            },
+          },
+        });
+        teachingProgress = gradeSubjects.map((gs) => ({
+          subjectName: gs.subject.name,
+          total: gs.teachingUnits.length,
+          completed: gs.teachingUnits.filter((u) => u.status === "COMPLETED").length,
+          inProgress: gs.teachingUnits.filter((u) => u.status === "IN_PROGRESS").length,
+        }));
+      }
+
+      return (
+        <StudentDashboard
+          student={student}
+          userName={userName}
+          attendance={recentAttendance.map((a) => ({
+            date: a.date.toISOString().slice(0, 10),
+            status: a.status,
+            remarks: a.remarks,
+          }))}
+          teachingProgress={teachingProgress}
+          testResults={testResults.map((r) => ({
+            id: r.id,
+            testTitle: r.unitTest.title,
+            unitTitle: r.unitTest.unit.title,
+            subjectName: r.unitTest.unit.subject.name,
+            testDate: r.unitTest.testDate.toISOString().slice(0, 10),
+            maxMarks: r.unitTest.maxMarks,
+            status: r.status,
+            marksObtained: r.marksObtained,
+            remarks: r.remarks,
+          }))}
+        />
+      );
+    }
   }
 
   if (roles?.includes("PARENT")) {

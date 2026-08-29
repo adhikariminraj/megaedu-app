@@ -1,7 +1,7 @@
 # Architecture
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
 
 ## High-level shape ✅
 
@@ -16,6 +16,8 @@ src/
       grades/          # Phase 2: per-grade Promotion rosters + Pending queue
       sessions/new/    # Phase 2: New Session rollover
       academics/       # Phase 3A: Subject catalog, grade offerings, teacher assignments
+                       #   [gradeSubjectId]/ — Phase 3B: Teaching Plans, Units/Chapters, Tests
+      attendance/      # Phase 3B: daily attendance marking + correction
     admin/             # Platform Admin-only pages
     ...                # public pages: schools, courses, opportunities, etc.
   components/          # shared client components (SiteHeader, DashboardHero, certificate/)
@@ -79,8 +81,9 @@ A recurring, deliberate decision (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): for
 - **`recordGradeDecision()`** (`gradeHistory.ts`) — the only place a `GradeHistory` row's `status`/`outcomeGradeId` may change, always paired with a `GradeHistoryAudit` insert.
 - **`reassignSection()`** (`gradeHistory.ts`) — the only place a `GradeHistory` row's `sectionId` may change once the row already exists, same audited shape as `recordGradeDecision()` but a fully independent write path (neither function touches the other's fields).
 - **`carryForwardEligibleStudents()`** (`gradeRollover.ts`) — the only place new-session placements get auto-created from a prior decision; idempotent and re-runnable. Never sets `sectionId` on the row it creates.
+- **`correctAttendance()`** (`attendance.ts`, Phase 3B) — the only place an already-marked `Attendance` row's `status`/`remarks` may change, same audited shape as `reassignSection()` — every call inserts a full before/after `AttendanceAudit` snapshot of both fields.
 
-All four follow the same shape: typed input, optional `tx?: Prisma.TransactionClient` for composing into a larger transaction, transactional by default otherwise.
+All five follow the same shape: typed input, optional `tx?: Prisma.TransactionClient` for composing into a larger transaction, transactional by default otherwise.
 
 Other `lib` modules: **`auth.ts`** (NextAuth config), **`authorize.ts`** (the `requireX` guard suite — see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)), **`prisma.ts`** (singleton client), **`notify.ts`** (best-effort notifications, never allowed to fail the calling action), **`certificateView.ts`** (pure view-model builder, no live text lookups), **`gradeMatching.ts`** (`matchLegacyGradeText()` — never guesses, returns `null`).
 

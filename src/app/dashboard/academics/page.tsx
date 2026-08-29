@@ -42,9 +42,13 @@ export default async function AcademicsPage() {
     string,
     { id: string; teacherId: string; teacherName: string; subjectId: string; subjectName: string; sectionId: string | null; sectionName: string | null }[]
   > = {};
+  let classTeachersByGrade: Record<
+    string,
+    { id: string; teacherId: string; teacherName: string; sectionId: string | null; sectionName: string | null }[]
+  > = {};
 
   if (activeSession) {
-    const [gradeSubjects, assignments] = await Promise.all([
+    const [gradeSubjects, assignments, classTeacherAssignments] = await Promise.all([
       prisma.gradeSubject.findMany({
         where: { academicSessionId: activeSession.id, schoolGrade: { schoolId } },
         include: { subject: true },
@@ -53,6 +57,11 @@ export default async function AcademicsPage() {
       prisma.teacherAcademicAssignment.findMany({
         where: { academicSessionId: activeSession.id, schoolGrade: { schoolId } },
         include: { teacher: { include: { user: true } }, subject: true, section: true },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.classTeacherAssignment.findMany({
+        where: { academicSessionId: activeSession.id, schoolGrade: { schoolId } },
+        include: { teacher: { include: { user: true } }, section: true },
         orderBy: { createdAt: "asc" },
       }),
     ]);
@@ -78,6 +87,17 @@ export default async function AcademicsPage() {
         sectionName: a.section?.name ?? null,
       });
     }
+
+    classTeachersByGrade = {};
+    for (const c of classTeacherAssignments) {
+      (classTeachersByGrade[c.schoolGradeId] ||= []).push({
+        id: c.id,
+        teacherId: c.teacherId,
+        teacherName: c.teacher.user.name,
+        sectionId: c.sectionId,
+        sectionName: c.section?.name ?? null,
+      });
+    }
   }
 
   return (
@@ -92,6 +112,7 @@ export default async function AcademicsPage() {
         sections: g.sections.map((s) => ({ id: s.id, name: s.name })),
         offeredSubjects: gradeSubjectsByGrade[g.id] || [],
         assignments: assignmentsByGrade[g.id] || [],
+        classTeachers: classTeachersByGrade[g.id] || [],
       }))}
       teachers={teachers.map((t) => ({ id: t.id, name: t.user.name }))}
     />
