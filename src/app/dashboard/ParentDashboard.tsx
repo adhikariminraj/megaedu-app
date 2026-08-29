@@ -1,5 +1,10 @@
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import LinkChildPrompt from "@/components/LinkChildPrompt";
+import AcademicProgressPanel, {
+  AttendanceRow,
+  ProgressRow,
+  TestResultRow,
+} from "@/components/AcademicProgressPanel";
 
 type Parent = {
   id: string;
@@ -9,6 +14,11 @@ type Parent = {
       approved: boolean;
       user: { name: string };
       school: { name: string } | null;
+    };
+    progress: {
+      attendance: AttendanceRow[];
+      teachingProgress: ProgressRow[];
+      testResults: TestResultRow[];
     };
   }[];
 };
@@ -69,6 +79,18 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
                 >
                   {c.student.approved ? "Approved" : "Pending School Approval"}
                 </span>
+
+                {(c.progress.attendance.length > 0 ||
+                  c.progress.teachingProgress.length > 0 ||
+                  c.progress.testResults.length > 0) && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 [&>div:last-child]:mb-0">
+                    <AcademicProgressPanel
+                      attendance={c.progress.attendance}
+                      teachingProgress={c.progress.teachingProgress}
+                      testResults={c.progress.testResults}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </div>

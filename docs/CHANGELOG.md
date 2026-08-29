@@ -6,6 +6,18 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Parent Academic Visibility (2026-08-29)
+A small, additive follow-up closing the parent-facing gap Phase 3B deliberately deferred. An investigation first confirmed no schema gap existed — `Parent` → `ParentStudent` → `Student` already supported linking multiple children; the only thing missing was the read-side query.
+
+- Extracted the Teaching Progress / Test Results / Recent Attendance markup out of `StudentDashboard.tsx` into a new shared presentational component, `src/components/AcademicProgressPanel.tsx` — a pure refactor, verified live to render identically for a Student before and after.
+- Extracted the matching three-query Prisma logic (recent `Attendance`, active-session `GradeHistory` → `GradeSubject`/`TeachingUnit` progress, recent `UnitTestResult`s) into a single `fetchAcademicProgress(studentId)` function in `dashboard/page.tsx`, called once for a Student's own dashboard and once per linked child for the Parent dashboard — the same logic, never duplicated.
+- `ParentDashboard.tsx` now renders each linked child's own `AcademicProgressPanel`, nested inside that child's existing card, clearly separated from any sibling.
+- No schema change, no migration, no new API route — this stays a server-component-rendered page like every other dashboard branch. Every `studentId` passed to `fetchAcademicProgress()` in the Parent branch is resolved from the logged-in parent's own `parent.children` (itself resolved from their session), never from client input, so a parent structurally cannot see an unlinked child's data.
+
+**Verified live**: logged in as `demo.parent@megaedu.local` (linked to the real `demo.student@megaedu.local`, who already had genuine attendance/progress/test data from separate manual testing of the Phase 3B UI), linked a second, freshly-created child with deliberately distinct attendance/progress/test data via the real "Link Child" form — both children's cards showed only their own information, with zero mixing. A third, unrelated student (never linked) did not appear anywhere on the page. Logged back in as the Student directly and confirmed their own dashboard rendered byte-for-byte the same Teaching Progress / Test Results / Recent Attendance as before the component extraction. All throwaway test data was cleaned up afterward; the real student's pre-existing data was confirmed unaffected, before and after, by exact row-count comparison.
+
+Updated `KNOWN_GAPS.md` (split the old combined Teacher/Student/Parent gap entry, since Parent is now partially resolved), `ACADEMIC_OPERATIONS.md` (new "Parent Academic Visibility" section), `USER_ROLES.md` (PARENT role), and this changelog.
+
 ### Added — Phase 3B: School Academic Operations (2026-08-29)
 The second sub-phase of "Phase 3 — School Academic System," built additively on top of Phase 3A, with the same discipline — a schema/authorization checkpoint before any feature work, then each of the four sub-areas built, live-verified, and cleaned up in turn:
 

@@ -1,7 +1,7 @@
 # User Roles
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B, plus the Parent Academic Visibility follow-up), against the current codebase.
 
 All seven roles below are ✅ implemented and stored identically: a `UserRole` row (`{ userId, role }`, plain string, `@@unique([userId, role])`). A single MEGA ID (`User`) can hold **multiple roles at once** — see [MEGA_ID.md](MEGA_ID.md). `dashboard/page.tsx` picks which dashboard to show using a fixed priority order (below), not a strict one-role-per-account rule.
 
@@ -58,6 +58,7 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - Dashboard: read-only view of each linked child's school, grade (legacy `gradeLevel` text, not the Phase 2 structured grade), and approval status; a link-another-child prompt.
 - No write actions beyond linking children.
 - **Phase 2**: no visibility into a linked child's `GradeHistory` at all. 🔭
+- **Phase 3B (Parent Academic Visibility, added as a follow-up)**: does now see, read-only, the same three sections a Student sees about themselves — Teaching Progress, Test Results, and Recent Attendance — separately for **each** linked child, nested under that child's own card. Every `studentId` used to fetch this data is resolved server-side from the Parent's own `ParentStudent` rows (never from client input), so one parent can never see a child they aren't linked to, and one child's data never mixes into another's — verified live with two children (one real, one throwaway) showing fully distinct information side by side. Still no visibility into raw `GradeHistory` (current grade/section) — only these three derived views.
 
 ## ORGANIZATION_ADMIN
 

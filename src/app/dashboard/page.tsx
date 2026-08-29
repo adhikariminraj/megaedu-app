@@ -11,8 +11,83 @@ import CreateSchoolPrompt from "./CreateSchoolPrompt";
 import CreateOrgPrompt from "./CreateOrgPrompt";
 import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
+import type { AttendanceRow, ProgressRow, TestResultRow } from "@/components/AcademicProgressPanel";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * The Phase 3B academic summary (attendance, teaching progress, test
+ * results) for exactly one student — the sole place this three-query
+ * shape is written, shared by the STUDENT branch (their own data) and
+ * the PARENT branch (once per linked child) below, so the two can
+ * never drift apart. Callers are responsible for only ever passing a
+ * studentId they've already verified the caller is allowed to see —
+ * this function itself does no authorization.
+ */
+async function fetchAcademicProgress(studentId: string): Promise<{
+  attendance: AttendanceRow[];
+  teachingProgress: ProgressRow[];
+  testResults: TestResultRow[];
+}> {
+  const [recentAttendance, currentPlacement, testResults] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { studentId },
+      orderBy: { date: "desc" },
+      take: 15,
+    }),
+    prisma.gradeHistory.findFirst({
+      where: { studentId, academicSession: { status: "ACTIVE" } },
+      include: { schoolGrade: true, section: true },
+    }),
+    prisma.unitTestResult.findMany({
+      where: { studentId },
+      include: { unitTest: { include: { unit: { include: { subject: true } } } } },
+      orderBy: { unitTest: { testDate: "desc" } },
+      take: 20,
+    }),
+  ]);
+
+  let teachingProgress: ProgressRow[] = [];
+  if (currentPlacement) {
+    const gradeSubjects = await prisma.gradeSubject.findMany({
+      where: { schoolGradeId: currentPlacement.schoolGradeId, academicSessionId: currentPlacement.academicSessionId },
+      include: {
+        subject: true,
+        teachingUnits: {
+          where: currentPlacement.sectionId
+            ? { OR: [{ sectionId: null }, { sectionId: currentPlacement.sectionId }] }
+            : { sectionId: null },
+        },
+      },
+    });
+    teachingProgress = gradeSubjects.map((gs) => ({
+      subjectName: gs.subject.name,
+      total: gs.teachingUnits.length,
+      completed: gs.teachingUnits.filter((u) => u.status === "COMPLETED").length,
+      inProgress: gs.teachingUnits.filter((u) => u.status === "IN_PROGRESS").length,
+    }));
+  }
+
+  return {
+    attendance: recentAttendance.map((a) => ({
+      date: a.date.toISOString().slice(0, 10),
+      status: a.status,
+      remarks: a.remarks,
+    })),
+    teachingProgress,
+    testResults: testResults.map((r) => ({
+      id: r.id,
+      testTitle: r.unitTest.title,
+      unitTitle: r.unitTest.unit.title,
+      subjectName: r.unitTest.unit.subject.name,
+      testDate: r.unitTest.testDate.toISOString().slice(0, 10),
+      maxMarks: r.unitTest.maxMarks,
+      status: r.status,
+      marksObtained: r.marksObtained,
+      remarks: r.remarks,
+    })),
+  };
+}
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -157,71 +232,14 @@ export default async function DashboardPage() {
       },
     });
     if (student) {
-      const [recentAttendance, currentPlacement, testResults] = await Promise.all([
-        prisma.attendance.findMany({
-          where: { studentId: student.id },
-          orderBy: { date: "desc" },
-          take: 15,
-        }),
-        prisma.gradeHistory.findFirst({
-          where: { studentId: student.id, academicSession: { status: "ACTIVE" } },
-          include: { schoolGrade: true, section: true },
-        }),
-        prisma.unitTestResult.findMany({
-          where: { studentId: student.id },
-          include: { unitTest: { include: { unit: { include: { subject: true } } } } },
-          orderBy: { unitTest: { testDate: "desc" } },
-          take: 20,
-        }),
-      ]);
-
-      let teachingProgress: {
-        subjectName: string;
-        total: number;
-        completed: number;
-        inProgress: number;
-      }[] = [];
-      if (currentPlacement) {
-        const gradeSubjects = await prisma.gradeSubject.findMany({
-          where: { schoolGradeId: currentPlacement.schoolGradeId, academicSessionId: currentPlacement.academicSessionId },
-          include: {
-            subject: true,
-            teachingUnits: {
-              where: currentPlacement.sectionId
-                ? { OR: [{ sectionId: null }, { sectionId: currentPlacement.sectionId }] }
-                : { sectionId: null },
-            },
-          },
-        });
-        teachingProgress = gradeSubjects.map((gs) => ({
-          subjectName: gs.subject.name,
-          total: gs.teachingUnits.length,
-          completed: gs.teachingUnits.filter((u) => u.status === "COMPLETED").length,
-          inProgress: gs.teachingUnits.filter((u) => u.status === "IN_PROGRESS").length,
-        }));
-      }
-
+      const progress = await fetchAcademicProgress(student.id);
       return (
         <StudentDashboard
           student={student}
           userName={userName}
-          attendance={recentAttendance.map((a) => ({
-            date: a.date.toISOString().slice(0, 10),
-            status: a.status,
-            remarks: a.remarks,
-          }))}
-          teachingProgress={teachingProgress}
-          testResults={testResults.map((r) => ({
-            id: r.id,
-            testTitle: r.unitTest.title,
-            unitTitle: r.unitTest.unit.title,
-            subjectName: r.unitTest.unit.subject.name,
-            testDate: r.unitTest.testDate.toISOString().slice(0, 10),
-            maxMarks: r.unitTest.maxMarks,
-            status: r.status,
-            marksObtained: r.marksObtained,
-            remarks: r.remarks,
-          }))}
+          attendance={progress.attendance}
+          teachingProgress={progress.teachingProgress}
+          testResults={progress.testResults}
         />
       );
     }
@@ -232,7 +250,20 @@ export default async function DashboardPage() {
       where: { userId },
       include: { children: { include: { student: { include: { user: true, school: true } } } } },
     });
-    if (parent) return <ParentDashboard parent={parent} userName={userName} />;
+    if (parent) {
+      // childStudentIds is derived ENTIRELY from the logged-in parent's
+      // own resolved ParentStudent rows above — never from a request
+      // parameter or any other client-supplied value. Each child's
+      // progress is then fetched individually by that server-derived
+      // id, so one child's data can never leak into another's.
+      const childrenWithProgress = await Promise.all(
+        parent.children.map(async (c) => ({
+          ...c,
+          progress: await fetchAcademicProgress(c.student.id),
+        }))
+      );
+      return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;
+    }
   }
 
   if (roles?.includes("ORGANIZATION_ADMIN")) {
