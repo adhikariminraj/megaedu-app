@@ -9,6 +9,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,13 +45,22 @@ export default function LoginPage() {
         </div>
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-mega-blue"
-          />
+          <div className="flex gap-2">
+            <input
+              required
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="flex-1 border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-mega-blue"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-700 px-2"
+            >
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
         {error && <p className="text-sm text-mega-red">{error}</p>}
         <button
