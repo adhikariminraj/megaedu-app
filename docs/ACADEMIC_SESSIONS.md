@@ -1,7 +1,7 @@
 # Academic Sessions
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase.
+> Last verified: 2026-08-29, against the current codebase.
 > Part of "Phase 2: Academic Sessions & Grades" — see [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) for the promotion/rollover mechanics, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles.
 
 ## What it is ✅
@@ -26,7 +26,7 @@ Part of [Initial School Setup](GRADES_AND_PROMOTION.md#initial-school-setup--5-s
 
 1. The prior session's `status` is set to `CLOSED`.
 2. A new session is created with `status: "ACTIVE"`.
-3. Every student whose most recent decision was `COMPLETED` or `REPEATED` **with a real outcome grade recorded** is automatically placed into the new session at that grade (a direct `GradeHistory` creation, not a decision — see [PRODUCT_RULES.md](PRODUCT_RULES.md)).
+3. Every student whose most recent decision was `COMPLETED` or `REPEATED` **with a real outcome grade recorded** is automatically placed into the new session at that grade (a direct `GradeHistory` creation, not a decision — see [PRODUCT_RULES.md](PRODUCT_RULES.md)). **The new row's `sectionId` is always `null`** — section is never carried over from the prior session, regardless of what section the student held before; see [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-are-not-inherited-across-sessions).
 4. Anyone still `ENROLLED` with no decision ever recorded is **left unplaced** and surfaces in the persistent Pending/Unresolved queue — see [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#new-session-creation-and-the-pendingunresolved-safeguard-).
 
 **Verified**: a full end-to-end run with 6 students in a mixed state (2 promoted, 1 repeated, 1 left, 2 undecided) produced exactly the right split at the database level, and a real 120-student timing run through the actual HTTP route completed in 365ms.
@@ -45,6 +45,7 @@ One added wrinkle, also implemented and tested: the Promotion roster page can ta
 | One-ACTIVE-per-school rule (app-enforced) | ✅ verified with a real race condition |
 | First-session creation (Initial Setup) | ✅ |
 | Rollover (close prior, open new, auto-carry-forward) | ✅ verified at 6-student and 120-student scale |
+| Rollover never carries a student's section forward (always `null` on the new row) | ✅ verified by reading `carryForwardEligibleStudents()`'s `create()` call — `sectionId` is never one of the written fields |
 | Pending/Unresolved queue, persistent across any number of rollovers | ✅ verified across a 3-session chain |
 | Any UI to rename/edit/delete a past session | 🔭 not built — sessions are create-and-close only |
 | Per-session reporting/analytics (e.g. how many students per grade over time) | 🔭 not built |

@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 
-type PlacementInput = { studentId: string; schoolGradeId: string };
+type PlacementInput = { studentId: string; schoolGradeId: string; sectionId?: string | null };
 
 /**
  * Bulk-creates a student's first GradeHistory row for a session
@@ -17,6 +17,14 @@ type PlacementInput = { studentId: string; schoolGradeId: string };
  * Idempotent — skips a student who already has a GradeHistory row for
  * this session (safe to re-submit in batches across the confident-match
  * and manual-assignment queues).
+ *
+ * sectionId is optional (sections are opt-in) and, when given, must be
+ * an ACTIVE section belonging to the SAME schoolGradeId in that
+ * placement row — a mismatched or inactive section fails that whole
+ * placement rather than silently dropping the section or guessing.
+ * Setting a section at creation time is not audited, same reasoning as
+ * why the initial status:"ENROLLED" isn't — see reassignSection() in
+ * src/lib/gradeHistory.ts for the audited path that changes it later.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
@@ -35,13 +43,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Invalid academic session." }, { status: 400 });
   }
 
-  const [validStudentIds, validGradeIds] = await Promise.all([
+  const [validStudentIds, validGradeIds, activeSectionsByGrade] = await Promise.all([
     prisma.student
       .findMany({ where: { schoolId: params.id, approved: true }, select: { id: true } })
       .then((r) => new Set(r.map((s) => s.id))),
     prisma.schoolGrade
       .findMany({ where: { schoolId: params.id }, select: { id: true } })
       .then((r) => new Set(r.map((g) => g.id))),
+    prisma.section
+      .findMany({
+        where: { schoolGrade: { schoolId: params.id }, isActive: true },
+        select: { id: true, schoolGradeId: true },
+      })
+      .then((rows) => {
+        const map = new Map<string, Set<string>>();
+        for (const r of rows) {
+          if (!map.has(r.schoolGradeId)) map.set(r.schoolGradeId, new Set());
+          map.get(r.schoolGradeId)!.add(r.id);
+        }
+        return map;
+      }),
   ]);
 
   // One transaction for the whole batch — a single commit instead of one
@@ -59,11 +80,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         skipped++;
         continue;
       }
+      if (p.sectionId && !activeSectionsByGrade.get(p.schoolGradeId)?.has(p.sectionId)) {
+        skipped++; // section doesn't belong to this grade, isn't active, or doesn't exist
+        continue;
+      }
       try {
         await tx.gradeHistory.create({
           data: {
             studentId: p.studentId,
             schoolGradeId: p.schoolGradeId,
+            sectionId: p.sectionId || null,
             academicSessionId,
             status: "ENROLLED",
           },

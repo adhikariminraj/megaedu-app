@@ -255,9 +255,31 @@ model SchoolGrade {
   teacherAssignments TeacherGradeAssignment[]
   gradeHistories     GradeHistory[] @relation("GradeHistoryGrade")
   outcomeOfHistories GradeHistory[] @relation("GradeHistoryOutcome")
+  sections           Section[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
+}
+
+// A school's subdivision of one SchoolGrade ("Section A", "1", "Red").
+// Reusable configuration, like SchoolGrade itself — not session-scoped,
+// so a school doesn't have to re-create sections every year. No fixed
+// maximum; a school creates as many as it needs. Never hard-deleted —
+// only renamed or soft-deactivated (isActive) once it may have real
+// academic history attached, matching how the rest of this schema never
+// exposes a working delete route for anything with historical weight.
+model Section {
+  id            String      @id @default(cuid())
+  schoolGradeId String
+  schoolGrade   SchoolGrade @relation(fields: [schoolGradeId], references: [id], onDelete: Cascade)
+  name          String
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+
+  gradeHistories GradeHistory[]
+
+  @@unique([schoolGradeId, name])
+  @@index([schoolGradeId])
 }
 
 // Per-session teacher-to-grade assignment. Deliberately not carried
@@ -289,6 +311,14 @@ model GradeHistory {
   student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   schoolGradeId     String
   schoolGrade       SchoolGrade     @relation("GradeHistoryGrade", fields: [schoolGradeId], references: [id])
+  // Optional — a school's actual class subdivision for this placement,
+  // if it uses sections at all. Never auto-copied from a prior session's
+  // row; every new placement starts unassigned and requires an explicit
+  // decision. Set at creation time (not audited, like status:"ENROLLED"
+  // itself), or changed on an existing row only through reassignSection()
+  // in src/lib/gradeHistory.ts, which is audited like any other change.
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   status            String          @default("ENROLLED") // "ENROLLED" | "COMPLETED" | "REPEATED" | "TRANSFERRED" | "LEFT"
@@ -307,8 +337,15 @@ model GradeHistory {
 }
 
 // Append-only audit trail for GradeHistory decisions. No update or
-// delete route may ever touch this table — recordGradeDecision() is
-// the only writer, and it only ever inserts.
+// delete route may ever touch this table — recordGradeDecision() and
+// reassignSection() are the only writers, and both only ever insert.
+// Each row is a full before/after snapshot of the GradeHistory row at
+// that moment — previousSectionId/newSectionId are populated whenever
+// section changes (via reassignSection()) and simply echo the row's
+// current, unchanged section when a status decision is recorded instead
+// (via recordGradeDecision()) — so the section a student was actually
+// in at any point in the record is never lost, regardless of which kind
+// of change produced a given audit row.
 model GradeHistoryAudit {
   id                     String       @id @default(cuid())
   gradeHistoryId         String
@@ -318,8 +355,10 @@ model GradeHistoryAudit {
   changedAt              DateTime     @default(now())
   previousStatus         String
   previousOutcomeGradeId String?
+  previousSectionId      String?
   newStatus              String
   newOutcomeGradeId      String?
+  newSectionId           String?
 
   @@index([gradeHistoryId])
 }

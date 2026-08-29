@@ -41,16 +41,20 @@ export default async function GradeRosterPage({
 
   if (!targetSession || targetSession.schoolId !== schoolId) redirect("/dashboard/grades");
 
-  const [roster, allSchoolGrades] = await Promise.all([
+  const [roster, allSchoolGrades, gradeSections] = await Promise.all([
     prisma.gradeHistory.findMany({
       where: { schoolGradeId: params.schoolGradeId, academicSessionId: targetSession.id, status: "ENROLLED" },
-      include: { student: { include: { user: true } } },
+      include: { student: { include: { user: true } }, section: true },
       orderBy: { student: { user: { name: "asc" } } },
     }),
     prisma.schoolGrade.findMany({
       where: { schoolId },
       include: { gradeReference: true },
       orderBy: { gradeReference: { order: "asc" } },
+    }),
+    prisma.section.findMany({
+      where: { schoolGradeId: params.schoolGradeId, isActive: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -64,12 +68,19 @@ export default async function GradeRosterPage({
       }}
       academicSessionName={targetSession.name}
       isClosedSession={targetSession.status !== "ACTIVE"}
-      roster={roster.map((r) => ({ gradeHistoryId: r.id, studentName: r.student.user.name }))}
+      roster={roster.map((r) => ({
+        gradeHistoryId: r.id,
+        studentId: r.studentId,
+        studentName: r.student.user.name,
+        sectionId: r.sectionId,
+        sectionName: r.section?.name ?? null,
+      }))}
       allSchoolGrades={allSchoolGrades.map((g) => ({
         id: g.id,
         displayName: g.displayName,
         gradeReference: { code: g.gradeReference.code, order: g.gradeReference.order },
       }))}
+      sections={gradeSections.map((s) => ({ id: s.id, name: s.name }))}
     />
   );
 }

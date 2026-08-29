@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-29, against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -61,10 +61,30 @@ This document collects every business rule and architectural decision that was *
 **Why**: makes it structurally impossible to change a grade decision without leaving a record. Verified repeatedly: an isolated first-decision test (0 audits before, 1 after, correct previous-state capture); a real 100-student bulk Promotion batch through the actual API route producing exactly 100 matching audit rows.
 **Applies to**: ✅ the Student Promotion workflow (`/dashboard/grades/[schoolGradeId]`, `POST /api/schools/[id]/grade-decisions`) is the only feature that calls this. Initial Setup's first-time placements deliberately do **not** go through it — see the next rule.
 
+### Section-level teacher assignment and section-level analytics are explicitly deferred, not overlooked ✅
+**Rule**: teachers are assigned at the grade level only (`TeacherGradeAssignment`); no `TeacherSectionAssignment` concept was built. No per-section counts, dashboards, or reporting exist either.
+**Why**: explicitly decided when approving the Section system — "teachers remain primarily assigned to grades... add section-level teacher assignment only if genuinely necessary. Do not unnecessarily complicate the system," and section-level analytics were named out of scope in the same approval. Both are recorded here so a future request doesn't misread their absence as an oversight.
+**Applies to**: the entire Section system. See [KNOWN_GAPS.md](KNOWN_GAPS.md) for how this is tracked as a deferred item, not a bug.
+
 ### New placements are creation, not decisions — don't over-audit ✅
 **Rule**: when a student is placed into a grade for the first time (Initial Setup) or carried forward automatically into a new session (rollover), that's a direct `GradeHistory` row creation (`status: "ENROLLED"`, no `decidedAt`/`outcomeGradeId`) — **not** a call to `recordGradeDecision()`. Only an actual decision changing an *existing* row's outcome (promotion, repeat, transfer, leave) goes through the audited helper.
 **Why**: this was a self-correction made explicitly during design — the first draft of the plan said Initial Setup should call `recordGradeDecision()`, then was corrected on the reasoning that a brand-new row has no "previous state" to audit against; auditing a creation as if it were a decision would be misleading, not more rigorous.
-**Applies to**: Initial Setup step 5 (`POST /api/schools/[id]/grade-placements`), the New Session rollover's carry-forward sweep (`carryForwardEligibleStudents()` in `src/lib/gradeRollover.ts`), and the Pending/Unresolved queue's "manually place" action (same endpoint, reused). Verified in all three cases: `decidedAt: null` and zero `GradeHistoryAudit` rows on the resulting placements.
+**Applies to**: Initial Setup's student-placement step (`POST /api/schools/[id]/grade-placements`), the New Session rollover's carry-forward sweep (`carryForwardEligibleStudents()` in `src/lib/gradeRollover.ts`), and the Pending/Unresolved queue's "manually place" action (same endpoint, reused). Verified in all three cases: `decidedAt: null` and zero `GradeHistoryAudit` rows on the resulting placements. The same reasoning extends to `grade-placements`' optional `sectionId` — setting a section *at creation time* is likewise not audited; only a change to an already-existing row's section (`reassignSection()`) is.
+
+### Every section reassignment on an existing row is audited through exactly one function ✅
+**Rule**: `reassignSection()` (`src/lib/gradeHistory.ts`) is the only code path allowed to change a `GradeHistory` row's `sectionId` once that row already exists. Same shape and same transaction/audit guarantee as `recordGradeDecision()` — reads current state, writes the new section, inserts a `GradeHistoryAudit` row capturing `previousSectionId`/`newSectionId` alongside the row's unchanged `status`/`outcomeGradeId`.
+**Why**: keeps section changes held to the same "structurally impossible to change without a record" standard as grade decisions, and keeps the two write paths (decision vs. section) demonstrably independent — neither function touches the other's fields.
+**Applies to**: `POST /api/schools/[id]/section-assignments` (bulk, used by both the Setup Wizard and the Promotion roster). Setting a section at *creation* time (`grade-placements`) deliberately does **not** go through it — same "creation isn't a decision" reasoning as the rule below. Verified: an unassigned→A reassignment produced 1 audit row; a later A→B correction on the same row produced a second, preserving both.
+
+### Sections are never auto-copied across sessions or decisions ✅
+**Rule**: a `GradeHistory` row's `sectionId` is set only by an explicit action — never inferred, defaulted, or carried over from another row. Concretely: (1) the rollover carry-forward sweep creates every new-session row with `sectionId` absent from the `create()` call, i.e. always `null`, regardless of the student's prior section; (2) `recordGradeDecision()` (Promote/Repeat/Transfer/Leave) never reads or writes `sectionId` on the row it's deciding.
+**Why**: explicitly required when approving the Section system design — "we should never lose the ability to understand what section the student was assigned to at a particular point in the academic record" was satisfied by making every section change audited (see above), not by guessing continuity across a promotion or a new session, since a new section name (or even the same name, "Class 6A") in a new session isn't guaranteed to mean the same group of students.
+**Applies to**: `carryForwardEligibleStudents()` (`src/lib/gradeRollover.ts`) and `recordGradeDecision()` (`src/lib/gradeHistory.ts`). Verified live: a student assigned to Section A, then promoted, kept `sectionId: A` on their now-`COMPLETED` current-session row (untouched, not cleared) — and reading the rollover sweep's `create()` call directly confirms `sectionId` is structurally never one of the fields it writes.
+
+### No hard-delete path for sections — same "retire by disuse" pattern as the legacy grade field ✅
+**Rule**: `Section` has creation and `PATCH` (rename / `isActive` toggle) routes only — no `DELETE` route exists or is planned. A section that's no longer wanted is deactivated, never removed, so every `GradeHistory`/`GradeHistoryAudit` row that ever referenced it stays fully resolvable.
+**Why**: explicitly required — "no permanent delete of sections with history" — and generalizes the same reasoning already applied to `Student.gradeLevel` (see above): once real historical records point at something, deleting it creates orphaned or unresolvable history, so retirement is always a status flip, never a removal.
+**Applies to**: `Section` and its routes under `src/app/api/schools/[id]/sections/` and `src/app/api/schools/[id]/grades/[schoolGradeId]/sections/`.
 
 ### The carry-forward sweep is idempotent and re-runnable, not a one-shot ✅
 **Rule**: `carryForwardEligibleStudents()` can be safely called more than once against the same target session — re-running it after nothing has changed places zero additional students and throws no error, because it always checks "does this student already have a row in the target session" before creating one.

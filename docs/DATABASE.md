@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-29, against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -73,7 +73,7 @@ Simple school-owned content, no approval workflow. Currently used (School Admin 
 
 ## Academic Sessions & Grades — Phase 2 ✅ (fully implemented and in active use)
 
-All six models below are pushed to the database **and** actively read/written by real routes — this is no longer schema-only. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) and [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) for the full behavioral write-up; this section covers structure only.
+All seven models below are pushed to the database **and** actively read/written by real routes — this is no longer schema-only. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) and [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) for the full behavioral write-up; this section covers structure only.
 
 ### `AcademicSession`
 **Purpose**: one school-year window for a school. **Currently used**: yes — Initial Setup, Promotion, and New Session rollover all depend on it.
@@ -90,7 +90,15 @@ All six models below are pushed to the database **and** actively read/written by
 **Purpose**: a school's opt-in to one `GradeReference`, with its own display label. **Currently used**: yes.
 **Key fields**: `id, schoolId (FK), gradeReferenceId (FK), displayName`.
 **Constraints**: `@@unique([schoolId, gradeReferenceId])`.
+**Relationships**: `sections` (`Section[]`) — added for the Section system, below.
 **Delete behavior**: cascades from `School`; the creation route (`POST /api/schools/[id]/grades`) is additive-only — it never deletes a `SchoolGrade` a school previously opted into.
+
+### `Section`
+**Purpose**: an optional subdivision of a `SchoolGrade` (e.g. Class 6 → sections A, B, C). **Currently used**: yes.
+**Key fields**: `id, schoolGradeId (FK), name, isActive (default true), createdAt`.
+**Constraints**: `@@unique([schoolGradeId, name])` — no two sections in the same grade can share a name; a deactivated section's name is still reserved (renaming a different section to reuse it is blocked the same way an active collision would be).
+**Delete behavior**: cascades from `SchoolGrade`. **No delete route exists** — sections are soft-deactivated only (`isActive: false`), never hard-deleted, so a `GradeHistory` row that references one always resolves to real data, even for a section a school has since retired.
+**Notes**: not session-scoped — a `Section` belongs to a `SchoolGrade`, which is itself school-wide (not per-session), so the same section rows carry across academic sessions. Creation is bulk (`POST .../sections`, comma-separated names, deduplicated, existing-name collisions silently skipped) and additive-only, mirroring `SchoolGrade`'s own creation route. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-).
 
 ### `TeacherGradeAssignment`
 **Purpose**: per-session teacher-to-grade link. **Currently used**: yes.
@@ -100,16 +108,18 @@ All six models below are pushed to the database **and** actively read/written by
 
 ### `GradeHistory`
 **Purpose**: a student's grade placement for one session — the permanent record. **Currently used**: yes, the central Phase 2 table.
-**Key fields**: `id, studentId (FK), schoolGradeId (FK), academicSessionId (FK), status (default "ENROLLED"), enrolledAt, decidedAt?, decidedByUserId? (FK), outcomeGradeId? (FK to SchoolGrade)`. Valid `status`: `ENROLLED | COMPLETED | REPEATED | TRANSFERRED | LEFT`.
+**Key fields**: `id, studentId (FK), schoolGradeId (FK), sectionId? (FK to Section), academicSessionId (FK), status (default "ENROLLED"), enrolledAt, decidedAt?, decidedByUserId? (FK), outcomeGradeId? (FK to SchoolGrade)`. Valid `status`: `ENROLLED | COMPLETED | REPEATED | TRANSFERRED | LEFT`.
 **Constraints**: `@@unique([studentId, academicSessionId])` — one placement per student per session.
 **Delete behavior**: cascades from `Student`; **no delete route exists anywhere** — rows are permanent by design, a repeat or promotion creates a new row in the next session rather than editing this one.
-**Critical rule**: `status`/`outcomeGradeId` may only ever be written through `recordGradeDecision()` (`src/lib/gradeHistory.ts`) — see [PRODUCT_RULES.md](PRODUCT_RULES.md).
+**Critical rule**: `status`/`outcomeGradeId` may only ever be written through `recordGradeDecision()` (`src/lib/gradeHistory.ts`); `sectionId` on an *existing* row may only ever be written through `reassignSection()` (same file) — see [PRODUCT_RULES.md](PRODUCT_RULES.md).
+**Notes**: `sectionId` is optional and, unlike `schoolGradeId`, is **never auto-copied** — not by `recordGradeDecision()` (a promotion/repeat/transfer/leave decision never touches the current row's section), and not by the rollover carry-forward sweep (a new session's row is always created with `sectionId` absent from the `create()` call, i.e. `null`, regardless of what section the student held before). Section assignment is a separate, always-explicit action per session — see [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-).
 
 ### `GradeHistoryAudit`
 **Purpose**: append-only log of every decision made on a `GradeHistory` row. **Currently used**: yes — one row per decision, verified 1:1 in multiple live tests.
-**Key fields**: `id, gradeHistoryId (FK), changedByUserId (FK), changedAt, previousStatus, previousOutcomeGradeId?, newStatus, newOutcomeGradeId?`.
-**Constraints**: none beyond FKs. `previousOutcomeGradeId`/`newOutcomeGradeId` are deliberately plain nullable strings, **not** live FK relations to `SchoolGrade` — a frozen snapshot, for the same reason `Certificate`'s `*NameSnapshot` fields are plain strings.
-**Delete behavior**: cascades from `GradeHistory`; no update or delete route ever touches this table — `recordGradeDecision()` is the sole writer and only ever inserts.
+**Key fields**: `id, gradeHistoryId (FK), changedByUserId (FK), changedAt, previousStatus, previousOutcomeGradeId?, previousSectionId?, newStatus, newOutcomeGradeId?, newSectionId?`.
+**Constraints**: none beyond FKs. `previousOutcomeGradeId`/`newOutcomeGradeId`/`previousSectionId`/`newSectionId` are deliberately plain nullable strings, **not** live FK relations to `SchoolGrade`/`Section` — a frozen snapshot, for the same reason `Certificate`'s `*NameSnapshot` fields are plain strings.
+**Delete behavior**: cascades from `GradeHistory`; no update or delete route ever touches this table — `recordGradeDecision()` and `reassignSection()` are the only writers and only ever insert.
+**Notes**: `previousSectionId`/`newSectionId` are written on **every** audit row, including ones produced by `recordGradeDecision()` (a promotion decision) — the current section is carried through unchanged (`previousSectionId === newSectionId`) so the audit trail always shows what section a student was in at the moment of any decision, even though the decision itself didn't change it. This is what preserves "what section was this student in when they were promoted" even though promotion and section assignment are otherwise independent actions. Verified live: a student assigned to Section A, then promoted, produced two audit rows in sequence — `null→A` (the assignment) and `A→A` alongside `ENROLLED→COMPLETED` (the promotion) — the full chronology stays intact.
 
 ---
 

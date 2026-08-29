@@ -1,7 +1,7 @@
 # User Roles
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase.
+> Last verified: 2026-08-29, against the current codebase.
 
 All seven roles below are ✅ implemented and stored identically: a `UserRole` row (`{ userId, role }`, plain string, `@@unique([userId, role])`). A single MEGA ID (`User`) can hold **multiple roles at once** — see [MEGA_ID.md](MEGA_ID.md). `dashboard/page.tsx` picks which dashboard to show using a fixed priority order (below), not a strict one-role-per-account rule.
 
@@ -20,9 +20,10 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - Registers a school and becomes its first `SchoolAdmin` (a school can have more than one admin).
 - Full dashboard (`DashboardClient.tsx`, tabbed: Profile / Programs / News / Opportunities / Staff / Students / Finance) — edits school profile, posts programs/news/opportunities, approves pending teachers and students, manages accountants.
 - **Phase 2 — Academic Sessions & Grades**, all gated the same way (resolve their own school, no explicit schoolId needed since a School Admin only ever administers their own):
-  - `/dashboard/setup` — the 5-step Initial School Setup wizard (grades, display names, teacher assignments, student placement, review).
+  - `/dashboard/setup` — the 7-step Initial School Setup wizard (session, grades, display names, sections, teacher assignments, student placement + section assignment, review).
   - `/dashboard/grades` — the grades index, per-grade rosters, and the persistent Pending/Unresolved queue.
   - `/dashboard/sessions/new` — closing the current session and opening a new one, with a preview of exactly what will happen to every student first.
+  - **Sections** — the only role that can create a section, rename one, deactivate/reactivate one, or assign a student to one. No hard-delete exists for any role. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-).
 - Gated by `requireSchoolAdmin(schoolId)` on every underlying write route.
 - Also has finance access via `requireSchoolFinance` (admin **or** accountant link).
 

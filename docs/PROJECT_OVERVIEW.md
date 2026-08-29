@@ -1,7 +1,7 @@
 # MEGA.EDU — Project Overview
 
 > Status legend used throughout `/docs`: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase.
+> Last verified: 2026-08-29, against the current codebase.
 
 ## What MEGA.EDU is
 
@@ -17,7 +17,7 @@ The platform exists to give every school, teacher, and student in the network a 
 - **Schools & Organizations** — verified directory listings, admin-managed, with staff/member approval workflows.
 - **MEGA Academy** — free online courses published by organizations, with modules, lessons, enrollment, and completion tracking.
 - **Certificates** — dynamically generated, verifiable credentials issued automatically on course completion, with a public no-login verification page and a designed owner-facing preview.
-- **Academic Sessions & Grades ("Phase 2")** — a structured, fully-audited school-year/grade/promotion system: Initial Setup, per-grade Promotion (Promote/Repeat/Transfer/Leave), and New Session rollover with a Pending/Unresolved safeguard so no student's outcome is ever silently guessed or lost.
+- **Academic Sessions & Grades ("Phase 2")** — a structured, fully-audited school-year/grade/promotion system: Initial Setup, per-grade Promotion (Promote/Repeat/Transfer/Leave), New Session rollover with a Pending/Unresolved safeguard so no student's outcome is ever silently guessed or lost, and an optional **Section** subdivision layer (Class 6 → A, B, C) with its own audited reassignment path — sections are never inherited across a promotion or a new session, always an explicit per-session choice.
 - **Platform Admin command center** — real, live counts and verification queues for the whole network.
 - **Interests & Skills** — self-declared interests, teacher-attested skills.
 - **Notifications, Opportunities, Resources, Events, News** — lightweight supporting content types.
@@ -46,8 +46,9 @@ Two phases of work are complete and independently verified against the running a
 |---|---|---|
 | Phase 1 | MEGA ID, roles, schools/orgs, MEGA Academy, certificates, Platform Admin dashboard | ✅ Complete |
 | Phase 2 | Academic Sessions & Grades — schema, matching utility, Initial Setup, Promotion, New Session rollover | ✅ Complete, all six steps independently verified with real evidence (timing tests, database-level audit-trail checks, multi-session-chain tests) |
+| Phase 2 — Sections | Optional `Section` subdivision of `SchoolGrade`, additive on top of Phase 2's schema: lifecycle (create/rename/deactivate, no hard-delete), audited reassignment (`reassignSection()`), Setup Wizard + Promotion Roster integration | ✅ Complete, verified with real evidence (live UI + database checks, server-side `isActive` enforcement bypassing the UI, a live promotion proving section is untouched by a decision, source-level confirmation that rollover never inherits section) |
 
-Nothing beyond these two phases has been started. No production deployment has occurred.
+Nothing beyond Phase 1, Phase 2, and the Sections addition above has been started. No production deployment has occurred.
 
 ## High-level system architecture
 

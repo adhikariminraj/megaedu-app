@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type SchoolGradeRef = { id: string; displayName: string; gradeReference: { code: string; order: number } };
-type RosterRow = { gradeHistoryId: string; studentName: string };
+type RosterRow = {
+  gradeHistoryId: string;
+  studentId: string;
+  studentName: string;
+  sectionId: string | null;
+  sectionName: string | null;
+};
+type SectionOption = { id: string; name: string };
 type Decision = "COMPLETED" | "REPEATED" | "TRANSFERRED" | "LEFT";
 
 const DECISION_LABELS: Record<Decision, string> = {
@@ -36,6 +43,7 @@ export default function PromotionRoster({
   isClosedSession,
   roster,
   allSchoolGrades,
+  sections,
 }: {
   schoolId: string;
   schoolGrade: SchoolGradeRef;
@@ -43,6 +51,7 @@ export default function PromotionRoster({
   isClosedSession?: boolean;
   roster: RosterRow[];
   allSchoolGrades: SchoolGradeRef[];
+  sections: SectionOption[];
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -123,6 +132,43 @@ export default function PromotionRoster({
     router.refresh();
   }
 
+  // Section reassignment — deliberately a separate action from the
+  // promotion decision above (its own button, its own endpoint, its own
+  // audited write path — reassignSection() via /section-assignments,
+  // never grade-decisions), so choosing to promote a group of students
+  // never implies anything about their section, and vice versa. It does
+  // reuse the SAME checkbox selection as the promotion panel above —
+  // one shared "who am I acting on" list, two independent actions you
+  // can apply to it — rather than a second, disconnected selection UI.
+  const [sectionPick, setSectionPick] = useState("");
+  const [sectionResult, setSectionResult] = useState<string | null>(null);
+  const [sectionError, setSectionError] = useState<string | null>(null);
+
+  async function applySectionAssignment() {
+    if (selected.size === 0 || !sectionPick) {
+      setSectionError("Select at least one student and a section.");
+      return;
+    }
+    setSaving(true);
+    setSectionError(null);
+    setSectionResult(null);
+    const res = await fetch(`/api/schools/${schoolId}/section-assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gradeHistoryIds: [...selected], sectionId: sectionPick }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      setSectionError(data.error || "Something went wrong.");
+      return;
+    }
+    setSectionResult(`Assigned section to ${data.reassigned} student(s).`);
+    setSelected(new Set());
+    setSectionPick("");
+    router.refresh();
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <Link href="/dashboard/grades" className="text-sm text-mega-blue font-medium">
@@ -172,6 +218,9 @@ export default function PromotionRoster({
                   className="accent-mega-navy"
                 />
                 <span className="font-medium text-slate-700">{r.studentName}</span>
+                <span className="text-xs text-slate-400">
+                  {r.sectionName ? `Section ${r.sectionName}` : "No section"}
+                </span>
               </label>
             ))}
           </div>
@@ -227,6 +276,37 @@ export default function PromotionRoster({
               {saving ? "Applying..." : "Apply Decision"}
             </button>
           </div>
+
+          {sections.length > 0 && (
+            <div className="border border-slate-200 rounded-xl p-4 space-y-3 mt-4">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Assign section — separate from promotion, {selected.size} selected above
+              </p>
+              {sectionError && <p className="text-xs text-mega-red">{sectionError}</p>}
+              {sectionResult && <p className="text-xs text-green-700">{sectionResult}</p>}
+              <div className="flex items-center gap-2">
+                <select
+                  value={sectionPick}
+                  onChange={(e) => setSectionPick(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mega-blue"
+                >
+                  <option value="">Select a section...</option>
+                  {sections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={applySectionAssignment}
+                  disabled={saving || selected.size === 0 || !sectionPick}
+                  className="bg-mega-navy text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-mega-blue transition disabled:opacity-50"
+                >
+                  {saving ? "Assigning..." : "Assign Section"}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

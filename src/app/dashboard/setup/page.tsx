@@ -29,7 +29,7 @@ export default async function SetupPage() {
 
   const schoolId = schoolAdmin.school.id;
 
-  const [gradeReferences, schoolGrades, activeSession, teachers, students] = await Promise.all([
+  const [gradeReferences, schoolGrades, activeSession, teachers, students, sections] = await Promise.all([
     prisma.gradeReference.findMany({ orderBy: { order: "asc" } }),
     prisma.schoolGrade.findMany({
       where: { schoolId },
@@ -47,10 +47,18 @@ export default async function SetupPage() {
       include: { user: true },
       orderBy: { user: { name: "asc" } },
     }),
+    prisma.section.findMany({
+      where: { schoolGrade: { schoolId } },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
+  type PlacementWithNames = Prisma.GradeHistoryGetPayload<{
+    include: { student: { include: { user: true } }; schoolGrade: true; section: true };
+  }>;
+
   let teacherAssignments: TeacherAssignmentWithNames[] = [];
-  let gradeHistories: Awaited<ReturnType<typeof prisma.gradeHistory.findMany>> = [];
+  let gradeHistories: PlacementWithNames[] = [];
   if (activeSession) {
     [teacherAssignments, gradeHistories] = await Promise.all([
       prisma.teacherGradeAssignment.findMany({
@@ -59,6 +67,7 @@ export default async function SetupPage() {
       }),
       prisma.gradeHistory.findMany({
         where: { academicSessionId: activeSession.id },
+        include: { student: { include: { user: true } }, schoolGrade: true, section: true },
       }),
     ]);
   }
@@ -109,6 +118,21 @@ export default async function SetupPage() {
       totalApprovedStudents={students.length}
       placedCount={gradeHistories.length}
       suggestions={suggestions}
+      sections={sections.map((s) => ({
+        id: s.id,
+        schoolGradeId: s.schoolGradeId,
+        name: s.name,
+        isActive: s.isActive,
+      }))}
+      placedStudents={gradeHistories.map((g) => ({
+        gradeHistoryId: g.id,
+        studentId: g.studentId,
+        studentName: g.student.user.name,
+        schoolGradeId: g.schoolGradeId,
+        gradeDisplayName: g.schoolGrade.displayName,
+        sectionId: g.sectionId,
+        sectionName: g.section?.name ?? null,
+      }))}
     />
   );
 }

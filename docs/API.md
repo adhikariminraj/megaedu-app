@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-08-29, against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -63,11 +63,14 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSI
 | `POST` | `/api/schools/[id]/academic-sessions` | Create the first (or only) session | `{name, startDate, endDate}` | `alreadyActive: true` (HTTP 200, no-op) if an `ACTIVE` session already exists — not an error |
 | `POST` | `/api/schools/[id]/academic-sessions/rollover` | Close current session, open a new one, sweep eligible students forward | `{name, startDate, endDate}` | `400` if no `ACTIVE` session exists to close; response includes `placed: <count>` |
 | `POST` | `/api/schools/[id]/grades` | Bulk upsert `SchoolGrade` selection/display names | `{grades: [{gradeReferenceId, displayName}]}` | Additive-only, never deletes an existing `SchoolGrade` |
+| `POST` | `/api/schools/[id]/grades/[schoolGradeId]/sections` | Bulk-create `Section`s under one grade | `{names: string[]}` | Trims/dedupes input; an existing-name collision is caught per-name inside a transaction and silently skipped (not an error) |
+| `PATCH` | `/api/schools/[id]/sections/[sectionId]` | Rename and/or activate/deactivate a section | `{name?, isActive?}` | `409 {"error": "Another section in this grade already has that name."}` on a rename collision; no `DELETE` route exists — see [PRODUCT_RULES.md](PRODUCT_RULES.md) |
 | `POST` | `/api/schools/[id]/teacher-assignments` | Bulk-create teacher→grade assignments for one session | `{academicSessionId, assignments: [{teacherId, schoolGradeId}]}` | One transaction; invalid/foreign ids and duplicates silently counted in `skipped`, not errored |
 | `DELETE` | `/api/schools/[id]/teacher-assignments/[assignmentId]` | Remove one assignment | — | `404` if not found or wrong school |
-| `POST` | `/api/schools/[id]/grade-placements` | Bulk-create first-time `GradeHistory` rows | `{academicSessionId, placements: [{studentId, schoolGradeId}]}` | Direct creation, **not** `recordGradeDecision()`; one transaction; duplicates counted in `skipped` |
-| `POST` | `/api/schools/[id]/grade-decisions` | Bulk-apply a Promotion decision | `{gradeHistoryIds: string[], status: "COMPLETED, REPEATED, TRANSFERRED, or LEFT", outcomeSchoolGradeId?}` | Every row routed through `recordGradeDecision()` inside one transaction; ineligible ids (wrong school, already decided) pre-filtered and counted in `skipped`; `400` if zero ids are eligible |
-| `POST` | `/api/schools/[id]/grade-rollover` | On-demand re-run of the carry-forward sweep against the current session | — | `400` if no `ACTIVE` session; idempotent — re-running with nothing new to place returns `placed: 0`, never an error |
+| `POST` | `/api/schools/[id]/grade-placements` | Bulk-create first-time `GradeHistory` rows | `{academicSessionId, placements: [{studentId, schoolGradeId, sectionId?}]}` | Direct creation, **not** `recordGradeDecision()`; one transaction; duplicates counted in `skipped`. `sectionId` is optional — if given, must be an active section belonging to the same `schoolGradeId`, or that placement is skipped (not errored) |
+| `POST` | `/api/schools/[id]/grade-decisions` | Bulk-apply a Promotion decision | `{gradeHistoryIds: string[], status: "COMPLETED, REPEATED, TRANSFERRED, or LEFT", outcomeSchoolGradeId?}` | Every row routed through `recordGradeDecision()` inside one transaction; ineligible ids (wrong school, already decided) pre-filtered and counted in `skipped`; `400` if zero ids are eligible. Never reads or writes `sectionId` |
+| `POST` | `/api/schools/[id]/section-assignments` | Bulk-reassign the section on existing `GradeHistory` rows | `{gradeHistoryIds: string[], sectionId: string \| null}` | Every row routed through `reassignSection()` inside one transaction (audited); `400` if the target section is deactivated or belongs to a different grade than a targeted row |
+| `POST` | `/api/schools/[id]/grade-rollover` | On-demand re-run of the carry-forward sweep against the current session | — | `400` if no `ACTIVE` session; idempotent — re-running with nothing new to place returns `placed: 0`, never an error. Carried-forward rows always have `sectionId: null` |
 
 ## Organizations
 
@@ -103,4 +106,4 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSI
 
 ## Not implemented / not applicable
 
-No routes exist for: deleting a `User`/`School`/`Organization`/`Course`, deactivating a school/organization (`isActive` is read but never set by any route), payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
+No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`, deactivating a school/organization (`isActive` is read but never set by any route), section-level teacher assignment, section-level analytics/reporting, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).

@@ -31,16 +31,27 @@ type Suggestion = {
   gradeLevel: string | null;
   suggestedCode: string | null;
 };
+type SectionRow = { id: string; schoolGradeId: string; name: string; isActive: boolean };
+type PlacedStudent = {
+  gradeHistoryId: string;
+  studentId: string;
+  studentName: string;
+  schoolGradeId: string;
+  gradeDisplayName: string;
+  sectionId: string | null;
+  sectionName: string | null;
+};
 
-type Step = "session" | "grades" | "names" | "teachers" | "students" | "review";
+type Step = "session" | "grades" | "names" | "sections" | "teachers" | "students" | "review";
 
 const STEP_ORDER: { key: Step; label: string }[] = [
   { key: "session", label: "1. Session" },
   { key: "grades", label: "2. Configure Grades" },
   { key: "names", label: "3. Display Names" },
-  { key: "teachers", label: "4. Assign Teachers" },
-  { key: "students", label: "5. Assign Students" },
-  { key: "review", label: "6. Review & Confirm" },
+  { key: "sections", label: "4. Create Sections" },
+  { key: "teachers", label: "5. Assign Teachers" },
+  { key: "students", label: "6. Assign Students" },
+  { key: "review", label: "7. Review & Confirm" },
 ];
 
 function fmtDate(d: string | Date) {
@@ -58,6 +69,8 @@ export default function SetupWizard({
   totalApprovedStudents,
   placedCount,
   suggestions,
+  sections,
+  placedStudents,
 }: {
   schoolId: string;
   schoolName: string;
@@ -69,6 +82,8 @@ export default function SetupWizard({
   totalApprovedStudents: number;
   placedCount: number;
   suggestions: Suggestion[];
+  sections: SectionRow[];
+  placedStudents: PlacedStudent[];
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(
@@ -85,8 +100,49 @@ export default function SetupWizard({
 
   const furthestReachable: Step[] = ["session"];
   if (activeSession) furthestReachable.push("grades");
-  if (activeSession && schoolGrades.length > 0) furthestReachable.push("names", "teachers", "students", "review");
+  if (activeSession && schoolGrades.length > 0)
+    furthestReachable.push("names", "sections", "teachers", "students", "review");
   const canReach = (s: Step) => furthestReachable.includes(s);
+
+  // ---------------- Step: Create sections ----------------
+  const [newSectionNames, setNewSectionNames] = useState<Record<string, string>>({});
+  const sectionsByGrade = (schoolGradeId: string) => sections.filter((s) => s.schoolGradeId === schoolGradeId);
+
+  async function addSections(schoolGradeId: string) {
+    const raw = newSectionNames[schoolGradeId] || "";
+    const names = raw
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (names.length === 0) {
+      setError("Enter at least one section name (e.g. \"A, B, C\").");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/schools/${schoolId}/grades/${schoolGradeId}/sections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      setError(data.error || "Something went wrong.");
+      return;
+    }
+    setNewSectionNames({ ...newSectionNames, [schoolGradeId]: "" });
+    router.refresh();
+  }
+
+  async function toggleSectionActive(sectionId: string, isActive: boolean) {
+    await fetch(`/api/schools/${schoolId}/sections/${sectionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !isActive }),
+    });
+    router.refresh();
+  }
 
   // ---------------- Step 1: Session ----------------
   const [sessionName, setSessionName] = useState("");
@@ -188,7 +244,7 @@ export default function SetupWizard({
       setError(data.error || "Something went wrong.");
       return;
     }
-    setStep("teachers");
+    setStep("sections");
     router.refresh();
   }
 
@@ -327,6 +383,54 @@ export default function SetupWizard({
     }
     setManualSelection(new Set());
     setBulkGradeId("");
+    router.refresh();
+  }
+
+  // ---------------- Step 6b: Assign already-placed students to sections ----------------
+  // Grouped by grade — only grades with at least one active section show
+  // here, since sections are optional and a grade that doesn't use them
+  // has nothing to assign. This is the audited reassignSection() path
+  // (via /section-assignments), never grade-placements — these students
+  // already have a GradeHistory row for this session.
+  const [sectionSelection, setSectionSelection] = useState<Record<string, Set<string>>>({});
+  const [sectionPick, setSectionPick] = useState<Record<string, string>>({});
+
+  function toggleSectionSelection(schoolGradeId: string, studentId: string) {
+    setSectionSelection((prev) => {
+      const next = { ...prev };
+      const set = new Set(next[schoolGradeId] || []);
+      if (set.has(studentId)) set.delete(studentId);
+      else set.add(studentId);
+      next[schoolGradeId] = set;
+      return next;
+    });
+  }
+
+  async function assignSectionsForGrade(schoolGradeId: string) {
+    const selected = sectionSelection[schoolGradeId];
+    const sectionId = sectionPick[schoolGradeId];
+    if (!selected?.size || !sectionId) {
+      setError("Select at least one student and a section.");
+      return;
+    }
+    const gradeHistoryIds = placedStudents
+      .filter((p) => p.schoolGradeId === schoolGradeId && selected.has(p.studentId))
+      .map((p) => p.gradeHistoryId);
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/schools/${schoolId}/section-assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ gradeHistoryIds, sectionId }),
+    });
+    const data = await res.json();
+    setSaving(false);
+    if (!res.ok) {
+      setError(data.error || "Something went wrong.");
+      return;
+    }
+    setSectionSelection({ ...sectionSelection, [schoolGradeId]: new Set() });
+    setSectionPick({ ...sectionPick, [schoolGradeId]: "" });
     router.refresh();
   }
 
@@ -498,6 +602,76 @@ export default function SetupWizard({
             className="bg-mega-navy text-white font-semibold px-5 py-2.5 rounded-full hover:bg-mega-blue transition disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save & Continue"}
+          </button>
+        </div>
+      )}
+
+      {step === "sections" && (
+        <div className="space-y-6">
+          <p className="text-sm text-slate-500">
+            Optional — only set this up for grades that actually split into sections. Names can be
+            anything (&quot;A, B, C&quot;, &quot;1, 2, 3&quot;, &quot;Red, Blue&quot;) and there&apos;s
+            no limit on how many a grade can have.
+          </p>
+          <div className="space-y-4">
+            {gradeReferences
+              .filter((r) => selectedRefIds.has(r.id))
+              .map((r) => {
+                const grade = schoolGrades.find((g) => g.gradeReferenceId === r.id);
+                if (!grade) return null;
+                const gradeSections = sectionsByGrade(grade.id);
+                return (
+                  <div key={grade.id} className="border border-slate-200 rounded-xl p-4">
+                    <p className="font-medium text-slate-800 mb-2">{grade.displayName}</p>
+                    {gradeSections.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {gradeSections.map((s) => (
+                          <span
+                            key={s.id}
+                            className={`inline-flex items-center gap-2 text-xs font-medium rounded-full px-3 py-1.5 ${
+                              s.isActive
+                                ? "bg-blue-50 text-mega-navy"
+                                : "bg-slate-100 text-slate-400 line-through"
+                            }`}
+                          >
+                            {s.name}
+                            <button
+                              onClick={() => toggleSectionActive(s.id, s.isActive)}
+                              className="text-[10px] font-semibold no-underline"
+                              title={s.isActive ? "Deactivate" : "Reactivate"}
+                            >
+                              {s.isActive ? "deactivate" : "reactivate"}
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        value={newSectionNames[grade.id] || ""}
+                        onChange={(e) =>
+                          setNewSectionNames({ ...newSectionNames, [grade.id]: e.target.value })
+                        }
+                        placeholder="e.g. A, B, C"
+                        className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-mega-blue"
+                      />
+                      <button
+                        onClick={() => addSections(grade.id)}
+                        disabled={saving}
+                        className="bg-slate-100 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-200 transition disabled:opacity-50"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          <button
+            onClick={() => setStep("teachers")}
+            className="bg-mega-navy text-white font-semibold px-5 py-2.5 rounded-full hover:bg-mega-blue transition"
+          >
+            Continue →
           </button>
         </div>
       )}
@@ -699,6 +873,77 @@ export default function SetupWizard({
               </>
             )}
           </div>
+
+          {sections.some((s) => s.isActive) && (
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Assign sections
+              </p>
+              <p className="text-xs text-slate-400 mb-3">
+                Optional, and separate from grade placement — a student&apos;s grade and section are
+                two different decisions. Only students already placed in a grade this session are
+                listed here.
+              </p>
+              <div className="space-y-3">
+                {schoolGrades
+                  .filter((g) => sectionsByGrade(g.id).some((s) => s.isActive))
+                  .map((g) => {
+                    const gradeStudents = placedStudents.filter((p) => p.schoolGradeId === g.id);
+                    const selected = sectionSelection[g.id] || new Set<string>();
+                    if (gradeStudents.length === 0) return null;
+                    return (
+                      <div key={g.id} className="border border-slate-200 rounded-xl p-4">
+                        <p className="font-medium text-slate-800 mb-2">{g.displayName}</p>
+                        <div className="divide-y divide-slate-100 mb-3 max-h-48 overflow-y-auto">
+                          {gradeStudents.map((p) => (
+                            <label
+                              key={p.studentId}
+                              className="flex items-center justify-between gap-3 py-1.5 text-sm cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selected.has(p.studentId)}
+                                  onChange={() => toggleSectionSelection(g.id, p.studentId)}
+                                  className="accent-mega-navy"
+                                />
+                                <span className="text-slate-700">{p.studentName}</span>
+                              </span>
+                              <span className="text-xs text-slate-400">
+                                {p.sectionName ? `Section ${p.sectionName}` : "No section"}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={sectionPick[g.id] || ""}
+                            onChange={(e) => setSectionPick({ ...sectionPick, [g.id]: e.target.value })}
+                            className="border border-slate-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-mega-blue"
+                          >
+                            <option value="">Assign to section...</option>
+                            {sectionsByGrade(g.id)
+                              .filter((s) => s.isActive)
+                              .map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </select>
+                          <button
+                            onClick={() => assignSectionsForGrade(g.id)}
+                            disabled={saving || selected.size === 0 || !sectionPick[g.id]}
+                            className="bg-mega-navy text-white text-xs font-semibold px-3 py-2 rounded-full hover:bg-mega-blue transition disabled:opacity-50"
+                          >
+                            Assign {selected.size || ""}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
 
           <button onClick={() => setStep("review")} className="text-mega-navy font-semibold px-0 py-2.5 text-sm">
             Continue to Review →

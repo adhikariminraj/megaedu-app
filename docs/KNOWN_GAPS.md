@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-28 — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-29 — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -42,10 +42,18 @@ The certificate visual design is finished and approved as an in-browser preview;
 ## Phase 2 (Academic Sessions & Grades) — role visibility gaps
 
 ### Teachers, Students, and Parents have no dashboard visibility into Phase 2 data 🔭
-All of Initial Setup, Promotion, and New Session rollover are School-Admin-only surfaces. A Teacher can't see their own `TeacherGradeAssignment`s or the roster of a grade they're assigned to; a Student can't see their own `GradeHistory`/current grade; a Parent can't see a linked child's structured grade at all (the Parent dashboard still shows only the legacy `gradeLevel` text). None of this was in Phase 2's scope, but it's worth tracking as the natural next surface.
+All of Initial Setup, Promotion, and New Session rollover are School-Admin-only surfaces. A Teacher can't see their own `TeacherGradeAssignment`s or the roster of a grade they're assigned to; a Student can't see their own `GradeHistory`/current grade (including their section, now that one may be set); a Parent can't see a linked child's structured grade at all (the Parent dashboard still shows only the legacy `gradeLevel` text). None of this was in Phase 2's scope, but it's worth tracking as the natural next surface.
 
 ### `Skill` isn't scoped to a teacher's grade assignment 🔭
 Any approved teacher at a school can add a `Skill` to any approved student at that school — there's no check against `TeacherGradeAssignment` to restrict this to students in a grade the teacher actually teaches. Pre-dates Phase 2 and wasn't addressed by it.
+
+## Sections — deliberately deferred scope
+
+### No section-level teacher assignment 🔭
+Teachers are assigned at the grade level only (`TeacherGradeAssignment`); no `TeacherSectionAssignment` concept exists. Explicitly decided during design, not an oversight — see [PRODUCT_RULES.md](PRODUCT_RULES.md).
+
+### No section-level analytics or reporting 🔭
+No per-section counts, dashboards, or breakdowns exist anywhere in the app. Explicitly out of scope for the same reason as above.
 
 ## Authentication
 

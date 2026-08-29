@@ -6,6 +6,19 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Section system (2026-08-29)
+An optional subdivision layer under `SchoolGrade` (e.g. Class 6 → A, B, C), built additively on top of Phase 2's existing schema and audit architecture, with every step independently verified against the real database and live UI — the same discipline used for the original Phase 2 build:
+
+1. **Schema** — new `Section` model (`schoolGradeId, name, isActive`, `@@unique([schoolGradeId, name])`, cascades from `SchoolGrade`, no delete route); `GradeHistory.sectionId` (nullable FK); `GradeHistoryAudit.previousSectionId`/`newSectionId`. Purely additive — every existing `GradeHistory` row got `sectionId: null` automatically, no data migration needed.
+2. **`reassignSection()`** (`src/lib/gradeHistory.ts`) — the sole audited write-path for changing section on an *existing* `GradeHistory` row, mirroring `recordGradeDecision()`'s shape exactly.
+3. **New routes**: bulk section creation (`.../grades/[schoolGradeId]/sections`), rename/deactivate (`.../sections/[sectionId]`, `409` on a name collision), bulk audited assignment (`.../section-assignments`, `400` if the target section is deactivated or belongs to a different grade). `grade-placements` gained an optional `sectionId` at creation time (not audited, same reasoning as the initial `ENROLLED` status).
+4. **Initial School Setup** — new "Create Sections" step (comma-separated bulk add, optional); the students step gained a section-assignment panel for already-placed students.
+5. **Promotion Roster** — shows each student's current section; gained its own "Assign Section" panel, fully separate from the Promote/Repeat/Transfer/Leave action (different endpoint, only the checkbox selection is shared).
+
+**Verified live**, with evidence: bulk creation/dedup, rename-collision `409`, deactivate/reactivate toggle both directions, server-side `isActive` enforcement via a raw API call bypassing the UI entirely (`400 "This section is deactivated."`), an active-vs-inactive `grade-placements` creation test (accepted section → 0 audit rows; inactive section → silently skipped, 0 rows created), and — the key requirement — a live promotion (assign Section A → promote to the next grade) proving the current row's section survives a decision completely untouched while the audit trail preserves the full chronology (`null→A`, then `A→A` alongside `ENROLLED→COMPLETED`). Rollover's non-inheritance of section was confirmed by reading `carryForwardEligibleStudents()`'s `create()` call directly — `sectionId` is structurally never one of the fields it writes. All throwaway test data (students, sections, grade-history/audit rows) was cleaned up afterward; the school's one real pre-existing `GradeHistory` row was confirmed untouched, before and after, by row count.
+
+**Deliberately out of scope**, per explicit approval: section-level teacher assignment, section-level analytics/reporting, and any hard-delete path for sections (soft-deactivate only). Promotion/rollover eligibility remains entirely grade-based — sections never affect it.
+
 ### Added — Documentation regeneration (2026-08-28, approximate)
 - Full `/docs` refresh establishing an accurate baseline for Phase 1 + Phase 2 as they actually exist in code — not a patch, a verified rewrite of every file against a fresh reading of the codebase.
 - `ACADEMIC_SESSIONS.md` and `GRADES_AND_PROMOTION.md` fully rewritten — both previously described Initial Setup/Promotion/New Session rollover as not-yet-built; all three are now complete, so both docs needed a real rewrite, not a status-tag edit.
