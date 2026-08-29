@@ -195,7 +195,64 @@ export default async function DashboardPage() {
         },
       },
     });
-    if (schoolAdmin) return <DashboardClient school={schoolAdmin.school} userName={userName} />;
+    if (schoolAdmin) {
+      const schoolId = schoolAdmin.school.id;
+      const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
+
+      const schoolGrades = await prisma.schoolGrade.findMany({
+        where: { schoolId },
+        include: {
+          gradeReference: true,
+          sections: { where: { isActive: true }, orderBy: { name: "asc" } },
+        },
+        orderBy: { gradeReference: { order: "asc" } },
+      });
+
+      let placementByStudentId: Record<
+        string,
+        { gradeHistoryId: string; schoolGradeId: string; gradeDisplayName: string; sectionId: string | null; sectionName: string | null }
+      > = {};
+      if (activeSession) {
+        const placements = await prisma.gradeHistory.findMany({
+          where: {
+            studentId: { in: schoolAdmin.school.students.map((s) => s.id) },
+            academicSessionId: activeSession.id,
+          },
+          include: { schoolGrade: true, section: true },
+        });
+        placementByStudentId = Object.fromEntries(
+          placements.map((p) => [
+            p.studentId,
+            {
+              gradeHistoryId: p.id,
+              schoolGradeId: p.schoolGradeId,
+              gradeDisplayName: p.schoolGrade.displayName,
+              sectionId: p.sectionId,
+              sectionName: p.section?.name ?? null,
+            },
+          ])
+        );
+      }
+
+      return (
+        <DashboardClient
+          school={{
+            ...schoolAdmin.school,
+            students: schoolAdmin.school.students.map((s) => ({
+              ...s,
+              placement: placementByStudentId[s.id] ?? null,
+            })),
+          }}
+          userName={userName}
+          activeSession={activeSession ? { id: activeSession.id, name: activeSession.name } : null}
+          schoolGrades={schoolGrades.map((g) => ({
+            id: g.id,
+            displayName: g.displayName,
+            sections: g.sections.map((sec) => ({ id: sec.id, name: sec.name })),
+          }))}
+        />
+      );
+    }
     return <CreateSchoolPrompt userName={userName} />;
   }
 
