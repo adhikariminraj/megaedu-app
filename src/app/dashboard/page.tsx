@@ -290,6 +290,14 @@ export default async function DashboardPage() {
     });
     if (student) {
       const progress = await fetchAcademicProgress(student.id);
+      let interestsLocked = false;
+      if (student.schoolId) {
+        const activeSession = await prisma.academicSession.findFirst({
+          where: { schoolId: student.schoolId, status: "ACTIVE" },
+          select: { id: true },
+        });
+        interestsLocked = !!(activeSession && student.interestsLockedForSessionId === activeSession.id);
+      }
       return (
         <StudentDashboard
           student={student}
@@ -297,6 +305,7 @@ export default async function DashboardPage() {
           attendance={progress.attendance}
           teachingProgress={progress.teachingProgress}
           testResults={progress.testResults}
+          interestsLocked={interestsLocked}
         />
       );
     }

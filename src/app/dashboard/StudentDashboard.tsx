@@ -28,12 +28,14 @@ export default function StudentDashboard({
   attendance,
   teachingProgress,
   testResults,
+  interestsLocked,
 }: {
   student: Student;
   userName: string;
   attendance: AttendanceRow[];
   teachingProgress: ProgressRow[];
   testResults: TestResultRow[];
+  interestsLocked: boolean;
 }) {
   if (!student.school) {
     return (
@@ -118,7 +120,7 @@ export default function StudentDashboard({
       </div>
 
       <div className="mb-6">
-        <InterestManager interests={student.user.interests} />
+        <InterestManager interests={student.user.interests} locked={interestsLocked} />
       </div>
 
       <div className="border border-slate-200 rounded-xl p-5 mb-8">

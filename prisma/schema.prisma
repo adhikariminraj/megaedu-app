@@ -189,6 +189,15 @@ model Student {
   approved   Boolean  @default(false)
   createdAt  DateTime @default(now())
 
+  // Session in which the student most recently changed (added or
+  // removed) their Interests. Once this equals the school's currently
+  // ACTIVE session, further changes are blocked until a new session
+  // starts — at which point it simply no longer matches the new active
+  // session's id, so editing re-opens automatically with no rollover
+  // logic needed.
+  interestsLockedForSessionId String?
+  interestsLockedForSession   AcademicSession? @relation(fields: [interestsLockedForSessionId], references: [id])
+
   parents           ParentStudent[]
   courseEnrollments CourseEnrollment[]
   skills            Skill[]
@@ -245,6 +254,7 @@ model AcademicSession {
   attendances             Attendance[]
   teachingUnits           TeachingUnit[]
   teachingPlans           TeachingPlan[]
+  interestLockedStudents  Student[]
 
   @@index([schoolId])
 }
