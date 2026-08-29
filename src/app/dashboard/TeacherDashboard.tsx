@@ -18,6 +18,12 @@ type Teacher = {
     course: { title: string; slug: string };
     certificate: { id: string; verificationCode: string } | null;
   }[];
+  academicAssignments: {
+    id: string;
+    schoolGrade: { displayName: string };
+    section: { name: string } | null;
+    subject: { name: string };
+  }[];
 };
 
 export default function TeacherDashboard({ teacher, userName }: { teacher: Teacher; userName: string }) {
@@ -103,6 +109,35 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
       <div className="mb-6">
         <InterestManager interests={teacher.user.interests} />
       </div>
+
+      {teacher.approved && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-800 mb-1">Your Academic Assignments</h2>
+          <p className="text-xs text-slate-400 mb-4">
+            The grades, sections, and subjects you're assigned to teach this session, set by your
+            School Admin.
+          </p>
+          {teacher.academicAssignments.length === 0 ? (
+            <p className="text-slate-400 text-sm mb-2">
+              No academic assignments yet for the current session.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {teacher.academicAssignments.map((a) => (
+                <div
+                  key={a.id}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700"
+                >
+                  {a.schoolGrade.displayName} — {a.subject.name} —{" "}
+                  <span className="text-slate-400">
+                    {a.section ? `Section ${a.section.name}` : "All sections"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {teacher.approved && (
         <div className="mb-8">

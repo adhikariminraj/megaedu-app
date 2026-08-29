@@ -1,7 +1,7 @@
 # Architecture
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase.
+> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
 
 ## High-level shape ✅
 
@@ -15,6 +15,7 @@ src/
       setup/           # Phase 2: Initial School Setup wizard
       grades/          # Phase 2: per-grade Promotion rosters + Pending queue
       sessions/new/    # Phase 2: New Session rollover
+      academics/       # Phase 3A: Subject catalog, grade offerings, teacher assignments
     admin/             # Platform Admin-only pages
     ...                # public pages: schools, courses, opportunities, etc.
   components/          # shared client components (SiteHeader, DashboardHero, certificate/)

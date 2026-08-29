@@ -85,6 +85,59 @@ export async function requireSchoolFinance(schoolId: string): Promise<string | n
 }
 
 /**
+ * Returns the userId if the current session belongs to an approved
+ * Teacher at schoolId who holds a TeacherAcademicAssignment matching
+ * the given scope, otherwise null. This is the Phase 3A permission
+ * foundation for future teacher-facing academic features (attendance,
+ * homework, teaching progress, units/lessons) — nothing calls it yet.
+ *
+ * scope.subjectId is optional: omit it to check "is this teacher
+ * assigned to this grade/section at all, for any subject" (a future
+ * homeroom-style check); include it to check a specific subject (a
+ * future "can this teacher take attendance for Math" check).
+ *
+ * scope.sectionId is optional: omit it to match any assignment for the
+ * grade/session/subject regardless of section; include it to check one
+ * specific section — a grade-wide assignment (sectionId: null on the
+ * row) always covers every section, matching how sections work
+ * everywhere else in this schema.
+ *
+ * Deliberately teacher-only — does not fold in a School Admin bypass.
+ * A caller that wants "Admin or the assigned Teacher" composes both
+ * checks inline, the same way students/[studentId]/skills already
+ * combines an inline teacher check with requireSchoolAdmin today.
+ */
+export async function requireTeacherAssignment(
+  schoolId: string,
+  scope: {
+    academicSessionId: string;
+    schoolGradeId: string;
+    sectionId?: string | null;
+    subjectId?: string;
+  }
+): Promise<string | null> {
+  const session = await getServerSession(authOptions);
+  const userId = (session?.user as any)?.id as string | undefined;
+  if (!userId) return null;
+
+  const teacher = await prisma.teacher.findFirst({
+    where: { userId, schoolId, approved: true },
+  });
+  if (!teacher) return null;
+
+  const match = await prisma.teacherAcademicAssignment.findFirst({
+    where: {
+      teacherId: teacher.id,
+      academicSessionId: scope.academicSessionId,
+      schoolGradeId: scope.schoolGradeId,
+      ...(scope.subjectId ? { subjectId: scope.subjectId } : {}),
+      ...(scope.sectionId ? { OR: [{ sectionId: null }, { sectionId: scope.sectionId }] } : {}),
+    },
+  });
+  return match ? userId : null;
+}
+
+/**
  * Finance access for an organization — same principle as
  * requireSchoolFinance, checking Organization Admin OR Organization
  * Accountant.

@@ -84,6 +84,14 @@ export default function DashboardClient({ school, userName }: { school: School; 
     accent: "purple",
   });
   heroCards.push({
+    icon: "🧮",
+    title: "Subjects & Teacher Assignments",
+    description: "Manage your subject catalog and assign teachers to grades, sections, and subjects.",
+    href: "/dashboard/academics",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
     icon: "📢",
     title: "Post an opportunity",
     description: "Scholarships, competitions, or events for your students.",

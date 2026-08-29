@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-29 (Phase 3A), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -109,6 +109,40 @@ This document collects every business rule and architectural decision that was *
 **Rule**: (1) "Record the missing decision" — go back to the student's old, now-closed session roster and apply a real Promote/Repeat/Transfer/Leave decision (audited via `recordGradeDecision()`), then a follow-up sweep places them in the new session. (2) "Manually place them" — place them directly into the current session without ever deciding the old row; the old row stays permanently `ENROLLED` with zero audit rows, an honest gap rather than a fabricated decision.
 **Why**: both were explicitly specified as valid resolutions; forcing only one path would either lose historical accuracy (if manual placement were disallowed) or block legitimate fast-path corrections (if only the audited path were allowed).
 **Applies to**: the Pending/Unresolved queue's two actions on `/dashboard/grades`. Verified with both paths exercised on different students in the same test run, confirmed distinguishable at the database level by audit-row count (1 vs. 0).
+
+---
+
+## Subjects & Teacher Academic Assignment (Phase 3A)
+
+### Subject catalog is school-wide and reusable; grade offering is session-scoped ✅
+**Rule**: `Subject` is defined once per school and reused across every grade and every academic session — never duplicated per grade. Which subjects a grade actually offers (`GradeSubject`) is, by contrast, scoped to ONE session: a new session starts with zero `GradeSubject` rows for every grade, and nothing is ever auto-copied from the prior session.
+**Why**: explicitly decided when approving Phase 3A — a school-wide catalog avoids re-creating "Mathematics" as a separate row per grade, while session-scoping the offering keeps a past session's curriculum permanently reconstructable even after the school later changes its subject list, the same historical-integrity goal behind every other "don't silently carry forward" rule in this project.
+**Applies to**: `Subject` (`POST /api/schools/[id]/subjects`), `GradeSubject` (`POST/DELETE .../grades/[schoolGradeId]/subjects...`).
+
+### A teacher may never hold both a grade-wide and a section-specific assignment for the same subject/grade/session ✅
+**Rule**: `TeacherAcademicAssignment.sectionId: null` means grade-wide (every section); a real value means one specific section. For the SAME `(teacherId, academicSessionId, schoolGradeId, subjectId)` tuple, a grade-wide request is rejected if any row already exists for that tuple, and a section-specific request is rejected only if a grade-wide row already exists for it. Enforced in the route (`POST /api/schools/[id]/teacher-academic-assignments`), not the database — SQL unique indexes treat `NULL ≠ NULL`, so a plain `@@unique` cannot catch two grade-wide rows colliding, the same reasoning as the one-`ACTIVE`-session-per-school rule below.
+**Why**: explicitly required — "a teacher should either be assigned grade-wide... or to specific sections, but not both simultaneously for the same subject assignment," to prevent an accidental, redundant double-assignment.
+**Applies to**: `TeacherAcademicAssignment`. Verified live in both orderings (grade-wide-then-specific and specific-then-grade-wide), plus confirming a different section for the same teacher/subject is unaffected (not a collision).
+
+### Multiple different teachers may overlap on the same subject/grade/section — no hierarchy ✅
+**Rule**: two different teachers can both hold a `TeacherAcademicAssignment` for the same subject, grade, and section (or one grade-wide, one section-specific) in the same session. No primary/assistant/substitute teacher concept exists or is planned.
+**Why**: explicitly decided — "allow multiple teachers to teach the same Subject in the same Grade/Section/Academic Session. Do not introduce teacher hierarchy... yet."
+**Applies to**: `TeacherAcademicAssignment`. The overlap rule above is scoped strictly per-teacher — it never blocks a second, different teacher.
+
+### A teacher can only be assigned to a subject actually offered at that grade this session ✅
+**Rule**: `TeacherAcademicAssignment.gradeSubjectId` is a direct FK to the matching `GradeSubject` row — the assignment route resolves it from `(schoolGradeId, subjectId, academicSessionId)` before creating the row, and silently skips the item if no matching offering exists. This makes it schema-impossible to assign a teacher to teach a subject the grade doesn't offer this session.
+**Why**: a natural integrity consequence of `GradeSubject` being session-scoped (see above) — without this check, a route could create an assignment referencing a subject/grade/session combination with no corresponding offering at all.
+**Applies to**: `POST /api/schools/[id]/teacher-academic-assignments`.
+
+### `requireTeacherAssignment()` is built ahead of its first caller, as shared foundation ✅
+**Rule**: `src/lib/authorize.ts` gained `requireTeacherAssignment(schoolId, {academicSessionId, schoolGradeId, sectionId?, subjectId?})` during Phase 3A even though no route calls it yet — it exists so Phase 3B's attendance, homework, teaching-progress, and units/lessons features have a proven, single permission primitive to build on rather than each inventing its own inline check.
+**Why**: explicitly requested — "build the requireTeacherAssignment permission helper in Phase 3A... it will become the permission foundation for future modules." Its exact query logic was verified directly (six scenarios against real assignment data) since there's no live route to exercise it through yet.
+**Applies to**: any future teacher-facing write route that needs to check "is this teacher actually assigned here" before letting them act. Deliberately does not fold in a School-Admin bypass — a caller wanting "Admin or the assigned Teacher" composes both checks inline, same as `students/[studentId]/skills` already does.
+
+### `Subject`/`GradeSubject`/`TeacherAcademicAssignment` are current-state, not historical — same non-audited pattern as `TeacherGradeAssignment` ✅
+**Rule**: none of these three tables is audited, and `GradeSubject`/`TeacherAcademicAssignment` both have real `DELETE` routes — freely re-creatable/removable operational data, not permanent decisions. This is a deliberate contrast with `GradeHistory`/`GradeHistoryAudit`, which remain the one audited, permanent placement record.
+**Why**: matches the exact distinction already established for `TeacherGradeAssignment` (never audited, has a real delete route) — Phase 3A's new tables answer "what's the current teaching structure," not "what decision was made and when," so applying the audited pattern to them would be over-engineering, not more rigor (the same reasoning already stated for why Initial Setup placements aren't audited).
+**Applies to**: `Subject`, `GradeSubject`, `TeacherAcademicAssignment`.
 
 ---
 

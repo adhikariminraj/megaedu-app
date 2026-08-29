@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-08-29 (Phase 3A), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -72,6 +72,19 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSI
 | `POST` | `/api/schools/[id]/section-assignments` | Bulk-reassign the section on existing `GradeHistory` rows | `{gradeHistoryIds: string[], sectionId: string \| null}` | Every row routed through `reassignSection()` inside one transaction (audited); `400` if the target section is deactivated or belongs to a different grade than a targeted row |
 | `POST` | `/api/schools/[id]/grade-rollover` | On-demand re-run of the carry-forward sweep against the current session | — | `400` if no `ACTIVE` session; idempotent — re-running with nothing new to place returns `placed: 0`, never an error. Carried-forward rows always have `sectionId: null` |
 
+## Schools — Subjects & Teacher Academic Assignment (Phase 3A)
+
+All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for full behavioral detail — this table is structural.
+
+| Method | Endpoint | Purpose | Important request data | Important response / errors |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/subjects` | Bulk-create the school's subject catalog | `{names: string[]}` | Additive-only; existing-name collisions silently skipped |
+| `PATCH` | `/api/schools/[id]/subjects/[subjectId]` | Rename and/or activate/deactivate a subject | `{name?, isActive?}` | `409` on a rename collision; no `DELETE` route exists |
+| `POST` | `/api/schools/[id]/grades/[schoolGradeId]/subjects` | Bulk-opt a grade into subjects for ONE session | `{academicSessionId, subjectIds: string[]}` | Only active subjects accepted; existing offerings for this grade+session silently skipped |
+| `DELETE` | `/api/schools/[id]/grades/[schoolGradeId]/subjects/[gradeSubjectId]` | Remove one subject from a grade's offering | — | `409` if a `TeacherAcademicAssignment` still references it — remove those first |
+| `POST` | `/api/schools/[id]/teacher-academic-assignments` | Bulk-create teacher subject-teaching assignments for one session | `{academicSessionId, assignments: [{teacherId, schoolGradeId, sectionId?, subjectId}]}` | `sectionId: null` = grade-wide; subject must be offered at that grade this session (via `GradeSubject`) or the item is skipped; the same teacher can't hold both a grade-wide and section-specific row for the same subject/grade/session (skipped, not errored) — see [PRODUCT_RULES.md](PRODUCT_RULES.md) |
+| `DELETE` | `/api/schools/[id]/teacher-academic-assignments/[assignmentId]` | Remove one teacher academic assignment | — | `404` if not found or wrong school |
+
 ## Organizations
 
 | Method | Endpoint | Purpose | Auth | Authz | Notes |
@@ -106,4 +119,4 @@ All gated by `requireSchoolAdmin(id)`. See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSI
 
 ## Not implemented / not applicable
 
-No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`, deactivating a school/organization (`isActive` is read but never set by any route), section-level teacher assignment, section-level analytics/reporting, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
+No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`/`Subject`, deactivating a school/organization (`isActive` is read but never set by any route), section-level teacher assignment, section-level analytics/reporting, copying a `GradeSubject` offering forward from a prior session (each session is configured from scratch, deliberately), teaching hierarchy (primary/assistant/substitute teacher), attendance, homework/assignments, teaching progress, units/lessons, examinations/results, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).

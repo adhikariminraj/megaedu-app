@@ -1,7 +1,7 @@
 # User Roles
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase.
+> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
 
 All seven roles below are ✅ implemented and stored identically: a `UserRole` row (`{ userId, role }`, plain string, `@@unique([userId, role])`). A single MEGA ID (`User`) can hold **multiple roles at once** — see [MEGA_ID.md](MEGA_ID.md). `dashboard/page.tsx` picks which dashboard to show using a fixed priority order (below), not a strict one-role-per-account rule.
 
@@ -24,6 +24,9 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
   - `/dashboard/grades` — the grades index, per-grade rosters, and the persistent Pending/Unresolved queue.
   - `/dashboard/sessions/new` — closing the current session and opening a new one, with a preview of exactly what will happen to every student first.
   - **Sections** — the only role that can create a section, rename one, deactivate/reactivate one, or assign a student to one. No hard-delete exists for any role. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-).
+- **Phase 3A — Subjects & Teacher Academic Assignment**, same access pattern:
+  - `/dashboard/academics` — manage the subject catalog (create/rename/deactivate), configure which subjects each grade offers for the current session, and assign/remove teacher subject-teaching assignments (grade-wide or section-specific).
+  - The only role that can do any of this — no hard-delete exists for `Subject` (deactivate only); `GradeSubject`/`TeacherAcademicAssignment` do have real delete routes since they're current-state, non-historical data. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md).
 - Gated by `requireSchoolAdmin(schoolId)` on every underlying write route.
 - Also has finance access via `requireSchoolFinance` (admin **or** accountant link).
 
@@ -34,6 +37,7 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 - Can enroll in and complete MEGA Academy courses.
 - Can add `Skill` records to any approved student at their school.
 - **Phase 2**: can be assigned to grades via `TeacherGradeAssignment` (done by a School Admin during Initial Setup), but has no dashboard view of their own assignment or their assigned students' grade rosters — that surface belongs to the School Admin today. 🔭
+- **Phase 3A**: can be assigned to a specific (session, grade, section-or-whole-grade, subject) via `TeacherAcademicAssignment` (done by a School Admin on `/dashboard/academics`). Unlike `TeacherGradeAssignment` above, a Teacher **does** now see their own current assignments — a read-only "Your Academic Assignments" section on their dashboard, scoped to the active session. Still no write action of their own, and no route yet checks `requireTeacherAssignment()` (built in Phase 3A, awaiting its first caller in a later sub-phase).
 
 ## STUDENT
 

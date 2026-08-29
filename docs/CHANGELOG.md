@@ -6,6 +6,20 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Phase 3A: Subjects & Teacher Academic Assignment (2026-08-29)
+The first sub-phase of "Phase 3 — School Academic System," built additively on top of Phase 2 and the Section system, with the same live-verification discipline:
+
+1. **Schema** — three new models (`Subject`, `GradeSubject`, `TeacherAcademicAssignment`), additive; only new relation-array fields added to `School`, `Teacher`, `AcademicSession`, `SchoolGrade`, `Section` — no existing column changed.
+2. **Subject Catalog** (`POST/PATCH /api/schools/[id]/subjects...`) — school-wide, reusable catalog; deactivate only, no hard delete.
+3. **Grade Subject Offering** (`POST/DELETE /api/schools/[id]/grades/[schoolGradeId]/subjects...`) — deliberately session-scoped, never carried forward, so past curricula stay reconstructable; a real delete route (unlike Subject/Section) since nothing permanent references it.
+4. **Teacher Academic Assignment** (`POST/DELETE /api/schools/[id]/teacher-academic-assignments...`) — Teacher → Session → Grade → optional Section → Subject, with a server-side rule preventing the same teacher from holding both a grade-wide and section-specific assignment for one subject/grade/session at once, while allowing multiple different teachers to freely overlap (no teaching hierarchy).
+5. **`requireTeacherAssignment()`** (`src/lib/authorize.ts`) — a new permission primitive, built ahead of its first caller as the explicit foundation for Phase 3B's attendance/homework/teaching-progress work.
+6. **Read-side UI** — a new School Admin page (`/dashboard/academics`) managing the full structure; a new read-only "Your Academic Assignments" section on the Teacher dashboard.
+
+**Verified live**, with evidence: subject bulk-create/dedup/rename-collision/deactivate; grade-offering idempotency and the deactivated-subject rejection; the grade-wide/section-specific overlap rule tested in both orderings plus confirming different sections and different teachers are correctly unaffected; the subject-not-offered-this-session rejection; the `GradeSubject` delete route's `409`-then-succeed behavior; `requireTeacherAssignment()`'s exact query logic verified directly against real assignment data (six scenarios, since no route calls it yet); the full UI exercised end-to-end for both School Admin and Teacher. All throwaway test data (subjects, sections, a second test teacher, offerings, assignments) and temporary scripts were fully cleaned up afterward; the school's one real pre-existing `GradeHistory` row and its 10 real `TeacherGradeAssignment` rows were confirmed unaffected, before and after.
+
+**Deliberately out of scope**, per the explicit Phase 3A brief: student attendance, homework/assignments, teaching progress, units/lessons, student/parent academic dashboard features, examinations/results, analytics/reporting, and any teaching hierarchy (primary/assistant/substitute teacher) — all reserved for Phase 3B and later, to be designed separately.
+
 ### Added — Section system (2026-08-29)
 An optional subdivision layer under `SchoolGrade` (e.g. Class 6 → A, B, C), built additively on top of Phase 2's existing schema and audit architecture, with every step independently verified against the real database and live UI — the same discipline used for the original Phase 2 build:
 

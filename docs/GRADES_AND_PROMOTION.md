@@ -2,7 +2,7 @@
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
 > Last verified: 2026-08-29, against the current codebase.
-> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions).
+> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions).
 
 ## Why this exists ✅
 

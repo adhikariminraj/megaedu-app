@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase.
+> Last verified: 2026-08-29 (Phase 3A), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -41,6 +41,21 @@ The simplest form — `roles?.includes("SCHOOL_ADMIN")` — is used where there'
 | `requireOrgFinance(organizationId)` | Session + (`OrganizationAdmin` row **or** `OrganizationAccountant` row) | Finance-only routes/tabs for an organization |
 
 **Deliberate design note** (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): the finance helpers check *both* the Admin and Accountant relationships on purpose — an Admin keeps full authority (finance included), a bare Accountant gets finance access *only*.
+
+## Teacher academic authorization — `requireTeacherAssignment()` ✅ (built, no caller yet)
+
+Added in Phase 3A, alongside the `requireX` suite but with a different shape — it checks a *specific academic assignment*, not a blanket school-wide relationship:
+
+```ts
+requireTeacherAssignment(
+  schoolId: string,
+  scope: { academicSessionId: string; schoolGradeId: string; sectionId?: string | null; subjectId?: string }
+): Promise<string | null>
+```
+
+Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for a `TeacherAcademicAssignment` matching `academicSessionId` + `schoolGradeId`, where a grade-wide assignment (`sectionId: null` on the row) satisfies any `scope.sectionId` given — a grade-wide row always "covers" every section, matching how sections work everywhere else in this schema. `scope.sectionId`/`scope.subjectId` are both optional, so the same primitive expresses either a broad "assigned here at all" check or a narrow "assigned to teach *this subject* here" check.
+
+**No route calls this yet** — it's the Phase 3A foundation for Phase 3B's attendance, homework, teaching-progress, and units/lessons work. Deliberately teacher-only, no School-Admin bypass baked in; a future caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) and [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
 ## Access patterns not covered by `authorize.ts` ✅
 

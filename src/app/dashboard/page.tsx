@@ -131,6 +131,11 @@ export default async function DashboardPage() {
         school: true,
         user: { include: { interests: { orderBy: { createdAt: "desc" } } } },
         courseEnrollments: { include: { course: true, certificate: true } },
+        academicAssignments: {
+          where: { academicSession: { status: "ACTIVE" } },
+          include: { schoolGrade: true, section: true, subject: true },
+          orderBy: [{ schoolGrade: { gradeReference: { order: "asc" } } }, { subject: { name: "asc" } }],
+        },
       },
     });
     if (teacher) return <TeacherDashboard teacher={teacher} userName={userName} />;

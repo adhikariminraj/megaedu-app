@@ -60,12 +60,20 @@ export default async function GradesIndexPage() {
               {activeSession.name} — open a grade to promote, repeat, transfer, or mark students as
               left. Each grade can be handled at its own pace, independently of the others.
             </p>
-            <Link
-              href="/dashboard/sessions/new"
-              className="shrink-0 text-xs font-semibold text-mega-navy bg-blue-50 rounded-full px-3 py-1.5 hover:bg-blue-100 transition"
-            >
-              Start New Session →
-            </Link>
+            <div className="flex gap-2 shrink-0">
+              <Link
+                href="/dashboard/academics"
+                className="text-xs font-semibold text-mega-navy bg-blue-50 rounded-full px-3 py-1.5 hover:bg-blue-100 transition"
+              >
+                Subjects & Teachers →
+              </Link>
+              <Link
+                href="/dashboard/sessions/new"
+                className="text-xs font-semibold text-mega-navy bg-blue-50 rounded-full px-3 py-1.5 hover:bg-blue-100 transition"
+              >
+                Start New Session →
+              </Link>
+            </div>
           </div>
 
           {pending.length > 0 && (

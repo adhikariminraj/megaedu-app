@@ -101,6 +101,7 @@ model School {
 
   academicSessions AcademicSession[]
   grades           SchoolGrade[]
+  subjects         Subject[]
 }
 
 model SchoolAdmin {
@@ -161,6 +162,7 @@ model Teacher {
   // certificates through teacher.user.certificatesReceived.
 
   gradeAssignments TeacherGradeAssignment[]
+  academicAssignments TeacherAcademicAssignment[]
 
   @@index([schoolId])
 }
@@ -227,6 +229,8 @@ model AcademicSession {
 
   teacherGradeAssignments TeacherGradeAssignment[]
   gradeHistories          GradeHistory[]
+  gradeSubjects           GradeSubject[]
+  teacherAcademicAssignments TeacherAcademicAssignment[]
 
   @@index([schoolId])
 }
@@ -256,6 +260,8 @@ model SchoolGrade {
   gradeHistories     GradeHistory[] @relation("GradeHistoryGrade")
   outcomeOfHistories GradeHistory[] @relation("GradeHistoryOutcome")
   sections           Section[]
+  gradeSubjects      GradeSubject[]
+  teacherAcademicAssignments TeacherAcademicAssignment[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -277,6 +283,7 @@ model Section {
   createdAt     DateTime    @default(now())
 
   gradeHistories GradeHistory[]
+  teacherAcademicAssignments TeacherAcademicAssignment[]
 
   @@unique([schoolGradeId, name])
   @@index([schoolGradeId])
@@ -361,6 +368,104 @@ model GradeHistoryAudit {
   newSectionId           String?
 
   @@index([gradeHistoryId])
+}
+
+// ============================================================
+// SUBJECTS & TEACHER ACADEMIC ASSIGNMENT — Phase 3A
+// Additive alongside Phase 2 / the Section system above. Nothing in
+// this block changes any existing model's columns.
+// ============================================================
+
+// School-wide subject catalog. Reusable across grades and academic
+// sessions — a school defines "Mathematics" once, not once per grade.
+// Never hard-deleted once a real TeacherAcademicAssignment may
+// reference it — deactivate only (isActive), same precedent as
+// Section.
+model Subject {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  code      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  gradeSubjects      GradeSubject[]
+  teacherAssignments TeacherAcademicAssignment[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+// Which subjects a grade offers — for ONE academic session. Unlike
+// SchoolGrade/Section, this is NOT reusable config: every session gets
+// its own rows, never auto-copied from the prior session (same pattern
+// as TeacherGradeAssignment) — a new session starts with zero
+// GradeSubject rows until the School Admin explicitly configures them.
+// This is what keeps a past session's curriculum permanently
+// reconstructable even after the school later changes its subject
+// list. A real DELETE route is appropriate here (unlike Subject or
+// Section) — nothing permanent references a GradeSubject row directly
+// (TeacherAcademicAssignment references it, but is itself non-historical,
+// freely-editable current-state data, not an audited record), so
+// removing one mid-session just corrects that session's offering.
+model GradeSubject {
+  id                String          @id @default(cuid())
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  createdAt         DateTime        @default(now())
+
+  teacherAssignments TeacherAcademicAssignment[]
+
+  @@unique([schoolGradeId, subjectId, academicSessionId])
+  @@index([schoolGradeId])
+  @@index([academicSessionId])
+}
+
+// A teacher's subject-teaching assignment for one session — Teacher ->
+// AcademicSession -> SchoolGrade -> optional Section -> Subject.
+// sectionId null means grade-wide (every section); non-null means one
+// specific section. A teacher may never hold both a grade-wide AND a
+// section-specific row for the same (teacherId, academicSessionId,
+// schoolGradeId, subjectId) tuple at once — enforced in the route, not
+// the DB, because SQL unique indexes treat NULL as distinct from NULL
+// so a plain @@unique cannot catch two grade-wide rows colliding (same
+// class of app-level rule as the one-ACTIVE-session-per-school check).
+// Multiple DIFFERENT teachers CAN hold overlapping assignments for the
+// same subject/grade/section — no hierarchy, no primary/assistant
+// concept. gradeSubjectId is the source of truth that this subject is
+// actually offered at this grade in this session (the FK cannot be
+// created otherwise); schoolGradeId/subjectId/academicSessionId are
+// denormalized alongside it purely for query convenience. Deliberately
+// NOT the same table as TeacherGradeAssignment — see
+// docs/PRODUCT_RULES.md for why. Deliberately not audited, same as
+// TeacherGradeAssignment — a current, freely-reassignable operational
+// assignment, not a permanent historical decision.
+model TeacherAcademicAssignment {
+  id                String          @id @default(cuid())
+  teacherId         String
+  teacher           Teacher         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  subjectId         String
+  subject           Subject         @relation(fields: [subjectId], references: [id])
+  gradeSubjectId    String
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id])
+  createdAt         DateTime        @default(now())
+
+  @@unique([teacherId, academicSessionId, schoolGradeId, sectionId, subjectId])
+  @@index([academicSessionId])
+  @@index([schoolGradeId])
+  @@index([subjectId])
+  @@index([teacherId])
 }
 
 // ============================================================

@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-29 (Phase 3A), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -123,6 +123,33 @@ All seven models below are pushed to the database **and** actively read/written 
 
 ---
 
+## Subjects & Teacher Academic Assignment — Phase 3A ✅ (fully implemented and in active use)
+
+Additive on top of Phase 2/the Section system — no existing model's columns changed, only new relation-array fields on `School`, `Teacher`, `AcademicSession`, `SchoolGrade`, and `Section`. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for the full behavioral write-up; this section covers structure only.
+
+### `Subject`
+**Purpose**: a school-wide subject catalog entry. **Currently used**: yes.
+**Key fields**: `id, schoolId (FK), name, code?, isActive (default true), createdAt`.
+**Constraints**: `@@unique([schoolId, name])`.
+**Delete behavior**: cascades from `School`; **no delete route exists** — deactivate only (`isActive`), same precedent as `Section`, since a real `GradeSubject`/`TeacherAcademicAssignment` may already reference it.
+**Notes**: reusable across every grade and every academic session — a school defines a subject once, not once per grade.
+
+### `GradeSubject`
+**Purpose**: which subjects a grade offers, for one specific academic session. **Currently used**: yes.
+**Key fields**: `id, schoolGradeId (FK), subjectId (FK), academicSessionId (FK), createdAt`.
+**Constraints**: `@@unique([schoolGradeId, subjectId, academicSessionId])`.
+**Delete behavior**: cascades from `SchoolGrade`/`Subject`; a real `DELETE` route exists (`.../grades/[schoolGradeId]/subjects/[gradeSubjectId]`) — blocked with `409` if a `TeacherAcademicAssignment` already references it, otherwise removed outright. Unlike `Section`/`Subject`, nothing permanent points at a `GradeSubject` row, so a hard delete is safe.
+**Notes**: **not** reusable config like `SchoolGrade`/`Section` — every academic session starts with zero `GradeSubject` rows for every grade, never auto-copied from the prior session (same non-carry-forward pattern as `TeacherGradeAssignment`). This is what keeps a past session's curriculum permanently reconstructable even after the school later changes its subject list.
+
+### `TeacherAcademicAssignment`
+**Purpose**: a teacher's subject-teaching assignment for one session. **Currently used**: yes.
+**Key fields**: `id, teacherId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), subjectId (FK), gradeSubjectId (FK), createdAt`.
+**Constraints**: `@@unique([teacherId, academicSessionId, schoolGradeId, sectionId, subjectId])` — catches an exact duplicate reliably (SQL unique indexes work normally when `sectionId` is a real value). Does **not**, by itself, prevent two grade-wide (`sectionId: null`) rows for the same tuple — SQL treats `NULL ≠ NULL` in unique indexes — so the grade-wide/section-specific overlap rule is enforced in the route, not the schema (same class of app-level rule as the one-`ACTIVE`-session-per-school check).
+**Delete behavior**: cascades from `Teacher`/`AcademicSession`/`SchoolGrade`/`GradeSubject`; a real `DELETE` route exists (`.../teacher-academic-assignments/[assignmentId]`) — not audited, same as `TeacherGradeAssignment`'s own delete route.
+**Notes**: `sectionId: null` means grade-wide (every section); a real value means one specific section — a grade-wide row always "covers" every section for permission-checking purposes (see `requireTeacherAssignment()` in [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)). `gradeSubjectId` is the source of truth that this subject is actually offered at this grade in this session — the FK cannot be created otherwise; `schoolGradeId`/`subjectId`/`academicSessionId` are denormalized alongside it purely for query convenience. Multiple different teachers may hold overlapping assignments for the same subject/grade/section — no hierarchy, no primary/assistant/substitute concept.
+
+---
+
 ## Organizations
 
 ### `Organization` ✅
@@ -210,4 +237,4 @@ Ordered content under a course. Cascades from `Course`/`CourseModule` respective
 - **Snapshot fields for anything that must survive a later rename**: `Certificate.*NameSnapshot`, `GradeHistoryAudit.previous/newOutcomeGradeId`. Logos are the deliberate exception (live-looked-up). Full rationale: [PRODUCT_RULES.md](PRODUCT_RULES.md).
 - **`Student.gradeLevel` is permanent legacy fallback**, not scheduled for removal.
 - **No cascading deletes on cross-reference relations** (e.g. `GradeHistory.schoolGradeId`, `Certificate.issuerOrganizationId`) — only genuine ownership chains cascade.
-- **No model in this schema has a working delete route in the application today** — every "delete behavior" described above is schema-level cascade behavior that would apply *if* a delete ever happened, not something any current UI action triggers (`TeacherGradeAssignment` is the one exception with a real `DELETE` route).
+- **Most models in this schema have no working delete route in the application** — for those, every "delete behavior" described above is schema-level cascade behavior that would apply *if* a delete ever happened, not something any current UI action triggers. The exceptions, all deliberate: `TeacherGradeAssignment`, `GradeSubject`, and `TeacherAcademicAssignment` each have a real `DELETE` route — all three are current-state, non-historical operational data (never audited, freely re-creatable), not permanent records.

@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-29 — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-29 (Phase 3A) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -42,7 +42,7 @@ The certificate visual design is finished and approved as an in-browser preview;
 ## Phase 2 (Academic Sessions & Grades) — role visibility gaps
 
 ### Teachers, Students, and Parents have no dashboard visibility into Phase 2 data 🔭
-All of Initial Setup, Promotion, and New Session rollover are School-Admin-only surfaces. A Teacher can't see their own `TeacherGradeAssignment`s or the roster of a grade they're assigned to; a Student can't see their own `GradeHistory`/current grade (including their section, now that one may be set); a Parent can't see a linked child's structured grade at all (the Parent dashboard still shows only the legacy `gradeLevel` text). None of this was in Phase 2's scope, but it's worth tracking as the natural next surface.
+All of Initial Setup, Promotion, and New Session rollover are School-Admin-only surfaces. A Teacher still can't see their own `TeacherGradeAssignment`s (grade-level, Phase 2) or the roster of a grade they're assigned to — though Phase 3A did add read-only visibility into their `TeacherAcademicAssignment`s (subject-level) on their dashboard, a narrower fix, not this whole gap. A Student can't see their own `GradeHistory`/current grade (including their section, now that one may be set) or which subjects/teachers they have; a Parent can't see a linked child's structured grade at all (the Parent dashboard still shows only the legacy `gradeLevel` text). None of this was in Phase 2 or Phase 3A's scope, but it's worth tracking as the natural next surface.
 
 ### `Skill` isn't scoped to a teacher's grade assignment 🔭
 Any approved teacher at a school can add a `Skill` to any approved student at that school — there's no check against `TeacherGradeAssignment` to restrict this to students in a grade the teacher actually teaches. Pre-dates Phase 2 and wasn't addressed by it.
@@ -54,6 +54,17 @@ Teachers are assigned at the grade level only (`TeacherGradeAssignment`); no `Te
 
 ### No section-level analytics or reporting 🔭
 No per-section counts, dashboards, or breakdowns exist anywhere in the app. Explicitly out of scope for the same reason as above.
+
+## Phase 3A (Subjects & Teacher Academic Assignment)
+
+### A `GradeSubject` offering must be reconfigured from scratch every session 🔭
+Deliberate, not a bug (see [PRODUCT_RULES.md](PRODUCT_RULES.md)) — a new session starts with zero subject offerings for every grade, nothing copied from the prior session, so past curricula stay reconstructable. No "copy from last session" convenience action exists, so a school whose curriculum rarely changes must still re-enter it every session. Worth considering as a future opt-in convenience feature that still preserves the underlying session-scoped rows.
+
+### `requireTeacherAssignment()` has no caller yet 🔭
+Built and verified in Phase 3A specifically as shared foundation for Phase 3B (attendance, homework, teaching progress, units/lessons) — by design, nothing in the app calls it today.
+
+### Phase 3B academic features are not started 🔭
+Student attendance, homework/assignments and completion checking, subject teaching progress, units/lessons tracking, student/parent-facing academic dashboard views, examinations/results, and analytics/reporting all remain undesigned — explicitly deferred, to be scoped and approved separately. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md).
 
 ## Authentication
 
