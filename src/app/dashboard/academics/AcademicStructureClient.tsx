@@ -57,6 +57,7 @@ export default function AcademicStructureClient({
     Record<string, { teacherId: string; subjectId: string; sectionId: string }>
   >({});
   const [classTeacherPick, setClassTeacherPick] = useState<Record<string, { teacherId: string; sectionId: string }>>({});
+  const [newSectionNames, setNewSectionNames] = useState<Record<string, string>>({});
 
   async function call(url: string, options: RequestInit) {
     setError(null);
@@ -184,6 +185,20 @@ export default function AcademicStructureClient({
     });
   }
 
+  async function addSections(gradeId: string) {
+    const names = (newSectionNames[gradeId] || "")
+      .split(",")
+      .map((n) => n.trim())
+      .filter(Boolean);
+    if (names.length === 0) return;
+    const result = await call(`/api/schools/${schoolId}/grades/${gradeId}/sections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names }),
+    });
+    if (result) setNewSectionNames((p) => ({ ...p, [gradeId]: "" }));
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <p className="text-sm text-slate-400 mb-1">{schoolName}</p>
@@ -301,6 +316,42 @@ export default function AcademicStructureClient({
 
                   {expanded && (
                     <div className="mt-4 space-y-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 mb-2">Sections</p>
+                        <p className="text-xs text-slate-400 mb-2">
+                          Needed before a teacher can be assigned to an individual section rather
+                          than the whole grade. No fixed maximum — add as many as this grade uses.
+                        </p>
+                        {g.sections.length === 0 ? (
+                          <p className="text-slate-400 text-xs mb-2">None yet — only "All sections" is available until you add some.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {g.sections.map((s) => (
+                              <span
+                                key={s.id}
+                                className="text-xs bg-blue-50 text-mega-navy rounded-full px-3 py-1"
+                              >
+                                Section {s.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <input
+                            value={newSectionNames[g.id] || ""}
+                            onChange={(e) => setNewSectionNames((p) => ({ ...p, [g.id]: e.target.value }))}
+                            placeholder="e.g. A, B, C"
+                            className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5"
+                          />
+                          <button
+                            onClick={() => addSections(g.id)}
+                            className="text-xs font-semibold text-white bg-mega-navy rounded-lg px-3 py-1.5"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
                       <div>
                         <p className="text-xs font-semibold text-slate-500 mb-2">
                           Class &amp; Section Teachers
