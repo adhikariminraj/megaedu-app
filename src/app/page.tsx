@@ -2,6 +2,19 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Playfair_Display, Libre_Baskerville } from "next/font/google";
+
+const playfairDisplay = Playfair_Display({
+  subsets: ["latin"],
+  weight: "700",
+  display: "swap",
+});
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin"],
+  weight: "700",
+  style: "italic",
+  display: "swap",
+});
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +57,10 @@ export default async function HomePage() {
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/50 to-slate-900/70" />
         <div className="relative max-w-6xl mx-auto px-6 py-28 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-md">
-            One network for every school, teacher, and student.
+          <h1 className={`${playfairDisplay.className} text-4xl md:text-5xl font-bold mb-4 drop-shadow-md`}>
+            One network for Every School, Teacher, Student, Parent and Education Approach.
           </h1>
-          <p className="text-lg text-slate-100 max-w-2xl mx-auto mb-8 drop-shadow">
+          <p className={`${libreBaskerville.className} inline-block text-lg font-bold italic text-slate-800 bg-orange-50/90 rounded-xl px-5 py-3 max-w-2xl mx-auto mb-8`}>
             MEGA.EDU connects schools, teachers, students, parents and education
             organizations — giving every school a digital identity and access to
             training, resources and opportunities.
