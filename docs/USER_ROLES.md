@@ -1,7 +1,7 @@
 # User Roles
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B, plus the Parent Academic Visibility follow-up), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B, plus the Parent Academic Visibility follow-up and School Admin Direct Student & Teacher Management), against the current codebase.
 
 All seven roles below are ✅ implemented and stored identically: a `UserRole` row (`{ userId, role }`, plain string, `@@unique([userId, role])`). A single MEGA ID (`User`) can hold **multiple roles at once** — see [MEGA_ID.md](MEGA_ID.md). `dashboard/page.tsx` picks which dashboard to show using a fixed priority order (below), not a strict one-role-per-account rule.
 
@@ -24,6 +24,8 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
   - `/dashboard/grades` — the grades index, per-grade rosters, and the persistent Pending/Unresolved queue.
   - `/dashboard/sessions/new` — closing the current session and opening a new one, with a preview of exactly what will happen to every student first.
   - **Sections** — the only role that can create a section, rename one, deactivate/reactivate one, or assign a student to one. No hard-delete exists for any role. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md#sections-).
+- **Direct Student & Teacher creation** (added as a follow-up, not part of the original Phase 2/3 briefs): a School Admin can create a Student or Teacher MEGA ID directly from the Staff/Students tabs (`+ Add Student`, `+ Add Teacher`), for people who can't complete self-registration themselves (the explicit motivating case: not every student in Nepal has their own device/email). Both reuse the exact `User`+`Student`/`Teacher` creation shape self-registration already uses, pre-check for a duplicate email (`409` if one exists), and are `approved: true` immediately — unlike self-registration, there's nothing to vet since the admin is the creator. The admin sets a temporary password directly in the form (hidden by default, behind a Show/Hide toggle) and is expected to relay it to the family/staff member — there is no email/reset-flow infrastructure to deliver one automatically (see [KNOWN_GAPS.md](KNOWN_GAPS.md)). Add Student optionally places the new student into a grade/section at creation time; if left unplaced, the same "Assign Grade & Section →" control described below becomes available for them. Creating a Teacher this way is deliberately separate from academic assignment — no `TeacherGradeAssignment`/`TeacherAcademicAssignment`/`ClassTeacherAssignment` row is touched; that remains a later step through the existing Phase 3A/3B UI, unchanged. See [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) and [API.md](API.md).
+- **First-time grade placement outside Initial Setup** (same follow-up): any approved Student with no `GradeHistory` row for the active session — most commonly one just created via Add Student with no grade picked — shows an "Assign Grade & Section →" control on the Students tab. This reuses `POST /api/schools/[id]/grade-placements` (the same direct, unaudited creation path as Initial Setup and the Pending queue) for a single student, rather than a new mechanism. Once a placement exists, this control is replaced by the existing **"Change Section →"** control, which reassigns section on that existing row through the audited `reassignSection()` — the two are deliberately distinct actions on the same row's lifecycle, not interchangeable.
 - **Phase 3A — Subjects & Teacher Academic Assignment**, same access pattern:
   - `/dashboard/academics` — manage the subject catalog (create/rename/deactivate), configure which subjects each grade offers for the current session, and assign/remove teacher subject-teaching assignments (grade-wide or section-specific).
   - The only role that can do any of this — no hard-delete exists for `Subject` (deactivate only); `GradeSubject`/`TeacherAcademicAssignment` do have real delete routes since they're current-state, non-historical data. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md).
@@ -36,7 +38,7 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 
 ## TEACHER
 
-- Registers with school affiliation, or generically then `/api/teacher/join-school`. Starts `approved: false`; a School Admin must approve. Re-joining a school resets approval.
+- Registers with school affiliation, or generically then `/api/teacher/join-school`. Starts `approved: false`; a School Admin must approve. Re-joining a school resets approval. **Or**, a School Admin creates the account directly (`+ Add Teacher`) — see the SCHOOL_ADMIN section above — in which case it's `approved: true` from the start, skipping the approval queue entirely.
 - Dashboard: school status, interests, "Your Students" (Skill management, school-wide — "grade-specific scoping arrives in a later phase" 🔭, still true after Phase 2 shipped: `Skill` creation isn't scoped to a teacher's `TeacherGradeAssignment`s), enrolled courses with certificate links.
 - Can enroll in and complete MEGA Academy courses.
 - Can add `Skill` records to any approved student at their school.
@@ -46,7 +48,7 @@ Gated everywhere by `requirePlatformAdmin()` (`src/lib/authorize.ts`).
 
 ## STUDENT
 
-- Registers with school affiliation, or generically + `/api/student/join-school`. Same approval gate as Teacher.
+- Registers with school affiliation, or generically + `/api/student/join-school`. Same approval gate as Teacher. **Or**, a School Admin creates the account directly (`+ Add Student`) — see the SCHOOL_ADMIN section above — `approved: true` from the start, and optionally placed into a grade/section at creation.
 - Dashboard: school status, interests, read-only Skills list, enrolled courses with certificate links.
 - Certificate recipient for course completions.
 - **Phase 2**: is placed into `GradeHistory` rows by a School Admin; has no dashboard visibility into their own current grade, promotion history, or session status. 🔭
@@ -94,8 +96,8 @@ A person can hold either, both (for different institutions), or neither — the 
 
 | Who | Approved by | Re-triggered by |
 |---|---|---|
-| Teacher | School Admin | Re-joining a school |
-| Student | School Admin | Re-joining a school |
+| Teacher | School Admin (skipped — `approved: true` immediately — if created directly by a School Admin via `+ Add Teacher`) | Re-joining a school |
+| Student | School Admin (skipped — `approved: true` immediately — if created directly by a School Admin via `+ Add Student`) | Re-joining a school |
 | School | Platform Admin (`verified` flag) | Never — no re-verification flow |
 | Organization | Platform Admin (`verified` flag) | Never |
 | Accountant | Granted directly, no approval queue | N/A |

@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
+> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -33,7 +33,7 @@ The simplest form — `roles?.includes("SCHOOL_ADMIN")` — is used where there'
 
 | Function | Checks | Used for |
 |---|---|---|
-| `requireSchoolAdmin(schoolId)` | Session + a `SchoolAdmin` row for `(userId, schoolId)` | Every `/api/schools/[id]/*` write route, including all Phase 2 routes: `academic-sessions`, `academic-sessions/rollover`, `grades`, `teacher-assignments`, `grade-placements`, `grade-decisions`, `grade-rollover` |
+| `requireSchoolAdmin(schoolId)` | Session + a `SchoolAdmin` row for `(userId, schoolId)` | Every `/api/schools/[id]/*` write route, including all Phase 2 routes: `academic-sessions`, `academic-sessions/rollover`, `grades`, `teacher-assignments`, `grade-placements`, `grade-decisions`, `grade-rollover`, and the direct-creation routes `POST students` (Add Student) and `POST teachers` (Add Teacher) |
 | `requireOrgAdmin(organizationId)` | Session + an `OrganizationAdmin` row | Every `/api/organizations/[id]/*` write route |
 | `requireCourseOwner(courseId)` | Resolves the course → its `organizationId` → org-admin check | Course content routes (modules, lessons, publish toggle) |
 | `requirePlatformAdmin()` | Session + `roles.includes("PLATFORM_ADMIN")` | Everything under `/admin` and `/api/admin/*` |
@@ -41,6 +41,8 @@ The simplest form — `roles?.includes("SCHOOL_ADMIN")` — is used where there'
 | `requireOrgFinance(organizationId)` | Session + (`OrganizationAdmin` row **or** `OrganizationAccountant` row) | Finance-only routes/tabs for an organization |
 
 **Deliberate design note** (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): the finance helpers check *both* the Admin and Accountant relationships on purpose — an Admin keeps full authority (finance included), a bare Accountant gets finance access *only*.
+
+**Verified live**: a logged-in, non-admin Teacher (`demo.teacher@megaedu.local`) sent direct `fetch()` requests to `POST students`, `POST teachers`, and `POST grade-placements` — all three correctly returned `403 {"error": "Forbidden"}`, and a database check afterward confirmed zero accounts/rows were created despite the attempts. Confirms `requireSchoolAdmin` is enforced server-side on these routes independent of the UI, the same standard already established for every other write route in this table.
 
 ## Teacher academic authorization — `requireTeacherAssignment()` and `requireClassTeacher()` ✅
 

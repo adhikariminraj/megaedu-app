@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-29 (Phase 3B) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -80,7 +80,7 @@ All explicitly out of scope for Phase 3B, to be scoped and approved separately i
 ## Authentication
 
 ### Several standard auth features are absent 🔭
-No OAuth/SSO, no email verification at registration, no password reset flow, no login/registration rate limiting, no session revocation ("log out everywhere"), no account deactivation or deletion route for any model. See [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md).
+No OAuth/SSO, no email verification at registration, no password reset flow, no login/registration rate limiting, no session revocation ("log out everywhere"), no account deactivation or deletion route for any model. See [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md). Add Student/Add Teacher (School Admin direct account creation) route around the missing reset flow specifically by having the admin set and relay a temporary password themselves at creation time — a workaround forced by this gap, not a fix for it; a real reset flow is still absent for every account regardless of how it was created.
 
 ### `PLATFORM_ADMIN` can only be granted via the seed script or direct database access 🔭
 No in-app route or UI exists to promote a user to Platform Admin, or to revoke it.

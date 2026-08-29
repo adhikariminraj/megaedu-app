@@ -1,7 +1,7 @@
 # Grades & Promotion
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29, against the current codebase.
+> Last verified: 2026-08-29 (plus School Admin Direct Student & Teacher Management), against the current codebase.
 > See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for Phase 3B's Class/Section Teachers, Attendance, Teaching Units, and Unit Tests, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions).
 
 ## Why this exists ✅
@@ -48,6 +48,17 @@ Also in `src/lib/gradeHistory.ts` — the **only** code path allowed to change a
 7. **Review & confirm** — live counts (grades configured, teachers assigned, students placed, students still unmapped).
 
 Verified with a real 5-student scenario: matching split 3 confident / 2 manual exactly as designed; database-level check confirmed all 5 resulting rows had `decidedAt: null` and produced **zero** `GradeHistoryAudit` rows, proving the direct-creation path was actually used.
+
+## First-time grade placement — four entry points, one shared architecture ✅
+
+A student's *first* `GradeHistory` row for a session can now be created four ways. All four are the same "creation isn't a decision" architecture — direct `GradeHistory.create()`, `status: "ENROLLED"`, no `decidedAt`, never routed through `recordGradeDecision()` — never a fifth, parallel mechanism:
+
+1. **Initial Setup step 6** — confident-match/manual queue, bulk, via `POST /api/schools/[id]/grade-placements`.
+2. **Pending/Unresolved queue's "manually place"** — bulk, same `grade-placements` route, reused as-is.
+3. **Add Student, optionally, at creation time** — a School Admin can pick a grade (and, once one is picked, a section) directly on the `+ Add Student` form. This does **not** call `grade-placements` — it's an inline `GradeHistory.create()` inside `POST /api/schools/[id]/students`' own transaction, same validated shape (session/grade/section must belong to the school; section must be `isActive` and belong to that grade) and same unaudited-creation rule, but a structurally separate call site from the other three. Left blank, the student is created with no placement at all.
+4. **Students tab's "Assign Grade & Section →" action** — for any approved student with no `GradeHistory` row in the active session (most commonly a student added via #3 with no grade picked, but works for any such student regardless of how they were created). This one **does** reuse `grade-placements` directly, as a single-item `placements` array — no new route was written for it.
+
+**Verified live** (this task, not assumed): created a student via Add Student with no grade → showed "Assign Grade & Section →", not "Change Section →". Used it to place them into Class 9 / Section A → database check confirmed exactly one `GradeHistory` row, `status: "ENROLLED"`, `decidedAt: null`, and **zero** `GradeHistoryAudit` rows. Then used the now-available "Change Section →" control to move them to Section B → succeeded, and the audit count became exactly **one**, capturing only that reassignment — confirming the four-entry-point creation path and the audited reassignment path stay as cleanly separated as the rest of this document describes for Sections generally.
 
 ## Student Promotion workflow — per grade, per session ✅
 
@@ -106,7 +117,7 @@ Everything section-related is School-Admin-only, gated the same way as the rest 
 
 ### Student placement
 Section is placed on the same `GradeHistory` row as the grade itself (`GradeHistory.sectionId`, nullable) — School → Session → Grade → Section, with Section as the optional final layer. It can be set two ways:
-- **At creation time**, as part of `grade-placements` (Initial Setup step 6, or a Pending/Unresolved manual placement) — an *optional* `sectionId` alongside the required `schoolGradeId`. Not audited, for the same reason the initial `status: "ENROLLED"` isn't (see [PRODUCT_RULES.md](PRODUCT_RULES.md)).
+- **At creation time**, as an *optional* `sectionId` alongside the required `schoolGradeId`, via any of the four entry points in [First-time grade placement](#first-time-grade-placement--four-entry-points-one-shared-architecture-) above. Not audited, for the same reason the initial `status: "ENROLLED"` isn't (see [PRODUCT_RULES.md](PRODUCT_RULES.md)).
 - **On an already-existing row**, via `reassignSection()` / `POST /api/schools/[id]/section-assignments` — a bulk, audited action, available from both the Setup Wizard's students step and the Promotion roster (`/dashboard/grades/[schoolGradeId]`), completely separate from applying a Promote/Repeat/Transfer/Leave decision.
 
 A section passed at either point must be `isActive` and must belong to the *same* `schoolGradeId` as the placement/row — enforced server-side, not just hidden client-side. Verified directly: a raw API call assigning a deactivated section returns `400 {"error": "This section is deactivated."}`; a placement naming an inactive section is silently skipped (counted in `skipped`, not an error), consistent with how `grade-placements` already treats other invalid rows.
