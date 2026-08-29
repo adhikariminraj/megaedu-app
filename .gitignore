@@ -9,12 +9,12 @@
 /build
 
 # database
-/prisma/dev.db
-/prisma/dev.db-journal
+#/prisma/dev.db
+#/prisma/dev.db-journal
 
 # env files
-.env
-.env*.local
+#.env
+#.env*.local
 
 # misc
 .DS_Store
