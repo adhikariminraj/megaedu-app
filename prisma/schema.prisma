@@ -57,6 +57,10 @@ model User {
   studentEvaluationsCreated    StudentEvaluation[]      @relation("StudentEvaluationCreatedBy")
   studentEvaluationAudits      StudentEvaluationAudit[] @relation("StudentEvaluationAuditChangedBy")
   parentTeacherMeetingsCreated ParentTeacherMeeting[]   @relation("ParentTeacherMeetingCreatedBy")
+
+  assessmentResultsEvaluated      AssessmentComponentResult[]      @relation("AssessmentComponentResultEvaluatedBy")
+  assessmentComponentResultAudits AssessmentComponentResultAudit[] @relation("AssessmentComponentResultAuditChangedBy")
+  assessmentResultsPublished      AssessmentResultPublication[]    @relation("AssessmentResultPublicationPublishedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -208,14 +212,16 @@ model Student {
   interestsLockedForSessionId String?
   interestsLockedForSession   AcademicSession? @relation(fields: [interestsLockedForSessionId], references: [id])
 
-  parents               ParentStudent[]
-  courseEnrollments     CourseEnrollment[]
-  skills                Skill[]
-  gradeHistory          GradeHistory[]
-  attendances           Attendance[]
-  unitTestResults       UnitTestResult[]
-  evaluations           StudentEvaluation[]
-  parentTeacherMeetings ParentTeacherMeeting[]
+  parents                      ParentStudent[]
+  courseEnrollments            CourseEnrollment[]
+  skills                       Skill[]
+  gradeHistory                 GradeHistory[]
+  attendances                  Attendance[]
+  unitTestResults              UnitTestResult[]
+  evaluations                  StudentEvaluation[]
+  parentTeacherMeetings        ParentTeacherMeeting[]
+  assessmentComponentResults   AssessmentComponentResult[]
+  assessmentResultPublications AssessmentResultPublication[]
 
   @@index([schoolId])
 }
@@ -477,6 +483,8 @@ model GradeSubject {
   studentEvaluations             StudentEvaluation[]
   parentTeacherMeetings          ParentTeacherMeeting[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
+  assessmentComponentResults     AssessmentComponentResult[]
+  assessmentResultPublications   AssessmentResultPublication[]
 
   @@unique([schoolGradeId, subjectId, academicSessionId])
   @@index([schoolGradeId])
@@ -952,6 +960,8 @@ model AssessmentComponent {
   // (framework-level, no period) under the same framework. The create
   // route pre-checks that case explicitly before creating, from the
   // start — see src/lib/assessmentFramework.ts.
+  results AssessmentComponentResult[]
+
   @@unique([frameworkId, periodId, name])
   @@index([frameworkId])
   @@index([periodId])
@@ -980,6 +990,15 @@ model GradingScale {
 // One percentage band within a GradingScale — "90-100 = A+, 4.0,
 // Outstanding". gradePoint is optional: null where GPA math doesn't
 // apply (e.g. a plain Pass/Fail scale with no grade-point concept).
+// isPassing is optional and NEVER inferred from label text ("Fail",
+// "D") — a school must explicitly mark which bands count as passing;
+// null means "not specified," not "failing." Reserved for a future
+// Promotion-roster reference display (Phase 3D-5+) — never read by
+// recordGradeDecision() itself, which remains a human decision. Once
+// any published result exists using this scale, minPercent/maxPercent/
+// gradePoint/isPassing are locked (see PATCH
+// /api/schools/[id]/grading-scales/[gradingScaleId]) — label/description
+// wording may still be corrected freely.
 model GradingScaleBand {
   id             String       @id @default(cuid())
   gradingScaleId String
@@ -988,6 +1007,7 @@ model GradingScaleBand {
   maxPercent     Float
   label          String
   gradePoint     Float?
+  isPassing      Boolean?
   description    String?
   order          Int
 
@@ -1022,6 +1042,9 @@ model AssessmentFrameworkAssignment {
   framework         AssessmentFramework @relation(fields: [frameworkId], references: [id])
   createdAt         DateTime            @default(now())
 
+  componentResults AssessmentComponentResult[]
+  publications     AssessmentResultPublication[]
+
   // NOTE: reliably catches a duplicate override for the SAME subject,
   // but — the identical NULL≠NULL gap as above — does NOT by itself
   // catch a second grade-default (gradeSubjectId: null) assignment for
@@ -1031,6 +1054,110 @@ model AssessmentFrameworkAssignment {
   @@index([academicSessionId])
   @@index([schoolGradeId])
   @@index([frameworkId])
+}
+
+// ============================================================
+// ASSESSMENT RESULTS — Phase 3D-2/3/4
+// Additive on top of Phase 3D-1 — no existing model's columns changed,
+// only new relation-array fields. See docs/ASSESSMENT_RESULTS.md.
+//
+// Results are created LAZILY, never pre-created in bulk (a deliberate
+// divergence from UnitTestResult's eager-roster pattern — see
+// docs/ASSESSMENT_RESULTS.md for why: AssessmentComponent, unlike
+// UnitTest, has no single clean "creation moment" to snapshot a roster
+// against, since a framework's components can be added to it well
+// after it's already assigned). Publication is subject-level
+// (AssessmentResultPublication, keyed by gradeSubjectId + studentId),
+// never per-component — a Parent/Student must never see a partially-
+// published subject.
+// ============================================================
+
+// One student's raw entry against one AssessmentComponent. gradeSubjectId
+// is required and resolved independently of whether the governing
+// assignment is a grade-default or a subject-override — entering marks
+// always happens in the context of one real subject. assignmentId
+// freezes which AssessmentFrameworkAssignment was actually in effect
+// at entry time, so a later re-assignment can never silently
+// reinterpret an already-entered result (same "snapshot at the moment
+// it matters" precedent as Certificate/GradeHistoryAudit).
+model AssessmentComponentResult {
+  id                String                        @id @default(cuid())
+  componentId       String
+  component         AssessmentComponent           @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  gradeSubjectId    String
+  gradeSubject      GradeSubject                  @relation(fields: [gradeSubjectId], references: [id])
+  assignmentId      String
+  assignment        AssessmentFrameworkAssignment @relation(fields: [assignmentId], references: [id])
+  studentId         String
+  student           Student                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status            String                        @default("PENDING") // PENDING | EVALUATED | ABSENT
+  marksObtained     Float? // MARKS-mode raw entry
+  gradeLabel        String? // GRADE-mode raw entry — a label from the framework's GradingScale
+  remarks           String? // DESCRIPTIVE-mode content, or an optional note on any mode
+  evaluatedByUserId String?
+  evaluatedBy       User?                         @relation("AssessmentComponentResultEvaluatedBy", fields: [evaluatedByUserId], references: [id])
+  evaluatedAt       DateTime?
+
+  audits AssessmentComponentResultAudit[]
+
+  @@unique([componentId, studentId])
+  @@index([studentId])
+  @@index([gradeSubjectId])
+  @@index([assignmentId])
+}
+
+// Append-only correction log for AssessmentComponentResult, written
+// only once the parent subject's AssessmentResultPublication is
+// PUBLISHED — mirrors StudentEvaluationAudit/AttendanceAudit exactly.
+// correctComponentResult() (src/lib/assessmentResults.ts) is the only
+// code path allowed to change an EVALUATED/ABSENT result.
+model AssessmentComponentResultAudit {
+  id                    String                    @id @default(cuid())
+  resultId              String
+  result                AssessmentComponentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  changedByUserId       String
+  changedBy             User                      @relation("AssessmentComponentResultAuditChangedBy", fields: [changedByUserId], references: [id])
+  changedAt             DateTime                  @default(now())
+  previousStatus        String
+  newStatus             String
+  previousMarksObtained Float?
+  newMarksObtained      Float?
+  previousGradeLabel    String?
+  newGradeLabel         String?
+  previousRemarks       String?
+  newRemarks            String?
+
+  @@index([resultId])
+}
+
+// The ONE place "is this subject's result visible to Parent/Student
+// yet" is decided — subject-scoped (gradeSubjectId + studentId), not
+// per-component and not per-framework, so a Parent/Student never sees
+// a partially-published subject. Created lazily (status: DRAFT) on
+// first component entry for that student/subject; flipped to
+// PUBLISHED only by an explicit action, which fails if any required
+// (non-DESCRIPTIVE) component is still PENDING. A correction to an
+// already-PUBLISHED result does NOT revert this row to DRAFT — it
+// stays published and the correction is captured in
+// AssessmentComponentResultAudit instead (matching StudentEvaluation's
+// "once shared, corrections are audited, not un-shared" precedent).
+model AssessmentResultPublication {
+  id                String                        @id @default(cuid())
+  gradeSubjectId    String
+  gradeSubject      GradeSubject                  @relation(fields: [gradeSubjectId], references: [id])
+  studentId         String
+  student           Student                       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assignmentId      String
+  assignment        AssessmentFrameworkAssignment @relation(fields: [assignmentId], references: [id])
+  status            String                        @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt       DateTime?
+  publishedByUserId String?
+  publishedBy       User?                         @relation("AssessmentResultPublicationPublishedBy", fields: [publishedByUserId], references: [id])
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  @@unique([gradeSubjectId, studentId])
+  @@index([studentId])
 }
 
 // ============================================================

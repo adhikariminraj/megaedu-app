@@ -201,6 +201,18 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
 
       {teacher.approved && (
         <div className="mb-8">
+          <Link
+            href="/dashboard/assessment-results"
+            className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition"
+          >
+            Assessment Results
+            <span className="text-mega-blue"> — Enter, correct & publish →</span>
+          </Link>
+        </div>
+      )}
+
+      {teacher.approved && (
+        <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-800 mb-1">Your Students</h2>
           <p className="text-xs text-slate-400 mb-4">
             Add Skills & Competencies for approved students at {teacher.school.name}.

@@ -12,6 +12,7 @@ import CreateOrgPrompt from "./CreateOrgPrompt";
 import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
+import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
 
 export const dynamic = "force-dynamic";
 
@@ -216,6 +217,7 @@ export default async function DashboardPage() {
     });
     if (student) {
       const progress = await fetchAcademicProgress(student.id, "STUDENT");
+      const assessment = await fetchAssessmentResults(student.id, "STUDENT");
       let interestsLocked = false;
       if (student.schoolId) {
         const activeSession = await prisma.academicSession.findFirst({
@@ -232,6 +234,8 @@ export default async function DashboardPage() {
           teachingProgress={progress.teachingProgress}
           testResults={progress.testResults}
           evaluations={progress.evaluations}
+          subjectResults={toSubjectResultRows(assessment.subjects)}
+          gpa={assessment.gpa}
           interestsLocked={interestsLocked}
         />
       );
@@ -254,6 +258,7 @@ export default async function DashboardPage() {
           ...c,
           progress: await fetchAcademicProgress(c.student.id, "PARENT"),
           meetings: await fetchMeetingsForStudent(c.student.id, "PARENT"),
+          assessment: await fetchAssessmentResults(c.student.id, "PARENT"),
         }))
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;

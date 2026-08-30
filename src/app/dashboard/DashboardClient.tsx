@@ -133,6 +133,14 @@ export default function DashboardClient({
     accent: "purple",
   });
   heroCards.push({
+    icon: "📊",
+    title: "Assessment Results",
+    description: "Enter, correct, and publish student results for any subject this session.",
+    href: "/dashboard/assessment-results",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
     icon: "✅",
     title: "Attendance",
     description: "Take or review daily attendance for any grade and section.",

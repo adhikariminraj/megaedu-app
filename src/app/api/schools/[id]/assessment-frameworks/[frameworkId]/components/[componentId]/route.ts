@@ -3,7 +3,14 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { ENTRY_MODES, componentCollisionExists } from "@/lib/assessmentFramework";
 
-/** Renames/re-weights/re-modes a component. */
+/**
+ * Renames/re-weights/re-modes a component. Once any
+ * AssessmentComponentResult exists for it, maxMarks/entryMode are
+ * LOCKED — changing either after real marks have been entered against
+ * it would silently corrupt every previously-computed aggregate (a
+ * risk flagged when Phase 3D-1 shipped, now enforced). Renaming stays
+ * free at any time — a name is cosmetic, not structural.
+ */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; frameworkId: string; componentId: string } }
@@ -44,6 +51,15 @@ export async function PATCH(
     }
     data.name = trimmed;
   }
+  if (typeof body.maxMarks === "number" || typeof body.entryMode === "string") {
+    const hasResults = await prisma.assessmentComponentResult.findFirst({ where: { componentId: params.componentId } });
+    if (hasResults) {
+      return NextResponse.json(
+        { error: "maxMarks/entryMode are locked once results exist for this component — create a new component instead." },
+        { status: 409 }
+      );
+    }
+  }
   if (typeof body.maxMarks === "number") {
     if (body.maxMarks <= 0) return NextResponse.json({ error: "maxMarks must be greater than 0." }, { status: 400 });
     data.maxMarks = body.maxMarks;
@@ -63,7 +79,13 @@ export async function PATCH(
   return NextResponse.json({ ok: true, component: updated });
 }
 
-/** Removes a component — see periods/[periodId]/route.ts DELETE for the non-audited reasoning. */
+/**
+ * Removes a component — see periods/[periodId]/route.ts DELETE for
+ * the non-audited reasoning. Blocked once any
+ * AssessmentComponentResult exists for it — the component's own
+ * onDelete: Cascade would otherwise silently destroy real result
+ * history along with it.
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; frameworkId: string; componentId: string } }
@@ -81,6 +103,14 @@ export async function DELETE(
     component.framework.schoolId !== params.id
   ) {
     return NextResponse.json({ error: "Component not found." }, { status: 404 });
+  }
+
+  const hasResults = await prisma.assessmentComponentResult.findFirst({ where: { componentId: params.componentId } });
+  if (hasResults) {
+    return NextResponse.json(
+      { error: "This component has results recorded against it and cannot be deleted." },
+      { status: 409 }
+    );
   }
 
   await prisma.assessmentComponent.delete({ where: { id: params.componentId } });

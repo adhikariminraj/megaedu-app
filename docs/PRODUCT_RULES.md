@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -300,6 +300,88 @@ This document collects every business rule and architectural decision that was *
 **Rule**: Phase 3B's chapter/unit quiz mechanism is untouched by Phase 3D-1. No auto-derivation of `AssessmentComponent` marks from `UnitTestResult` rows was built or is planned.
 **Why**: explicitly required — "Do not modify existing assessment features such as UnitTest/UnitTestResult." The two serve genuinely different purposes (granular day-to-day quizzes vs. the official report-card-driving marking scheme); none of the four real-world examples the phase was verified against call for auto-derivation, and attempting it would be over-engineering beyond what was asked.
 **Applies to**: `UnitTest`, `UnitTestResult`, `AssessmentComponent`.
+
+## Assessment Results, Publishing, Report Cards (Phase 3D-2/3/4)
+
+### Assessment results are created lazily, never pre-created in bulk ✅
+**Rule**: `AssessmentComponentResult` rows are created only when a value is actually written, via the marks-entry route's upsert. The marks-entry page computes a *virtual* roster (`GradeHistory`, scoped to the assignment's grade) and left-joins existing result rows, rendering a blank/`PENDING` slot for any student with no row yet.
+**Why**: explicitly required as the correct-fit approach after investigation — deliberately diverging from `UnitTestResult`'s eager pre-creation, because `AssessmentComponent` (unlike `UnitTest`) has no single clean creation moment: it's defined at framework-design time and can be added to an already-assigned, reusable framework well after assignment, which eager pre-creation would silently miss.
+**Applies to**: `AssessmentComponentResult`. Verified live: a subject with zero result rows in the database rendered a correct `PENDING` virtual roster; the first save created exactly one row.
+
+### `maxMarks` unifies "weight" and "marks" — one field, `entryMode` controls entry, not weight ✅
+**Rule**: `AssessmentComponent.maxMarks` (Phase 3D-1) is a component's contribution toward the framework total regardless of whether the school thinks of it as a percentage or raw marks. `entryMode` (`MARKS | GRADE | DESCRIPTIVE`) controls only how a student's *result* is recorded and converted to a number — `GRADE` mode converts via the matched `GradingScaleBand`'s **percentage midpoint**, explicitly **not** `gradePoint` (an arbitrary school-chosen number with no inherent relationship to "percent of max marks").
+**Why**: explicitly required — "Do not use gradePoint as a percentage conversion ratio." Confirmed live that the percentage-midpoint approach produces correct, scale-agnostic results regardless of a school's chosen GPA range.
+**Applies to**: `computeComponentContribution()` (`src/lib/assessmentResults.ts`).
+
+### `ABSENT` is entry-mode-independent, contributes zero, and clears every value field ✅
+**Rule**: `status: "ABSENT"` is settable on a component result regardless of `entryMode`, forces `marksObtained`/`gradeLabel`/`remarks` to `null` regardless of what's passed, and contributes zero (not `null`) to numeric aggregation — the identical convention `UnitTestResult` already uses for its own `ABSENT` status.
+**Why**: a student can be absent from a graded oral exam or a descriptive project just as much as a marks-based test; absence is orthogonal to how a component is normally scored.
+**Applies to**: `AssessmentComponentResult`, `computeComponentContribution()`. Verified live: an `ABSENT` `MARKS` component correctly cleared all value fields and contributed zero to the subject total while its `maxMarks` still counted in the denominator.
+
+### Grading-scale band lookup is lower-inclusive, upper-exclusive — never ambiguous at a shared boundary ✅
+**Rule**: `lookupGrade()` matches `minPercent <= p < maxPercent`; only a percentage of exactly 100 matches on `maxPercent === 100` inclusively. A score exactly at a shared boundary (e.g. 80%, where one band ends at 80 and the next starts at 80) always resolves to the band that **starts** there.
+**Why**: caught live during verification — the first implementation used inclusive bounds on both ends, which made a boundary score match two bands simultaneously, silently resolved by array order rather than a deterministic rule. Fixed before this phase was considered complete.
+**Applies to**: `GradingScaleBand`, `lookupGrade()` (`src/lib/assessmentResults.ts`). Verified live: scores of exactly 80% and exactly 90% both landed in the correct (higher) band after the fix.
+
+### Publication is subject-level, never per-component ✅
+**Rule**: `AssessmentResultPublication` is keyed by `(gradeSubjectId, studentId)` — one row governs visibility for an entire subject's worth of components at once, never a partial subset.
+**Why**: explicitly required — "avoid Parents and Students seeing incomplete marks" is only meaningfully guaranteed if a Parent can never see *some* of a subject's components while others remain hidden; per-component publication would allow exactly that.
+**Applies to**: `AssessmentResultPublication`.
+
+### Publishing is blocked server-side if any required component is still PENDING — not just a client-side check ✅
+**Rule**: `POST .../subjects/[gradeSubjectId]/publish` computes completeness itself (every non-`DESCRIPTIVE` component `EVALUATED` or `ABSENT`) before allowing a student's publication to flip to `PUBLISHED`; an incomplete student is silently skipped, not an error.
+**Why**: explicitly required — "Publishing must fail if any required numeric/graded component remains PENDING. Descriptive components do not block numeric completion." A structural guarantee, not just UI discipline, matches the same principle already applied throughout this project (e.g. `requireTeacherAssignment` never trusting client-sent scope).
+**Applies to**: `AssessmentResultPublication`, the publish route. Verified live: publishing with one component still `PENDING` returned `published: 0, skipped: 1`; completing it and republishing succeeded.
+
+### Correcting a published result stays published and is audited — it is never reverted to DRAFT ✅
+**Rule**: `correctComponentResult()` (`src/lib/assessmentResults.ts`) inserts an `AssessmentComponentResultAudit` row once the result's subject publication is `PUBLISHED`, but never flips that publication back to `DRAFT`.
+**Why**: explicitly decided — "Correcting a published result does not revert it to DRAFT. Corrections remain published and create an audit record," matching the identical precedent already established for `StudentEvaluation` ("once shared, corrections are audited, not un-shared").
+**Applies to**: `AssessmentComponentResult`, `AssessmentComponentResultAudit`, `AssessmentResultPublication`. Verified live: correcting a published Mathematics result (25→27 marks) produced exactly one audit row with correct before/after values, and the publication's `status` remained `PUBLISHED`.
+
+### Marks-entry authorization is resolved from the actual subject, not from whether the governing assignment is a default or override ✅
+**Rule**: `requireTeacherAssignment(schoolId, {..., subjectId})` is always called with `subjectId` resolved from the result's own `gradeSubjectId` — never from `AssessmentFrameworkAssignment.gradeSubjectId`, which may be `null` (grade-default) even while marks are being entered for one specific real subject.
+**Why**: every assessment result is entered in the context of one real subject even when the framework governing it is the grade's shared default — the same subject always needs the same authorization regardless of which framework happens to back it.
+**Applies to**: the marks-entry, publish, and correction routes. Verified live: a teacher assigned to Mathematics and Science succeeded on those subjects and received `403` on IT, a subject they hold no assignment for.
+
+### Class Teacher has no special assessment-results authority ✅
+**Rule**: `requireClassTeacher()` is never composed into any Phase 3D-2/3/4 write route. A Class/Section Teacher's involvement in assessment results is exactly the same as any other teacher's — only via `requireTeacherAssignment()` if they separately hold a subject assignment.
+**Why**: every assessment component is entered in the context of one specific subject, and there is no "general, non-subject-specific" assessment concept the way `requireClassTeacher` exists for attendance and general evaluations — the special-authority pattern genuinely doesn't apply here.
+**Applies to**: all Phase 3D-2/3/4 write routes.
+
+### Assignment `assignmentId` is frozen at result-entry time, not re-resolved live ✅
+**Rule**: `AssessmentComponentResult.assignmentId` and `AssessmentResultPublication.assignmentId` are stamped once, at entry/creation time — never re-derived via `resolveFrameworkAssignment()` on read.
+**Why**: if a School Admin later reassigns a different framework to the same grade/subject, live re-resolution would misattribute already-entered results to a structure they were never entered against. Matches the "freeze at the moment it matters" precedent already established for `Certificate`/`GradeHistoryAudit`.
+**Applies to**: `AssessmentComponentResult`, `AssessmentResultPublication`. Enforced structurally by `AssessmentFrameworkAssignment`'s `DELETE` route now rejecting deletion once either model references it.
+
+### Structural fields lock once real data depends on them — components, and now grading scales too ✅
+**Rule**: `AssessmentComponent.maxMarks`/`entryMode` lock once any `AssessmentComponentResult` exists for that component (`PATCH` rejects, `DELETE` rejects) — closing the exact risk flagged as a known gap when Phase 3D-1 shipped. `GradingScaleBand`'s structural fields (`minPercent`/`maxPercent`/`gradePoint`/`isPassing`) lock as a full set once any `PUBLISHED` result exists using that scale (via any framework attached to it) — a clear "locked or not" policy rather than a partial cosmetic/structural split, since the scale's `bands` are replaced wholesale, not diffed field-by-field.
+**Why**: explicitly required — "Prefer a clear, consistent lock policy rather than silently allowing historical published results to change meaning. If a school needs a materially different scale, it should create a new scale/framework for future use." Names/descriptions and a scale's own `name`/`isActive` remain freely editable at any time — only the numbers that would reinterpret an already-published result are locked.
+**Applies to**: `AssessmentComponent`, `GradingScale`/`GradingScaleBand`. Verified live: a `maxMarks` change on a component with results returned `409`; deleting that component returned `409`; renaming it succeeded; replacing a grading scale's bands after a published result existed using it returned `409`; renaming that scale succeeded.
+
+### `isPassing` is optional and never inferred from label text ✅
+**Rule**: `GradingScaleBand.isPassing: Boolean?` must be set explicitly by a School Admin; nothing in this codebase infers it from a band's `label` (e.g. never guessing "Fail" means `isPassing: false`).
+**Why**: explicitly required — "Do not infer pass/fail from grade labels." Matches the "never guess when confidence is low" discipline already applied to `matchLegacyGradeText()`. Reserved for a future Promotion-roster reference display; `recordGradeDecision()` never reads it.
+**Applies to**: `GradingScaleBand.isPassing`.
+
+### `UnitTest`/`UnitTestResult` remain a genuinely separate system — confirmed again with real results in place ✅
+**Rule**: no auto-derivation of `AssessmentComponentResult` marks from `UnitTestResult` exists or is planned. The two systems share no code path.
+**Why**: explicitly required — "Do not merge or alter UnitTest / UnitTestResult... Unit Tests remain a separate granular assessment mechanism." Reaffirmed now that real assessment results exist to tempt an integration — none of the verified real-world examples call for it.
+**Applies to**: `UnitTest`, `UnitTestResult`, `AssessmentComponentResult`.
+
+### Cross-subject GPA is unweighted, by explicit decision, and never fabricated when no subject has a grade point ✅
+**Rule**: `computeUnweightedGPA()` averages whichever subjects have a resolvable `gradePoint`; returns `null`, not `0`, if none do. No subject-credit or weighting concept exists anywhere in this schema.
+**Why**: explicitly required — "Cross-subject GPA = unweighted average of available subject grade points... Do not add subject credits or weighting concepts in this phase." Every UI surface showing this number is labeled "Unweighted GPA" so it's never mistaken for a credit-weighted figure.
+**Applies to**: `computeUnweightedGPA()`. Verified live: two published subjects at grade point 3.6 each produced a displayed GPA of exactly 3.60.
+
+### Report Cards are a live view, never a persisted snapshot ✅
+**Rule**: `buildReportCard()` assembles current data on every read; there is no `ReportCard` database model and no "issued at" moment.
+**Why**: explicitly required, and confirmed correct by investigating `Certificate`/`certificateView.ts` first — a certificate is a permanent, frozen-at-issuance snapshot, but a Report Card must reflect corrections made after publication, which a frozen snapshot would structurally prevent.
+**Applies to**: `buildReportCard()` (`src/lib/assessmentResults.ts`), `/dashboard/report-card/[studentId]`.
+
+### Assessment results reuse `fetchAcademicProgress`'s three-way audience convention, including STUDENT as a real member ✅
+**Rule**: `fetchAssessmentResults(studentId, audience: "STUDENT" | "PARENT" | "STAFF")` filters to `AssessmentResultPublication.status === "PUBLISHED"` for `STUDENT`/`PARENT`, no filter for `STAFF` — the identical shape already used by `fetchAcademicProgress`. Unlike `fetchMeetingsForStudent`, `"STUDENT"` is a genuine, first-class member of this audience type.
+**Why**: published results are explicitly meant to reach the Student — "Parent: Only their linked child's published results. Student: Only their own published results." — so the `fetchAcademicProgress` precedent applies, not the Parent-Teacher-Meeting one.
+**Applies to**: `fetchAssessmentResults()`. Verified live: a draft subject appeared on none of the Student's dashboard, the Student's Report Card, or the linked Parent's dashboard, while a published subject appeared on all three; the Student Profile page (`"STAFF"`) showed both, with publication status visibly labeled.
 
 ## Access control
 

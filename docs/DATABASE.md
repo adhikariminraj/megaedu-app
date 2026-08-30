@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation), against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -265,16 +265,42 @@ Six new models, additive on top of Phase 2/3A/3B/3C — no existing model's colu
 
 ### `GradingScaleBand`
 **Purpose**: one percentage band within a `GradingScale` ("90-100 = A+, 4.0 GPA, Outstanding"). **Currently used**: yes.
-**Key fields**: `id, gradingScaleId (FK), minPercent, maxPercent, label, gradePoint?, description?, order`.
-**Constraints**: none beyond FK — overlap between bands is validated at the route level, not the database.
-**Delete behavior**: cascades from `GradingScale`. Bands have no independent identity referenced elsewhere in this phase — `PATCH /api/schools/[id]/grading-scales/[gradingScaleId]` replaces the full set atomically rather than diffing individual band edits.
+**Key fields**: `id, gradingScaleId (FK), minPercent, maxPercent, label, gradePoint?, isPassing?, description?, order`.
+**Constraints**: none beyond FK — overlap between bands is validated at the route level, not the database. Grade lookup (`lookupGrade()`, `src/lib/assessmentResults.ts`) treats bands as lower-inclusive/upper-exclusive (`minPercent <= p < maxPercent`), so a shared boundary between two bands is never ambiguous.
+**Delete behavior**: cascades from `GradingScale`. Bands have no independent identity referenced elsewhere in this phase — `PATCH /api/schools/[id]/grading-scales/[gradingScaleId]` replaces the full set atomically rather than diffing individual band edits. **Locked (Phase 3D-2/3/4)**: once any `PUBLISHED` `AssessmentResultPublication` exists for a subject using this scale, the full `bands` replacement is rejected — a school needing a materially different scale creates a new one instead.
+**Notes**: `isPassing` (added Phase 3D-2/3/4) is optional and never inferred from label text — reserved for a future Promotion-roster reference display, never read by `recordGradeDecision()`.
 
 ### `AssessmentFrameworkAssignment`
 **Purpose**: the *only* session-scoped model in this phase — binds a reusable `AssessmentFramework` to one `(AcademicSession, SchoolGrade)`, optionally narrowed to one `GradeSubject` as a subject-specific override. **Currently used**: yes.
 **Key fields**: `id, schoolId (FK), academicSessionId (FK), schoolGradeId (FK), gradeSubjectId? (FK), frameworkId (FK), createdAt`.
 **Constraints**: `@@unique([academicSessionId, schoolGradeId, gradeSubjectId])` — ⚠️ **NULL≠NULL gap**: reliably blocks a duplicate subject-specific override, but not a second grade-default (`gradeSubjectId: null`) assignment for the same grade/session. Pre-checked explicitly via `assignmentCollisionExists()` before every create — the same recurring gap already documented for `TeacherAcademicAssignment`, `ClassTeacherAssignment`, and `StudentEvaluation`.
 **Delete behavior**: no cascade dependents; a real `DELETE` route exists — not audited, current-state config, same as `TeacherAcademicAssignment`'s own `DELETE` route.
-**Notes**: resolution rule (`resolveFrameworkAssignment()`, `src/lib/assessmentFramework.ts`): a subject-specific assignment takes priority; otherwise fall back to the grade-default. The same nullable-scope-discriminator idiom already used by `TeachingUnit.sectionId`, `StudentEvaluation.gradeSubjectId`, and `ParentTeacherMeeting.gradeSubjectId`.
+**Notes**: resolution rule (`resolveFrameworkAssignment()`, `src/lib/assessmentFramework.ts`): a subject-specific assignment takes priority; otherwise fall back to the grade-default. The same nullable-scope-discriminator idiom already used by `TeachingUnit.sectionId`, `StudentEvaluation.gradeSubjectId`, and `ParentTeacherMeeting.gradeSubjectId`. **Delete blocked (Phase 3D-2/3/4)**: rejected once any `AssessmentComponentResult`/`AssessmentResultPublication` references it.
+
+---
+
+## Assessment Results, Publishing, Report Cards — Phase 3D-2/3/4 ✅
+
+Three new models, additive on top of Phase 3D-1 — no existing model's columns changed. See [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) for full behavioral detail.
+
+### `AssessmentComponentResult`
+**Purpose**: one student's raw entry against one `AssessmentComponent`. **Currently used**: yes.
+**Key fields**: `id, componentId (FK), gradeSubjectId (FK), assignmentId (FK), studentId (FK), status (default "PENDING"), marksObtained?, gradeLabel?, remarks?, evaluatedByUserId?, evaluatedAt?`. Valid `status`: `PENDING | EVALUATED | ABSENT`.
+**Constraints**: `@@unique([componentId, studentId])` — no nullable field in the key, so (unlike most models in this schema) there is genuinely no NULL≠NULL gap to check here.
+**Delete behavior**: cascades from `AssessmentComponent` (guarded — see that model's entry above). No direct delete route of its own; corrections go through `correctComponentResult()` (`src/lib/assessmentResults.ts`), never a raw update.
+**Notes**: created **lazily** — never pre-created in bulk, a deliberate divergence from `UnitTestResult`'s eager-roster pattern (see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) for why). `gradeSubjectId` is required independent of whether the governing assignment is a grade-default or override; `assignmentId` freezes which assignment was in effect at entry time rather than being re-resolved live.
+
+### `AssessmentComponentResultAudit`
+**Purpose**: append-only correction log for `AssessmentComponentResult`, written only once the parent subject's `AssessmentResultPublication` is `PUBLISHED` — mirrors `StudentEvaluationAudit`/`AttendanceAudit` exactly. **Currently used**: yes.
+**Key fields**: `id, resultId (FK), changedByUserId (FK), changedAt, previousStatus, newStatus, previousMarksObtained?, newMarksObtained?, previousGradeLabel?, newGradeLabel?, previousRemarks?, newRemarks?`.
+**Delete behavior**: cascades from `AssessmentComponentResult`. No update/delete route of its own — insert-only, via `correctComponentResult()`.
+
+### `AssessmentResultPublication`
+**Purpose**: the single place "is this subject's result visible to Parent/Student yet" is decided — subject-scoped (`gradeSubjectId` + `studentId`), never per-component, so a Parent/Student can never see a partially-published subject. **Currently used**: yes.
+**Key fields**: `id, gradeSubjectId (FK), studentId (FK), assignmentId (FK), status (default "DRAFT"), publishedAt?, publishedByUserId?, createdAt, updatedAt`. Valid `status`: `DRAFT | PUBLISHED`.
+**Constraints**: `@@unique([gradeSubjectId, studentId])` — again no nullable field in the key, no NULL≠NULL gap.
+**Delete behavior**: no delete route — created lazily (`DRAFT`) on first component entry for that student/subject, a real `PATCH` (via the publish route) is the only way its `status` changes.
+**Notes**: a correction to an already-`PUBLISHED` result does **not** revert this row to `DRAFT` — an explicit, approved design decision (see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md)).
 
 ---
 

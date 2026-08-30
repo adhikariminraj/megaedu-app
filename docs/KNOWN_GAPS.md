@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -88,13 +88,19 @@ Only `StudentEvaluation.remarks` has the audit-on-share requirement (explicitly 
 ### No parent-initiated Parent-Teacher Meeting requests 🔭
 Explicitly deferred for this phase — "Parents are read-only recipients for now. Parent meeting requests can be considered later." See [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
-## Phase 3D-1 (Assessment Framework Foundation)
+## Phase 3D-1/2/3/4 (Assessment Framework Foundation, Results, Publishing, Report Cards)
 
-### A framework's structure can be edited even after it's assigned, with no protection against invalidating future results 🔭
-`AssessmentFramework`/`AssessmentPeriod`/`AssessmentComponent` are freely editable current-state config in this phase — deliberate, since no marks exist yet (Phase 3D-2 hasn't been built) for an edit to actually invalidate. Must be revisited once 3D-2 introduces real per-student results: editing a framework already in use (e.g. changing a component's `maxMarks` after marks have been entered against it) would silently corrupt previously-computed aggregates. Recorded here so the gap is addressed deliberately in 3D-2's design, not discovered as a live bug afterward.
+### No `GET` list API routes exist for any Phase 3D model 🔭
+Every read happens through the relevant page's own direct Prisma queries (`/dashboard/assessment-frameworks`, `/dashboard/assessment-results`, `/dashboard/report-card/[studentId]`) — the same convention used by every other Phase 3A/3B admin config page. Not a gap in the current feature (nothing else needs to read this data over HTTP yet), but worth noting if a future integration needs one.
 
-### No `GET` list API routes exist for any Phase 3D-1 model 🔭
-Every read happens through `/dashboard/assessment-frameworks`'s own direct Prisma queries — the same convention used by every other Phase 3A/3B admin config page. Not a gap in the current feature (nothing else needs to read this data over HTTP yet), but worth noting if a future integration (e.g. a marks-entry page needing to look up "what framework applies here") needs one.
+### No subject-credit/weighting concept — cross-subject GPA is unweighted by explicit decision 🔭
+`computeUnweightedGPA()` treats every subject with a resolvable grade point equally. This was an explicit Phase 3D-2/3/4 decision, not an oversight — "Do not add subject credits or weighting concepts in this phase" — but any future request for a credit-weighted GPA would need a genuinely new field (e.g. a credit/weight on `GradeSubject` or `AssessmentFrameworkAssignment`) that doesn't exist anywhere in this schema today.
+
+### `GradingScaleBand.isPassing` is not read by any Promotion workflow yet 🔭
+Added specifically so a future Promotion-roster page could display computed pass/fail as reference information, but `recordGradeDecision()` and every existing Promotion route remain fully unaware of it. No route or UI currently sets or reads it for any decision-making purpose.
+
+### No credit for a component's marks being derived from `UnitTestResult` 🔭
+Deliberately not built — see [PRODUCT_RULES.md](PRODUCT_RULES.md) for the reasoning. A teacher whose "Class Test" component happens to match one of their own unit-test scores must re-enter it; no convenience link exists between the two systems.
 
 ## Authentication
 

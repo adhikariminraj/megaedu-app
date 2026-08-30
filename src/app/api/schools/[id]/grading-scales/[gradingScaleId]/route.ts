@@ -8,6 +8,7 @@ type BandInput = {
   maxPercent: number;
   label: string;
   gradePoint?: number | null;
+  isPassing?: boolean | null;
   description?: string | null;
 };
 
@@ -18,9 +19,17 @@ type BandInput = {
  * already be referenced by a real AssessmentFramework is never
  * removable, only deactivated (isActive: false). Replacing `bands`
  * deletes the existing set and recreates it atomically — bands carry no
- * independent identity of their own yet (no marks-entry model
- * references a specific band id in this phase), so a full-replace is
- * simpler and safer than diffing individual band edits.
+ * independent identity of their own yet, so a full-replace is simpler
+ * and safer than diffing individual band edits.
+ *
+ * LOCKED once any PUBLISHED result exists using this scale (via any
+ * framework it's attached to): the `bands` replacement is rejected
+ * outright — a clear, consistent policy (locked or not, nothing in
+ * between) rather than trying to distinguish "cosmetic" vs
+ * "structural" band edits inside a full-replace architecture. A school
+ * needing a materially different scale should create a new one and
+ * assign it going forward; `name`/`isActive` remain editable at any
+ * time (cosmetic, not structural).
  */
 export async function PATCH(
   req: NextRequest,
@@ -45,6 +54,32 @@ export async function PATCH(
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
 
   if (body.bands) {
+    const frameworkIds = (
+      await prisma.assessmentFramework.findMany({ where: { gradingScaleId: params.gradingScaleId }, select: { id: true } })
+    ).map((f) => f.id);
+    const assignmentIds = frameworkIds.length
+      ? (
+          await prisma.assessmentFrameworkAssignment.findMany({
+            where: { frameworkId: { in: frameworkIds } },
+            select: { id: true },
+          })
+        ).map((a) => a.id)
+      : [];
+    const hasPublishedResults =
+      assignmentIds.length > 0 &&
+      (await prisma.assessmentResultPublication.findFirst({
+        where: { assignmentId: { in: assignmentIds }, status: "PUBLISHED" },
+      }));
+    if (hasPublishedResults) {
+      return NextResponse.json(
+        {
+          error:
+            "This grading scale's bands are locked — published results already exist using it. Create a new grading scale instead.",
+        },
+        { status: 409 }
+      );
+    }
+
     if (!body.bands.length) {
       return NextResponse.json({ error: "At least one band is required." }, { status: 400 });
     }
@@ -89,6 +124,7 @@ export async function PATCH(
             maxPercent: b.maxPercent,
             label: b.label.trim(),
             gradePoint: typeof b.gradePoint === "number" ? b.gradePoint : null,
+            isPassing: typeof b.isPassing === "boolean" ? b.isPassing : null,
             description: b.description?.trim() || null,
             order: i,
           })),

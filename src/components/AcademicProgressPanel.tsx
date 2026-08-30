@@ -18,6 +18,16 @@ export type EvaluationRow = {
   remarks: string;
   createdAt: string;
 };
+export type SubjectResultRow = {
+  gradeSubjectId: string;
+  subjectName: string;
+  totalObtained: number;
+  totalMax: number;
+  percentage: number | null;
+  gradeLabel: string | null;
+  gradePoint: number | null;
+  isComplete: boolean;
+};
 
 /**
  * Read-only Phase 3B academic summary — Teaching Progress, Test
@@ -34,14 +44,42 @@ export default function AcademicProgressPanel({
   teachingProgress,
   testResults,
   evaluations,
+  subjectResults,
+  gpa,
 }: {
   attendance: AttendanceRow[];
   teachingProgress: ProgressRow[];
   testResults: TestResultRow[];
   evaluations: EvaluationRow[];
+  subjectResults?: SubjectResultRow[];
+  gpa?: number | null;
 }) {
   return (
     <>
+      {subjectResults && subjectResults.length > 0 && (
+        <div className="border border-slate-200 rounded-xl p-5 mb-8">
+          <h3 className="font-semibold text-slate-800 mb-1">Assessment Results</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Published subject results for this session.
+            {typeof gpa === "number" && ` Unweighted GPA: ${gpa.toFixed(2)}.`}
+          </p>
+          <div className="space-y-2">
+            {subjectResults.map((r) => (
+              <div key={r.gradeSubjectId} className="text-sm text-slate-700 border border-slate-100 rounded-lg px-3 py-2">
+                <span className="font-medium">{r.subjectName}</span>
+                <span className="text-slate-400">
+                  {" "}
+                  — {r.totalObtained}/{r.totalMax}
+                  {r.percentage !== null ? ` (${r.percentage.toFixed(1)}%)` : ""}
+                  {r.gradeLabel ? ` — ${r.gradeLabel}` : ""}
+                  {r.gradePoint !== null ? ` (${r.gradePoint} GPA)` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {evaluations.length > 0 && (
         <div className="border border-slate-200 rounded-xl p-5 mb-8">
           <h3 className="font-semibold text-slate-800 mb-1">Teacher Evaluations</h3>

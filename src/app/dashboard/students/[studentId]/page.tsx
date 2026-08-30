@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
+import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
 
 export const dynamic = "force-dynamic";
 
@@ -54,9 +55,10 @@ export default async function StudentProfilePage({ params }: { params: { student
   ]);
   if (!schoolAdmin && !teacher) redirect("/dashboard");
 
-  const [progress, meetings] = await Promise.all([
+  const [progress, meetings, assessment] = await Promise.all([
     fetchAcademicProgress(student.id, "STAFF"),
     fetchMeetingsForStudent(student.id, "STAFF"),
+    fetchAssessmentResults(student.id, "STAFF"),
   ]);
 
   const placement = student.gradeHistory[0];
@@ -93,14 +95,23 @@ export default async function StudentProfilePage({ params }: { params: { student
         teachingProgress={progress.teachingProgress}
         testResults={progress.testResults}
         evaluations={progress.evaluations}
+        subjectResults={toSubjectResultRows(assessment.subjects)}
+        gpa={assessment.gpa}
       />
 
       {progress.attendance.length === 0 &&
         progress.teachingProgress.length === 0 &&
         progress.testResults.length === 0 &&
-        progress.evaluations.length === 0 && (
+        progress.evaluations.length === 0 &&
+        assessment.subjects.length === 0 && (
           <p className="text-slate-400 text-sm mb-8">No academic activity recorded yet this session.</p>
         )}
+
+      <p className="text-xs mb-8">
+        <Link href={`/dashboard/report-card/${student.id}`} className="text-mega-blue font-medium">
+          View full Report Card →
+        </Link>
+      </p>
 
       <div className="border border-slate-200 rounded-xl p-5">
         <h3 className="font-semibold text-slate-800 mb-1">Parent-Teacher Meetings</h3>

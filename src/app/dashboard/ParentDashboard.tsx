@@ -7,6 +7,7 @@ import AcademicProgressPanel, {
   EvaluationRow,
 } from "@/components/AcademicProgressPanel";
 import type { MeetingRow } from "@/lib/academicProgress";
+import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults";
 
 type Parent = {
   id: string;
@@ -27,6 +28,7 @@ type Parent = {
     // this field deliberately doesn't exist anywhere in StudentDashboard's
     // own props.
     meetings: MeetingRow[];
+    assessment: { subjects: SubjectResult[]; gpa: number | null };
   }[];
 };
 
@@ -90,13 +92,16 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
                 {(c.progress.attendance.length > 0 ||
                   c.progress.teachingProgress.length > 0 ||
                   c.progress.testResults.length > 0 ||
-                  c.progress.evaluations.length > 0) && (
+                  c.progress.evaluations.length > 0 ||
+                  c.assessment.subjects.length > 0) && (
                   <div className="mt-4 pt-4 border-t border-slate-100 [&>div:last-child]:mb-0">
                     <AcademicProgressPanel
                       attendance={c.progress.attendance}
                       teachingProgress={c.progress.teachingProgress}
                       testResults={c.progress.testResults}
                       evaluations={c.progress.evaluations}
+                      subjectResults={toSubjectResultRows(c.assessment.subjects)}
+                      gpa={c.assessment.gpa}
                     />
                   </div>
                 )}

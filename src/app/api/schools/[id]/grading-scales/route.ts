@@ -8,6 +8,7 @@ type BandInput = {
   maxPercent: number;
   label: string;
   gradePoint?: number | null;
+  isPassing?: boolean | null;
   description?: string | null;
 };
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             maxPercent: b.maxPercent,
             label: b.label.trim(),
             gradePoint: typeof b.gradePoint === "number" ? b.gradePoint : null,
+            isPassing: typeof b.isPassing === "boolean" ? b.isPassing : null,
             description: b.description?.trim() || null,
             order: i,
           })),
