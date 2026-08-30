@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -263,6 +263,43 @@ This document collects every business rule and architectural decision that was *
 **Applies to**: `/dashboard/students/[studentId]`. Verified live: a Teacher with no assignment to the profiled student, but approved at the same school, successfully viewed the full profile; an unapproved teacher at the same school was redirected away; a Student was redirected away, including from their own profile URL.
 
 ---
+
+## Assessment Framework Foundation (Phase 3D-1)
+
+### `AssessmentFramework`/`GradingScale` are reusable, school-wide templates; only the assignment to a grade/subject is session-scoped ✅
+**Rule**: `AssessmentFramework` and `GradingScale` carry only `schoolId`, no `academicSessionId`/`schoolGradeId` — they're defined once and reused across any number of sessions and grades. `AssessmentFrameworkAssignment` is the only session-scoped model, binding a framework to one `(academicSessionId, schoolGradeId)`, optionally narrowed to one `gradeSubjectId`.
+**Why**: the same "reusable catalog + session-scoped assignment" split already established for `Subject`/`GradeSubject` in Phase 3A, chosen deliberately over forcing a school to re-enter its entire marking scheme — several components, weights, and a grading scale — from scratch every session, a much heavier cost than re-picking a subject from an existing catalog. This was an explicit, flagged departure from the originally-sketched session-scoped-framework hierarchy, approved before implementation.
+**Applies to**: `AssessmentFramework`, `GradingScale`, `AssessmentFrameworkAssignment`.
+
+### A subject-specific framework assignment overrides the grade default — one resolution rule, not a template-inheritance chain ✅
+**Rule**: `resolveFrameworkAssignment()` (`src/lib/assessmentFramework.ts`) looks up a subject-specific assignment (`gradeSubjectId` set, matching the target subject) first; if none exists, falls back to the grade-default assignment (`gradeSubjectId: null`). The same nullable-scope-discriminator idiom already used by `TeachingUnit.sectionId`, `StudentEvaluation.gradeSubjectId`, and `ParentTeacherMeeting.gradeSubjectId` — null = general/default, set = specific.
+**Why**: satisfies "different subjects → different assessment structures" (e.g. Computer: Theory 50%/Practical 50%, overriding a grade's general CA/Exam split) through the same flat, two-level mechanism already proven elsewhere in this schema, rather than a deeper template-inheritance chain that was never demonstrated as necessary by any real example.
+**Applies to**: `AssessmentFrameworkAssignment`. Verified live: with Class 9's default set to one framework and an IT-subject override set to a different one, resolving for Mathematics (no override) correctly fell back to the default; resolving for IT correctly returned the override.
+
+### `maxMarks` is the one number a component is worth — weight and marks are the same field, not two systems ✅
+**Rule**: `AssessmentComponent.maxMarks: Float` represents a component's contribution toward the framework total, whether the school thinks of it as "10%" or "10 marks" — both are the identical shape. No separate `weightPercent` field exists. `entryMode` (`MARKS | GRADE | DESCRIPTIVE`) separately controls how a student's result will eventually be recorded (Phase 3D-2), not how the component is weighted.
+**Why**: explicitly required — "Do not create separate weight and marks systems... `maxMarks` represents the component's contribution toward the framework total." Working through the four real-world examples in the design brief confirmed a percentage-weighted component and a raw-marks component are genuinely the same data shape, not two systems needing reconciliation.
+**Applies to**: `AssessmentComponent`. Verified live: "Example A" (percentage-weighted, `GRADE`-mode components) and "Example B" (raw-marks, `MARKS`-mode components) were both created through the identical model with no special-casing.
+
+### Periods are optional; components may belong directly to a framework or to a period ✅
+**Rule**: a framework may define zero `AssessmentPeriod` rows (a flat structure) or several. `AssessmentComponent.periodId` is nullable — `null` means the component hangs directly off the framework.
+**Why**: not every school's report card has terms (e.g. a flat annual CA/Exam split); forcing every framework through a period layer would be unnecessary structure for the common case.
+**Applies to**: `AssessmentPeriod`, `AssessmentComponent`. Verified live: a term-based framework with two periods (`Term I`, `Term II`) each containing identically-named components (`Periodic Test`, `Notebook`, `Subject Enrichment`) created successfully with no collision, since uniqueness is scoped per-period.
+
+### Two more NULL≠NULL uniqueness gaps, both pre-checked from the start ✅
+**Rule**: `AssessmentFrameworkAssignment`'s `@@unique([academicSessionId, schoolGradeId, gradeSubjectId])` does not by itself block a second grade-default (`gradeSubjectId: null`) assignment; `AssessmentComponent`'s `@@unique([frameworkId, periodId, name])` does not by itself block a second identically-named framework-level (`periodId: null`) component. Both pre-checked via explicit `findFirst`-based helpers (`assignmentCollisionExists()`/`componentCollisionExists()`, `src/lib/assessmentFramework.ts`) before every create — a plain `findFirst` with `x: null` in the WHERE clause correctly matches existing null rows, unlike a unique index.
+**Why**: the identical recurring gap already found and fixed in `TeacherAcademicAssignment`, `ClassTeacherAssignment`, and `StudentEvaluation` — anticipated and built in from the start this time, per the standing reminder in this file, rather than discovered via a live duplicate-creation test.
+**Applies to**: `AssessmentFrameworkAssignment`, `AssessmentComponent`. Verified live: a duplicate grade-default assignment, a duplicate subject-override assignment, and a duplicate framework-level component each returned `409`; two identically-named, period-less components submitted together in one framework-creation request returned `400` before any row was created.
+
+### Assessment configuration is School-Admin only — no teacher-facing action exists in this phase ✅
+**Rule**: every write route under `/api/schools/[id]/{grading-scales,assessment-frameworks,assessment-framework-assignments}...` is gated by `requireSchoolAdmin(schoolId)` alone. Teachers, Parents, and Students have no new functionality in Phase 3D-1.
+**Why**: matches the exact authorization shape already used for `Subject`/`GradeSubject` — structural academic config is School-Admin-only throughout this codebase; a teacher-facing action (marks entry) doesn't exist until Phase 3D-2, so no `requireTeacherAssignment` composition was needed yet.
+**Applies to**: every Phase 3D-1 write route. Verified live: a logged-in, approved Teacher received `403 {"error": "Forbidden"}` from all four write routes attempted directly via `fetch()`, and direct navigation to `/dashboard/assessment-frameworks` redirected them away before any page content rendered.
+
+### `UnitTest`/`UnitTestResult` remain a separate, parallel system — not merged or superseded ✅
+**Rule**: Phase 3B's chapter/unit quiz mechanism is untouched by Phase 3D-1. No auto-derivation of `AssessmentComponent` marks from `UnitTestResult` rows was built or is planned.
+**Why**: explicitly required — "Do not modify existing assessment features such as UnitTest/UnitTestResult." The two serve genuinely different purposes (granular day-to-day quizzes vs. the official report-card-driving marking scheme); none of the four real-world examples the phase was verified against call for auto-derivation, and attempting it would be over-engineering beyond what was asked.
+**Applies to**: `UnitTest`, `UnitTestResult`, `AssessmentComponent`.
 
 ## Access control
 

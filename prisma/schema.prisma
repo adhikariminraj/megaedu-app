@@ -39,24 +39,24 @@ model User {
   payments      Payment[]
   notifications Notification[]
 
-  interests           Interest[]
-  skillsAdded          Skill[]         @relation("SkillAddedBy")
+  interests            Interest[]
+  skillsAdded          Skill[]       @relation("SkillAddedBy")
   instructorProfile    Instructor?
   certificatesReceived Certificate[] @relation("CertificateRecipient")
 
-  gradeDecisionsMade    GradeHistory[]      @relation("GradeHistoryDecidedBy")
+  gradeDecisionsMade     GradeHistory[]      @relation("GradeHistoryDecidedBy")
   gradeHistoryAuditsMade GradeHistoryAudit[] @relation("GradeHistoryAuditChangedBy")
 
-  attendancesMarked        Attendance[]       @relation("AttendanceMarkedBy")
-  attendanceAuditsChanged  AttendanceAudit[]  @relation("AttendanceAuditChangedBy")
-  teachingUnitsCreated     TeachingUnit[]     @relation("TeachingUnitCreatedBy")
-  teachingPlansCreated     TeachingPlan[]     @relation("TeachingPlanCreatedBy")
-  unitTestsCreated         UnitTest[]         @relation("UnitTestCreatedBy")
-  unitTestResultsEvaluated UnitTestResult[]   @relation("UnitTestResultEvaluatedBy")
+  attendancesMarked        Attendance[]      @relation("AttendanceMarkedBy")
+  attendanceAuditsChanged  AttendanceAudit[] @relation("AttendanceAuditChangedBy")
+  teachingUnitsCreated     TeachingUnit[]    @relation("TeachingUnitCreatedBy")
+  teachingPlansCreated     TeachingPlan[]    @relation("TeachingPlanCreatedBy")
+  unitTestsCreated         UnitTest[]        @relation("UnitTestCreatedBy")
+  unitTestResultsEvaluated UnitTestResult[]  @relation("UnitTestResultEvaluatedBy")
 
-  studentEvaluationsCreated StudentEvaluation[]      @relation("StudentEvaluationCreatedBy")
-  studentEvaluationAudits   StudentEvaluationAudit[] @relation("StudentEvaluationAuditChangedBy")
-  parentTeacherMeetingsCreated ParentTeacherMeeting[] @relation("ParentTeacherMeetingCreatedBy")
+  studentEvaluationsCreated    StudentEvaluation[]      @relation("StudentEvaluationCreatedBy")
+  studentEvaluationAudits      StudentEvaluationAudit[] @relation("StudentEvaluationAuditChangedBy")
+  parentTeacherMeetingsCreated ParentTeacherMeeting[]   @relation("ParentTeacherMeetingCreatedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -76,9 +76,9 @@ model UserRole {
 // SCHOOL
 // ============================================================
 model School {
-  id               String   @id @default(cuid())
+  id               String  @id @default(cuid())
   name             String
-  slug             String   @unique
+  slug             String  @unique
   type             String?
   location         String?
   district         String?
@@ -88,9 +88,9 @@ model School {
   description      String?
   logoUrl          String?
   coverImageUrl    String?
-  verified         Boolean  @default(false)
-  isActive         Boolean  @default(true)
-  subscriptionTier String   @default("FREE")
+  verified         Boolean @default(false)
+  isActive         Boolean @default(true)
+  subscriptionTier String  @default("FREE")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -110,10 +110,13 @@ model School {
   issuedCertificates     Certificate[] @relation("CertificateIssuerSchool")
   associatedCertificates Certificate[] @relation("CertificateAssociatedSchool")
 
-  academicSessions AcademicSession[]
-  grades           SchoolGrade[]
-  subjects         Subject[]
-  parentTeacherMeetings ParentTeacherMeeting[]
+  academicSessions               AcademicSession[]
+  grades                         SchoolGrade[]
+  subjects                       Subject[]
+  parentTeacherMeetings          ParentTeacherMeeting[]
+  assessmentFrameworks           AssessmentFramework[]
+  gradingScales                  GradingScale[]
+  assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
 }
 
 model SchoolAdmin {
@@ -137,9 +140,9 @@ model SchoolAccountant {
 }
 
 model Program {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   schoolId    String
-  school      School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  school      School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   name        String
   description String?
 }
@@ -173,11 +176,11 @@ model Teacher {
   // Certificate model has no direct teacherId link) — access a teacher's
   // certificates through teacher.user.certificatesReceived.
 
-  gradeAssignments TeacherGradeAssignment[]
-  academicAssignments TeacherAcademicAssignment[]
+  gradeAssignments        TeacherGradeAssignment[]
+  academicAssignments     TeacherAcademicAssignment[]
   classTeacherAssignments ClassTeacherAssignment[]
-  studentEvaluations StudentEvaluation[]
-  parentTeacherMeetings ParentTeacherMeeting[]
+  studentEvaluations      StudentEvaluation[]
+  parentTeacherMeetings   ParentTeacherMeeting[]
 
   @@index([schoolId])
 }
@@ -205,13 +208,13 @@ model Student {
   interestsLockedForSessionId String?
   interestsLockedForSession   AcademicSession? @relation(fields: [interestsLockedForSessionId], references: [id])
 
-  parents           ParentStudent[]
-  courseEnrollments CourseEnrollment[]
-  skills            Skill[]
-  gradeHistory      GradeHistory[]
-  attendances       Attendance[]
-  unitTestResults   UnitTestResult[]
-  evaluations       StudentEvaluation[]
+  parents               ParentStudent[]
+  courseEnrollments     CourseEnrollment[]
+  skills                Skill[]
+  gradeHistory          GradeHistory[]
+  attendances           Attendance[]
+  unitTestResults       UnitTestResult[]
+  evaluations           StudentEvaluation[]
   parentTeacherMeetings ParentTeacherMeeting[]
 
   @@index([schoolId])
@@ -255,17 +258,18 @@ model AcademicSession {
   endDate   DateTime
   status    String   @default("ACTIVE") // "ACTIVE" | "CLOSED"
 
-  teacherGradeAssignments TeacherGradeAssignment[]
-  gradeHistories          GradeHistory[]
-  gradeSubjects           GradeSubject[]
-  teacherAcademicAssignments TeacherAcademicAssignment[]
-  classTeacherAssignments ClassTeacherAssignment[]
-  attendances             Attendance[]
-  teachingUnits           TeachingUnit[]
-  teachingPlans           TeachingPlan[]
-  interestLockedStudents  Student[]
-  studentEvaluations      StudentEvaluation[]
-  parentTeacherMeetings   ParentTeacherMeeting[]
+  teacherGradeAssignments        TeacherGradeAssignment[]
+  gradeHistories                 GradeHistory[]
+  gradeSubjects                  GradeSubject[]
+  teacherAcademicAssignments     TeacherAcademicAssignment[]
+  classTeacherAssignments        ClassTeacherAssignment[]
+  attendances                    Attendance[]
+  teachingUnits                  TeachingUnit[]
+  teachingPlans                  TeachingPlan[]
+  interestLockedStudents         Student[]
+  studentEvaluations             StudentEvaluation[]
+  parentTeacherMeetings          ParentTeacherMeeting[]
+  assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
 
   @@index([schoolId])
 }
@@ -291,17 +295,18 @@ model SchoolGrade {
   gradeReference   GradeReference @relation(fields: [gradeReferenceId], references: [id])
   displayName      String
 
-  teacherAssignments TeacherGradeAssignment[]
-  gradeHistories     GradeHistory[] @relation("GradeHistoryGrade")
-  outcomeOfHistories GradeHistory[] @relation("GradeHistoryOutcome")
-  sections           Section[]
-  gradeSubjects      GradeSubject[]
-  teacherAcademicAssignments TeacherAcademicAssignment[]
-  classTeacherAssignments ClassTeacherAssignment[]
-  attendances        Attendance[]
-  teachingUnits      TeachingUnit[]
-  teachingPlans      TeachingPlan[]
-  studentEvaluations StudentEvaluation[]
+  teacherAssignments             TeacherGradeAssignment[]
+  gradeHistories                 GradeHistory[]                  @relation("GradeHistoryGrade")
+  outcomeOfHistories             GradeHistory[]                  @relation("GradeHistoryOutcome")
+  sections                       Section[]
+  gradeSubjects                  GradeSubject[]
+  teacherAcademicAssignments     TeacherAcademicAssignment[]
+  classTeacherAssignments        ClassTeacherAssignment[]
+  attendances                    Attendance[]
+  teachingUnits                  TeachingUnit[]
+  teachingPlans                  TeachingPlan[]
+  studentEvaluations             StudentEvaluation[]
+  assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -322,13 +327,13 @@ model Section {
   isActive      Boolean     @default(true)
   createdAt     DateTime    @default(now())
 
-  gradeHistories GradeHistory[]
+  gradeHistories             GradeHistory[]
   teacherAcademicAssignments TeacherAcademicAssignment[]
-  classTeacherAssignments ClassTeacherAssignment[]
-  attendances    Attendance[]
-  teachingUnits  TeachingUnit[]
-  teachingPlans  TeachingPlan[]
-  studentEvaluations StudentEvaluation[]
+  classTeacherAssignments    ClassTeacherAssignment[]
+  attendances                Attendance[]
+  teachingUnits              TeachingUnit[]
+  teachingPlans              TeachingPlan[]
+  studentEvaluations         StudentEvaluation[]
 
   @@unique([schoolGradeId, name])
   @@index([schoolGradeId])
@@ -466,11 +471,12 @@ model GradeSubject {
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   createdAt         DateTime        @default(now())
 
-  teacherAssignments TeacherAcademicAssignment[]
-  teachingUnits      TeachingUnit[]
-  teachingPlans      TeachingPlan[]
-  studentEvaluations StudentEvaluation[]
-  parentTeacherMeetings ParentTeacherMeeting[]
+  teacherAssignments             TeacherAcademicAssignment[]
+  teachingUnits                  TeachingUnit[]
+  teachingPlans                  TeachingPlan[]
+  studentEvaluations             StudentEvaluation[]
+  parentTeacherMeetings          ParentTeacherMeeting[]
+  assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
 
   @@unique([schoolGradeId, subjectId, academicSessionId])
   @@index([schoolGradeId])
@@ -573,7 +579,7 @@ model Attendance {
   sectionId         String?
   section           Section?        @relation(fields: [sectionId], references: [id])
   date              DateTime
-  status            String          // PRESENT | ABSENT | LATE | EXCUSED
+  status            String // PRESENT | ABSENT | LATE | EXCUSED
   remarks           String?
   markedByUserId    String
   markedBy          User            @relation("AttendanceMarkedBy", fields: [markedByUserId], references: [id])
@@ -669,7 +675,7 @@ model TeachingUnit {
   order             Int
   status            String          @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | COMPLETED
   startedAt         DateTime?
-  completedAt        DateTime?
+  completedAt       DateTime?
   createdByUserId   String
   createdBy         User            @relation("TeachingUnitCreatedBy", fields: [createdByUserId], references: [id])
   createdAt         DateTime        @default(now())
@@ -745,41 +751,41 @@ model UnitTestResult {
 // un-share path exists, matching how a Certificate is permanent once
 // issued elsewhere in this schema.
 model StudentEvaluation {
-  id                String   @id @default(cuid())
+  id                String          @id @default(cuid())
   studentId         String
-  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
   teacherId         String
-  teacher           Teacher  @relation(fields: [teacherId], references: [id])
+  teacher           Teacher         @relation(fields: [teacherId], references: [id])
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   schoolGradeId     String
-  schoolGrade       SchoolGrade @relation(fields: [schoolGradeId], references: [id])
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
   sectionId         String?
-  section           Section? @relation(fields: [sectionId], references: [id])
+  section           Section?        @relation(fields: [sectionId], references: [id])
   // null = general/pastoral evaluation (Grade Class Teacher or Section
   // Teacher, via requireClassTeacher); set = subject-specific evaluation
   // (Subject Teacher, via requireTeacherAssignment). The UI derives its
   // "General Student Evaluation" vs "Subject Evaluation" label from
   // this field alone.
   gradeSubjectId    String?
-  gradeSubject      GradeSubject? @relation(fields: [gradeSubjectId], references: [id])
+  gradeSubject      GradeSubject?   @relation(fields: [gradeSubjectId], references: [id])
 
-  remarks           String
+  remarks String
 
   // Two fully independent visibility gates — a Student-visible
   // evaluation is not automatically Parent-visible, or vice versa.
-  visibleToParent      Boolean   @default(false)
-  sharedWithParentAt   DateTime?
-  visibleToStudent     Boolean   @default(false)
-  sharedWithStudentAt  DateTime?
+  visibleToParent     Boolean   @default(false)
+  sharedWithParentAt  DateTime?
+  visibleToStudent    Boolean   @default(false)
+  sharedWithStudentAt DateTime?
 
-  createdByUserId   String
-  createdBy         User     @relation("StudentEvaluationCreatedBy", fields: [createdByUserId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdByUserId String
+  createdBy       User     @relation("StudentEvaluationCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  audits            StudentEvaluationAudit[]
-  meetings          ParentTeacherMeeting[]
+  audits   StudentEvaluationAudit[]
+  meetings ParentTeacherMeeting[]
 
   // NOTE: this constraint reliably catches an exact duplicate
   // subject-specific slot, but — the same NULL≠NULL unique-index gap
@@ -796,12 +802,12 @@ model StudentEvaluation {
 // an evaluation has been shared with a Parent and/or a Student — mirrors
 // GradeHistoryAudit/AttendanceAudit's shape exactly.
 model StudentEvaluationAudit {
-  id              String   @id @default(cuid())
+  id              String            @id @default(cuid())
   evaluationId    String
   evaluation      StudentEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
   changedByUserId String
-  changedBy       User     @relation("StudentEvaluationAuditChangedBy", fields: [changedByUserId], references: [id])
-  changedAt       DateTime @default(now())
+  changedBy       User              @relation("StudentEvaluationAuditChangedBy", fields: [changedByUserId], references: [id])
+  changedAt       DateTime          @default(now())
   previousRemarks String
   newRemarks      String
 }
@@ -815,22 +821,22 @@ model StudentEvaluationAudit {
 // creates. Parent-visible only; Students have no visibility into this
 // model in this phase.
 model ParentTeacherMeeting {
-  id                 String   @id @default(cuid())
+  id                 String             @id @default(cuid())
   schoolId           String
-  school             School   @relation(fields: [schoolId], references: [id])
+  school             School             @relation(fields: [schoolId], references: [id])
   academicSessionId  String
-  academicSession    AcademicSession @relation(fields: [academicSessionId], references: [id])
+  academicSession    AcademicSession    @relation(fields: [academicSessionId], references: [id])
   studentId          String
-  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  student            Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
   teacherId          String
-  teacher            Teacher  @relation(fields: [teacherId], references: [id])
+  teacher            Teacher            @relation(fields: [teacherId], references: [id])
   // null = general meeting; set = about one specific subject.
   gradeSubjectId     String?
-  gradeSubject       GradeSubject? @relation(fields: [gradeSubjectId], references: [id])
+  gradeSubject       GradeSubject?      @relation(fields: [gradeSubjectId], references: [id])
   scheduledAt        DateTime
   location           String?
   onlineUrl          String?
-  status             String   @default("SCHEDULED") // "SCHEDULED" | "COMPLETED" | "CANCELLED"
+  status             String             @default("SCHEDULED") // "SCHEDULED" | "COMPLETED" | "CANCELLED"
   outcomeNotes       String?
   // Optional link to an evaluation prepared ahead of the meeting and
   // discussed during it — many meetings may reference the same
@@ -839,12 +845,192 @@ model ParentTeacherMeeting {
   linkedEvaluationId String?
   linkedEvaluation   StudentEvaluation? @relation(fields: [linkedEvaluationId], references: [id])
   createdByUserId    String
-  createdBy          User     @relation("ParentTeacherMeetingCreatedBy", fields: [createdByUserId], references: [id])
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdBy          User               @relation("ParentTeacherMeetingCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@index([studentId])
   @@index([schoolId])
+}
+
+// ============================================================
+// ASSESSMENT FRAMEWORK FOUNDATION — Phase 3D-1
+// Additive on top of Phase 2/3A/3B/3C — no existing model's columns
+// changed, only new relation-array fields. This phase is
+// configuration-only: no marks entry, aggregation, GPA calculation,
+// report cards, or promotion logic exist yet. See
+// docs/ASSESSMENT_FRAMEWORK.md.
+//
+// AssessmentFramework and GradingScale are reusable, school-wide
+// templates — like Subject, NOT session-scoped like GradeSubject. The
+// session-scoped piece is AssessmentFrameworkAssignment alone, which
+// binds a (reusable) framework to one (AcademicSession, SchoolGrade),
+// optionally narrowed to one GradeSubject — mirroring the exact
+// Subject/GradeSubject split already established in Phase 3A, chosen
+// deliberately over forcing a school to re-define its entire marking
+// scheme from scratch every session (the cost of re-entering a
+// framework's components/weights is much higher than re-picking a
+// subject from an existing catalog).
+// ============================================================
+
+// A reusable marking-scheme template, defined once per school and
+// assignable to any number of (session, grade) combinations over time
+// — never hard-deleted once it may be assigned, deactivate only
+// (isActive), same "retire by disuse" precedent as Subject/Section.
+model AssessmentFramework {
+  id             String        @id @default(cuid())
+  schoolId       String
+  school         School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  // null = marks-only (no letter-grade conversion) or descriptive-only
+  // system — see GradingScale below.
+  gradingScaleId String?
+  gradingScale   GradingScale? @relation(fields: [gradingScaleId], references: [id])
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  periods     AssessmentPeriod[]
+  components  AssessmentComponent[]
+  assignments AssessmentFrameworkAssignment[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+// An optional grouping layer under a framework ("Term I", "Mid-Term",
+// "Annual"). A framework may define zero periods (a flat, single-block
+// structure) or several. Not itself weight-bearing — a period's
+// contribution to the framework total is simply the natural sum of its
+// own components' maxMarks, the same as any other component grouping.
+model AssessmentPeriod {
+  id          String              @id @default(cuid())
+  frameworkId String
+  framework   AssessmentFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  name        String
+  order       Int
+  createdAt   DateTime            @default(now())
+
+  components AssessmentComponent[]
+
+  @@unique([frameworkId, name])
+  @@index([frameworkId])
+}
+
+// One scored (or graded, or descriptive) piece of a framework —
+// "Periodic Test", "Research & Presentation", "Theory". periodId null
+// means the component hangs directly off the framework (no periods in
+// use); a real value nests it under that period. maxMarks is the ONE
+// number a component is worth, out of whatever the framework's
+// components sum to — deliberately doing double duty as "marks" and
+// "weight" rather than maintaining two parallel fields (a 10%-weighted
+// component and a component worth 10 raw marks are the identical
+// shape; only entryMode differs). entryMode controls how a student's
+// result for this component will eventually be recorded (Phase 3D-2,
+// not built yet): MARKS = a raw number 0..maxMarks; GRADE = a label
+// picked from the framework's own GradingScale, converted to a
+// maxMarks-weighted contribution via that label's gradePoint;
+// DESCRIPTIVE = free text only, excluded from any numeric aggregate.
+model AssessmentComponent {
+  id          String              @id @default(cuid())
+  frameworkId String
+  framework   AssessmentFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  periodId    String?
+  period      AssessmentPeriod?   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  name        String
+  maxMarks    Float
+  entryMode   String              @default("MARKS") // "MARKS" | "GRADE" | "DESCRIPTIVE"
+  order       Int
+  createdAt   DateTime            @default(now())
+
+  // NOTE: reliably catches an exact duplicate component within the
+  // SAME real period, but — the same NULL≠NULL unique-index gap
+  // documented repeatedly elsewhere in this schema (TeacherAcademicAssignment,
+  // ClassTeacherAssignment, StudentEvaluation) — does NOT by itself
+  // catch a second identically-named component with periodId: null
+  // (framework-level, no period) under the same framework. The create
+  // route pre-checks that case explicitly before creating, from the
+  // start — see src/lib/assessmentFramework.ts.
+  @@unique([frameworkId, periodId, name])
+  @@index([frameworkId])
+  @@index([periodId])
+}
+
+// A reusable, school-wide marks→grade conversion table — "National
+// Scale 2081", "Pass/Fail", "A1-B2 Scale". Shared across any number of
+// AssessmentFrameworks. Never hard-deleted once a framework may
+// reference it — deactivate only (isActive), same precedent as
+// AssessmentFramework/Subject/Section.
+model GradingScale {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  bands      GradingScaleBand[]
+  frameworks AssessmentFramework[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+// One percentage band within a GradingScale — "90-100 = A+, 4.0,
+// Outstanding". gradePoint is optional: null where GPA math doesn't
+// apply (e.g. a plain Pass/Fail scale with no grade-point concept).
+model GradingScaleBand {
+  id             String       @id @default(cuid())
+  gradingScaleId String
+  gradingScale   GradingScale @relation(fields: [gradingScaleId], references: [id], onDelete: Cascade)
+  minPercent     Float
+  maxPercent     Float
+  label          String
+  gradePoint     Float?
+  description    String?
+  order          Int
+
+  @@index([gradingScaleId])
+}
+
+// The ONLY session-scoped piece of this phase — binds a reusable
+// AssessmentFramework to one (AcademicSession, SchoolGrade), optionally
+// narrowed to one GradeSubject. gradeSubjectId null = the grade's
+// DEFAULT framework, applying to every subject offered at that grade
+// this session unless overridden; a real value = a subject-specific
+// override for that one subject — the same nullable-scope-discriminator
+// idiom already used three times elsewhere in this schema
+// (TeachingUnit.sectionId, StudentEvaluation.gradeSubjectId,
+// ParentTeacherMeeting.gradeSubjectId). Resolution rule (implemented in
+// src/lib/assessmentFramework.ts): look up a subject-specific
+// assignment first; fall back to the grade-default if none exists.
+// Not audited — current-state operational config, same non-historical
+// classification as GradeSubject/TeacherAcademicAssignment, with a real
+// DELETE route to match.
+model AssessmentFrameworkAssignment {
+  id                String              @id @default(cuid())
+  schoolId          String
+  school            School              @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession     @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade         @relation(fields: [schoolGradeId], references: [id])
+  gradeSubjectId    String?
+  gradeSubject      GradeSubject?       @relation(fields: [gradeSubjectId], references: [id])
+  frameworkId       String
+  framework         AssessmentFramework @relation(fields: [frameworkId], references: [id])
+  createdAt         DateTime            @default(now())
+
+  // NOTE: reliably catches a duplicate override for the SAME subject,
+  // but — the identical NULL≠NULL gap as above — does NOT by itself
+  // catch a second grade-default (gradeSubjectId: null) assignment for
+  // the same grade/session. Pre-checked explicitly before creating; see
+  // src/lib/assessmentFramework.ts.
+  @@unique([academicSessionId, schoolGradeId, gradeSubjectId])
+  @@index([academicSessionId])
+  @@index([schoolGradeId])
+  @@index([frameworkId])
 }
 
 // ============================================================
@@ -918,7 +1104,7 @@ model SchoolApproach {
 // MEGA ACADEMY — courses, enrollment, certificates
 // ============================================================
 model Course {
-  id             String   @id @default(cuid())
+  id             String               @id @default(cuid())
   organizationId String?
   organization   Organization?        @relation(fields: [organizationId], references: [id])
   approachId     String?
@@ -969,29 +1155,29 @@ model CourseEnrollment {
   completedAt DateTime?
   enrolledAt  DateTime  @default(now())
 
-  certificate   Certificate?
+  certificate Certificate?
 }
 
 // --- Certificate — the redesigned model, replacing the old one that
 // only supported a single ambiguous teacherId field ---
 model Certificate {
-  id                String            @id @default(cuid())
-  verificationCode  String            @unique @default(cuid())
-  recipientUserId   String
-  recipient         User              @relation("CertificateRecipient", fields: [recipientUserId], references: [id])
-  enrollmentId      String?           @unique
-  enrollment        CourseEnrollment? @relation(fields: [enrollmentId], references: [id])
-  gradeHistoryId    String?           @unique // reserved for Phase 2
-  instructorId      String?
-  instructor        Instructor?       @relation(fields: [instructorId], references: [id])
+  id               String            @id @default(cuid())
+  verificationCode String            @unique @default(cuid())
+  recipientUserId  String
+  recipient        User              @relation("CertificateRecipient", fields: [recipientUserId], references: [id])
+  enrollmentId     String?           @unique
+  enrollment       CourseEnrollment? @relation(fields: [enrollmentId], references: [id])
+  gradeHistoryId   String?           @unique // reserved for Phase 2
+  instructorId     String?
+  instructor       Instructor?       @relation(fields: [instructorId], references: [id])
 
-  issuerType            String // "MEGA_EDU" | "ORGANIZATION" | "SCHOOL" | "JOINT"
-  issuerOrganizationId  String?
-  issuerOrganization    Organization? @relation("CertificateIssuerOrg", fields: [issuerOrganizationId], references: [id])
-  issuerSchoolId        String?
-  issuerSchool          School?       @relation("CertificateIssuerSchool", fields: [issuerSchoolId], references: [id])
-  associatedSchoolId    String?
-  associatedSchool      School?       @relation("CertificateAssociatedSchool", fields: [associatedSchoolId], references: [id])
+  issuerType           String // "MEGA_EDU" | "ORGANIZATION" | "SCHOOL" | "JOINT"
+  issuerOrganizationId String?
+  issuerOrganization   Organization? @relation("CertificateIssuerOrg", fields: [issuerOrganizationId], references: [id])
+  issuerSchoolId       String?
+  issuerSchool         School?       @relation("CertificateIssuerSchool", fields: [issuerSchoolId], references: [id])
+  associatedSchoolId   String?
+  associatedSchool     School?       @relation("CertificateAssociatedSchool", fields: [associatedSchoolId], references: [id])
 
   title String
 
@@ -1044,7 +1230,7 @@ model Skill {
 // RESOURCES, EVENTS, OPPORTUNITIES
 // ============================================================
 model Resource {
-  id             String   @id @default(cuid())
+  id             String               @id @default(cuid())
   title          String
   description    String?
   fileUrl        String?
@@ -1056,11 +1242,11 @@ model Resource {
   school         School?              @relation(fields: [schoolId], references: [id])
   organizationId String?
   organization   Organization?        @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime @default(now())
+  createdAt      DateTime             @default(now())
 }
 
 model Event {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   title          String
   description    String?
   startsAt       DateTime
@@ -1070,11 +1256,11 @@ model Event {
   school         School?       @relation(fields: [schoolId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 }
 
 model Opportunity {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   title          String
   description    String?
   type           String
@@ -1084,7 +1270,7 @@ model Opportunity {
   school         School?       @relation(fields: [schoolId], references: [id])
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
 }
 
 // ============================================================

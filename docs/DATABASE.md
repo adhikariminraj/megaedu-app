@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -229,6 +229,52 @@ Two new models, additive on top of Phase 2/3A/3B — no existing model's columns
 **Constraints**: none beyond FKs — no uniqueness constraint blocks multiple meetings for the same student/teacher (a follow-up meeting is expected).
 **Delete behavior**: cascades from `Student`; no delete route — a meeting is cancelled (`status: "CANCELLED"`), never deleted.
 **Notes**: `linkedEvaluationId` is a plain (non-unique) FK — many meetings may reference the same evaluation. **Parent/Staff-visible only, never Student** — `fetchMeetingsForStudent(studentId, audience)` (`src/lib/academicProgress.ts`, `audience: "PARENT" | "STAFF"`) is called only from the Parent dashboard branch and the staff-only Student Profile page (`/dashboard/students/[studentId]`); there is no code path where a Student's own page render ever queries this table, a structural guarantee rather than a hidden UI section. `outcomeNotes` and rescheduling (`scheduledAt`/`location`/`onlineUrl`, only while `status: "SCHEDULED"`) are not audited (only `StudentEvaluation.remarks` has that requirement) — freely editable, current-state data.
+
+---
+
+## Assessment Framework Foundation — Phase 3D-1 ✅ (configuration only — no marks entry yet)
+
+Six new models, additive on top of Phase 2/3A/3B/3C — no existing model's columns changed, only new relation-array fields on `School`, `AcademicSession`, `SchoolGrade`, and `GradeSubject`. See [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) for full behavioral detail.
+
+### `AssessmentFramework`
+**Purpose**: a reusable, school-wide marking-scheme template — like `Subject`, NOT session-scoped like `GradeSubject`. **Currently used**: yes (configuration only).
+**Key fields**: `id, schoolId (FK), name, description?, gradingScaleId? (FK), isActive (default true), createdAt, updatedAt`.
+**Constraints**: `@@unique([schoolId, name])`.
+**Delete behavior**: no delete route — never hard-deleted once it may be assigned, deactivate only (`isActive`), same "retire by disuse" precedent as `Subject`/`Section`.
+**Notes**: `gradingScaleId: null` means marks-only or descriptive-only (no letter-grade conversion). Structural edits (components/weights) are unrestricted in this phase since no marks exist yet to invalidate — flagged in [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) as needing revisiting once Phase 3D-2 introduces real results.
+
+### `AssessmentPeriod`
+**Purpose**: an optional grouping layer under a framework ("Term I", "Mid-Term", "Annual"). **Currently used**: yes.
+**Key fields**: `id, frameworkId (FK), name, order, createdAt`.
+**Constraints**: `@@unique([frameworkId, name])`.
+**Delete behavior**: cascades from `AssessmentFramework`; a real `DELETE` route exists (cascades its own components) — current-state config, not historical.
+**Notes**: not itself weight-bearing — a period's contribution to the framework total is simply the natural sum of its own components' `maxMarks`.
+
+### `AssessmentComponent`
+**Purpose**: one scored/graded/descriptive piece of a framework ("Periodic Test", "Theory"), belonging directly to a framework or to one of its periods. **Currently used**: yes.
+**Key fields**: `id, frameworkId (FK), periodId? (FK), name, maxMarks (Float), entryMode (default "MARKS"), order, createdAt`. Valid `entryMode`: `MARKS | GRADE | DESCRIPTIVE`.
+**Constraints**: `@@unique([frameworkId, periodId, name])` — ⚠️ **NULL≠NULL gap**: reliably blocks a duplicate within the same real period, but not two identically-named components both with `periodId: null`. Pre-checked explicitly via `componentCollisionExists()` (`src/lib/assessmentFramework.ts`) before every create.
+**Delete behavior**: cascades from `AssessmentFramework` and from `AssessmentPeriod`; a real `DELETE` route exists — current-state config.
+**Notes**: `maxMarks` does double duty as "marks" and "weight" — a 10%-weighted component and a component worth 10 raw marks are the identical shape, only `entryMode` differs. See [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) for the full reasoning.
+
+### `GradingScale`
+**Purpose**: a reusable, school-wide marks→grade conversion table. **Currently used**: yes.
+**Key fields**: `id, schoolId (FK), name, isActive (default true), createdAt`.
+**Constraints**: `@@unique([schoolId, name])`.
+**Delete behavior**: no delete route — deactivate only, same precedent as `AssessmentFramework`/`Subject`/`Section`.
+
+### `GradingScaleBand`
+**Purpose**: one percentage band within a `GradingScale` ("90-100 = A+, 4.0 GPA, Outstanding"). **Currently used**: yes.
+**Key fields**: `id, gradingScaleId (FK), minPercent, maxPercent, label, gradePoint?, description?, order`.
+**Constraints**: none beyond FK — overlap between bands is validated at the route level, not the database.
+**Delete behavior**: cascades from `GradingScale`. Bands have no independent identity referenced elsewhere in this phase — `PATCH /api/schools/[id]/grading-scales/[gradingScaleId]` replaces the full set atomically rather than diffing individual band edits.
+
+### `AssessmentFrameworkAssignment`
+**Purpose**: the *only* session-scoped model in this phase — binds a reusable `AssessmentFramework` to one `(AcademicSession, SchoolGrade)`, optionally narrowed to one `GradeSubject` as a subject-specific override. **Currently used**: yes.
+**Key fields**: `id, schoolId (FK), academicSessionId (FK), schoolGradeId (FK), gradeSubjectId? (FK), frameworkId (FK), createdAt`.
+**Constraints**: `@@unique([academicSessionId, schoolGradeId, gradeSubjectId])` — ⚠️ **NULL≠NULL gap**: reliably blocks a duplicate subject-specific override, but not a second grade-default (`gradeSubjectId: null`) assignment for the same grade/session. Pre-checked explicitly via `assignmentCollisionExists()` before every create — the same recurring gap already documented for `TeacherAcademicAssignment`, `ClassTeacherAssignment`, and `StudentEvaluation`.
+**Delete behavior**: no cascade dependents; a real `DELETE` route exists — not audited, current-state config, same as `TeacherAcademicAssignment`'s own `DELETE` route.
+**Notes**: resolution rule (`resolveFrameworkAssignment()`, `src/lib/assessmentFramework.ts`): a subject-specific assignment takes priority; otherwise fall back to the grade-default. The same nullable-scope-discriminator idiom already used by `TeachingUnit.sectionId`, `StudentEvaluation.gradeSubjectId`, and `ParentTeacherMeeting.gradeSubjectId`.
 
 ---
 

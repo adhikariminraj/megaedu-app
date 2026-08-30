@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -87,6 +87,14 @@ Only `StudentEvaluation.remarks` has the audit-on-share requirement (explicitly 
 
 ### No parent-initiated Parent-Teacher Meeting requests 🔭
 Explicitly deferred for this phase — "Parents are read-only recipients for now. Parent meeting requests can be considered later." See [PRODUCT_RULES.md](PRODUCT_RULES.md).
+
+## Phase 3D-1 (Assessment Framework Foundation)
+
+### A framework's structure can be edited even after it's assigned, with no protection against invalidating future results 🔭
+`AssessmentFramework`/`AssessmentPeriod`/`AssessmentComponent` are freely editable current-state config in this phase — deliberate, since no marks exist yet (Phase 3D-2 hasn't been built) for an edit to actually invalidate. Must be revisited once 3D-2 introduces real per-student results: editing a framework already in use (e.g. changing a component's `maxMarks` after marks have been entered against it) would silently corrupt previously-computed aggregates. Recorded here so the gap is addressed deliberately in 3D-2's design, not discovered as a live bug afterward.
+
+### No `GET` list API routes exist for any Phase 3D-1 model 🔭
+Every read happens through `/dashboard/assessment-frameworks`'s own direct Prisma queries — the same convention used by every other Phase 3A/3B admin config page. Not a gap in the current feature (nothing else needs to read this data over HTTP yet), but worth noting if a future integration (e.g. a marks-entry page needing to look up "what framework applies here") needs one.
 
 ## Authentication
 

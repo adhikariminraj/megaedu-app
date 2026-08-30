@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-08-30 (Phase 3D-1 — Assessment Framework Foundation), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -113,6 +113,23 @@ Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTea
 | `PATCH` | `/api/schools/[id]/evaluations/[evaluationId]` | Edit `remarks` and/or share with Parent/Student | `{remarks?, share?: "PARENT" \| "STUDENT"}` | Remarks edits go through `updateEvaluationRemarks()` — silent while private, inserts a `StudentEvaluationAudit` row once shared with either audience. Sharing is one-way (no un-share) |
 | `POST` | `/api/schools/[id]/meetings` | Bulk-schedule Parent-Teacher Meetings — one item for occasional, many for periodic | `{meetings: [{studentId, teacherId?, gradeSubjectId?, scheduledAt, location?, onlineUrl?}]}` | Every item resolved/validated before the transaction opens (Postgres-safe pattern, not the SQLite-only catch-mid-transaction one); ineligible items silently counted in `skipped` |
 | `PATCH` | `/api/schools/[id]/meetings/[meetingId]` | Update status/outcomeNotes/linkedEvaluationId, and/or reschedule (scheduledAt/location/onlineUrl) | `{status?, outcomeNotes?, linkedEvaluationId?, scheduledAt?, location?, onlineUrl?}` | Auth by identity — `requireSchoolAdmin` OR specifically the (still-`approved`) teacher the meeting's own `teacherId` names, not re-derived scope. `linkedEvaluationId` validated to belong to the same student. Any of `scheduledAt`/`location`/`onlineUrl` present triggers reschedule handling — `400` unless the meeting is still `SCHEDULED`; not audited |
+
+## Schools — Assessment Framework Foundation (Phase 3D-1)
+
+Auth: `requireSchoolAdmin(id)` only — no teacher-facing write route exists in this phase. See [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) for full behavioral detail; this table is structural. No `GET` list routes exist — every read happens through `/dashboard/assessment-frameworks`'s own direct Prisma queries.
+
+| Method | Endpoint | Purpose | Important request data | Important response / errors |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/grading-scales` | Create a reusable GradingScale with its bands, nested in one request | `{name, bands: [{minPercent, maxPercent, label, gradePoint?, description?}]}` | `400` if any band is malformed or bands overlap; `409` on a duplicate scale name at this school |
+| `PATCH` | `/api/schools/[id]/grading-scales/[gradingScaleId]` | Rename, activate/deactivate, and/or fully replace a scale's bands | `{name?, isActive?, bands?}` | Passing `bands` deletes and recreates the full set atomically — bands have no independent identity referenced elsewhere in this phase. No `DELETE` route — deactivate only |
+| `POST` | `/api/schools/[id]/assessment-frameworks` | Create a reusable AssessmentFramework, optionally with periods and components nested in one request | `{name, description?, gradingScaleId?, periods?: string[], components?: [{name, maxMarks, entryMode?, periodName?}]}` | `400` on an invalid `entryMode`, an undeclared `periodName` reference, or a duplicate component name within the same request; `409` on a duplicate framework name at this school |
+| `PATCH` | `/api/schools/[id]/assessment-frameworks/[frameworkId]` | Rename, redescribe, re-scale, and/or activate/deactivate a framework | `{name?, description?, gradingScaleId?, isActive?}` | No `DELETE` route — deactivate only. Structural edits are unrestricted in this phase (no marks exist yet to invalidate) |
+| `POST` | `/api/schools/[id]/assessment-frameworks/[frameworkId]/periods` | Add one period to an existing framework | `{name}` | `order` auto-assigned (current count in the framework); `409` on a duplicate period name within the framework |
+| `PATCH`/`DELETE` | `/api/schools/[id]/assessment-frameworks/[frameworkId]/periods/[periodId]` | Rename / remove a period | `{name}` (PATCH only) | `DELETE` cascades the period's own components. Not audited — current-state config |
+| `POST` | `/api/schools/[id]/assessment-frameworks/[frameworkId]/components` | Add one component to an existing framework, optionally nested under a period | `{name, maxMarks, entryMode?, periodId?}` | Duplicate-name protection is an explicit pre-check (`componentCollisionExists`), not just the DB constraint — see the NULL≠NULL note in [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md); `409` on collision |
+| `PATCH`/`DELETE` | `/api/schools/[id]/assessment-frameworks/[frameworkId]/components/[componentId]` | Rename/re-weight/re-mode, or remove, a component | `{name?, maxMarks?, entryMode?}` (PATCH only) | Not audited — current-state config, real `DELETE` route |
+| `POST` | `/api/schools/[id]/assessment-framework-assignments` | Bind a framework to `(academicSession, schoolGrade)`, optionally narrowed to one `gradeSubject` as a subject override | `{academicSessionId, schoolGradeId, gradeSubjectId?, frameworkId}` | Resolution priority (override before default) documented in [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md). Duplicate protection is an explicit pre-check (`assignmentCollisionExists`); `409` on collision for either the grade-default or the subject-override case |
+| `DELETE` | `/api/schools/[id]/assessment-framework-assignments/[assignmentId]` | Remove one assignment | — | Not audited — current-state config, same as `TeacherAcademicAssignment`'s own `DELETE` route |
 
 ## Organizations
 

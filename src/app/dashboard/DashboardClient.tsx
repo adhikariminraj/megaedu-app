@@ -125,6 +125,14 @@ export default function DashboardClient({
     accent: "purple",
   });
   heroCards.push({
+    icon: "🧾",
+    title: "Assessment Frameworks",
+    description: "Define grading scales and marking schemes, then assign them to grades or subjects.",
+    href: "/dashboard/assessment-frameworks",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
     icon: "✅",
     title: "Attendance",
     description: "Take or review daily attendance for any grade and section.",
