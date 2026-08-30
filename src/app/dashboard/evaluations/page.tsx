@@ -189,6 +189,8 @@ export default async function EvaluationsPage({
           teacherId: m.teacherId,
           teacherName: m.teacher.user.name,
           scheduledAt: m.scheduledAt.toISOString(),
+          location: m.location,
+          onlineUrl: m.onlineUrl,
           status: m.status,
           outcomeNotes: m.outcomeNotes,
         })),

@@ -94,6 +94,7 @@ Some checks are simple/specific enough to stay inlined rather than factored into
 - **Certificate preview access** — `certificate.recipientUserId === userId || roles.includes("PLATFORM_ADMIN")`, inlined in the page.
 - **Course enrollment/completion ownership** — `enrollment.teacher?.userId === userId || enrollment.student?.userId === userId`, inlined per route.
 - **Promotion roster's closed-session access** (Phase 2) — `/dashboard/grades/[schoolGradeId]?session=<id>` resolves the target session (active by default, or the specific one given) and validates it belongs to the requester's own school via the same School Admin resolution the page already does; the underlying write (`recordGradeDecision()`) doesn't care about session status at all.
+- **Student Profile access** (Phase 3C-2) — `/dashboard/students/[studentId]` inlines `!schoolAdmin && !teacher → redirect` (a `SchoolAdmin` row for the student's school, or an `approved: true` `Teacher` row at that school, checked with `Promise.all`). Deliberately the same school-wide, non-assignment-scoped pattern `StudentSkillManager` already uses for adding Skills — not narrowed to a teacher with a matching `TeacherAcademicAssignment`/`ClassTeacherAssignment` for that specific student. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 
 ## Platform administration ✅
 

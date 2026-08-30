@@ -132,6 +132,21 @@ export default async function GradeSubjectUnitsPage({
     evaluationsByStudent.set(ev.studentId, list);
   }
 
+  const meetings = await prisma.parentTeacherMeeting.findMany({
+    where: {
+      studentId: { in: roster.map((r) => r.studentId) },
+      gradeSubjectId: params.gradeSubjectId,
+    },
+    include: { teacher: { include: { user: true } } },
+    orderBy: { scheduledAt: "desc" },
+  });
+  const meetingsByStudent = new Map<string, typeof meetings>();
+  for (const m of meetings) {
+    const list = meetingsByStudent.get(m.studentId) ?? [];
+    list.push(m);
+    meetingsByStudent.set(m.studentId, list);
+  }
+
   return (
     <UnitsClient
       schoolId={schoolId}
@@ -156,6 +171,16 @@ export default async function GradeSubjectUnitsPage({
           remarks: ev.remarks,
           visibleToParent: ev.visibleToParent,
           visibleToStudent: ev.visibleToStudent,
+        })),
+        meetings: (meetingsByStudent.get(r.studentId) ?? []).map((m) => ({
+          id: m.id,
+          teacherId: m.teacherId,
+          teacherName: m.teacher.user.name,
+          scheduledAt: m.scheduledAt.toISOString(),
+          location: m.location,
+          onlineUrl: m.onlineUrl,
+          status: m.status,
+          outcomeNotes: m.outcomeNotes,
         })),
       }))}
       plan={plan ? { plannedTotal: plan.plannedTotal, unitLabel: plan.unitLabel } : null}

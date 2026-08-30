@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import MeetingActions, { MeetingActionRow } from "@/components/MeetingActions";
 
 const UNIT_STATUSES = ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"] as const;
 const RESULT_STATUSES = ["PENDING", "EVALUATED", "ABSENT"] as const;
@@ -25,7 +26,12 @@ type StudentEval = {
   visibleToParent: boolean;
   visibleToStudent: boolean;
 };
-type EvalRosterRow = { studentId: string; studentName: string; evaluations: StudentEval[] };
+type EvalRosterRow = {
+  studentId: string;
+  studentName: string;
+  evaluations: StudentEval[];
+  meetings: MeetingActionRow[];
+};
 
 export default function UnitsClient({
   schoolId,
@@ -580,6 +586,20 @@ export default function UnitsClient({
                       )}
                     </div>
                   )}
+
+                  <div className="mt-2 pt-2 border-t border-slate-100">
+                    <p className="text-xs font-semibold text-slate-500 mb-1">Parent-Teacher Meetings</p>
+                    <MeetingActions
+                      schoolId={schoolId}
+                      studentId={r.studentId}
+                      gradeSubjectId={gradeSubjectId}
+                      meetings={r.meetings}
+                      evaluations={r.evaluations}
+                      isAdmin={isAdmin}
+                      myTeacherId={myTeacherId}
+                      teacherOptions={subjectTeacherOptions}
+                    />
+                  </div>
                 </div>
               );
             })}

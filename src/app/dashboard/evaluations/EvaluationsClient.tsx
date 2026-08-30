@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import MeetingActions, { MeetingActionRow } from "@/components/MeetingActions";
 
 type Evaluation = {
   id: string;
@@ -11,20 +12,12 @@ type Evaluation = {
   visibleToParent: boolean;
   visibleToStudent: boolean;
 };
-type Meeting = {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  scheduledAt: string;
-  status: string;
-  outcomeNotes: string | null;
-};
 type RosterRow = {
   studentId: string;
   studentName: string;
   sectionName: string | null;
   evaluations: Evaluation[];
-  meetings: Meeting[];
+  meetings: MeetingActionRow[];
 };
 type GradeOption = { id: string; displayName: string; wholeGradeAllowed: boolean; sections: { id: string; name: string }[] };
 
@@ -55,11 +48,6 @@ export default function EvaluationsClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editRemarks, setEditRemarks] = useState("");
   const [busy, setBusy] = useState(false);
-  const [schedulingFor, setSchedulingFor] = useState<string | null>(null);
-  const [meetingForm, setMeetingForm] = useState({ teacherId: "", scheduledAt: "" });
-  const [outcomeDraftFor, setOutcomeDraftFor] = useState<string | null>(null);
-  const [outcomeDraft, setOutcomeDraft] = useState("");
-  const [outcomeLinkedEvalId, setOutcomeLinkedEvalId] = useState("");
 
   const selectedGrade = gradeOptions.find((g) => g.id === selectedGradeId)!;
 
@@ -123,59 +111,6 @@ export default function EvaluationsClient({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ share: audience }),
-    });
-  }
-
-  async function scheduleMeeting(studentId: string) {
-    if (!meetingForm.scheduledAt) {
-      setError("Pick a date and time.");
-      return;
-    }
-    if (isAdmin && !meetingForm.teacherId) {
-      setError("Select which teacher this meeting is with.");
-      return;
-    }
-    const ok = await call(`/api/schools/${schoolId}/meetings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        meetings: [
-          {
-            studentId,
-            scheduledAt: new Date(meetingForm.scheduledAt).toISOString(),
-            ...(isAdmin ? { teacherId: meetingForm.teacherId } : {}),
-          },
-        ],
-      }),
-    });
-    if (ok) {
-      setSchedulingFor(null);
-      setMeetingForm({ teacherId: "", scheduledAt: "" });
-    }
-  }
-
-  async function completeMeeting(meetingId: string) {
-    const ok = await call(`/api/schools/${schoolId}/meetings/${meetingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: "COMPLETED",
-        outcomeNotes: outcomeDraft,
-        ...(outcomeLinkedEvalId ? { linkedEvaluationId: outcomeLinkedEvalId } : {}),
-      }),
-    });
-    if (ok) {
-      setOutcomeDraftFor(null);
-      setOutcomeDraft("");
-      setOutcomeLinkedEvalId("");
-    }
-  }
-
-  async function cancelMeeting(meetingId: string) {
-    await call(`/api/schools/${schoolId}/meetings/${meetingId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "CANCELLED" }),
     });
   }
 
@@ -359,124 +294,15 @@ export default function EvaluationsClient({
 
                 <div className="mt-3 pt-3 border-t border-slate-100">
                   <p className="text-xs font-semibold text-slate-500 mb-2">Parent-Teacher Meetings</p>
-                  {r.meetings.length === 0 && (
-                    <p className="text-xs text-slate-400 mb-2">None scheduled.</p>
-                  )}
-                  <div className="space-y-2 mb-2">
-                    {r.meetings.map((m) => {
-                      const mine = isAdmin || m.teacherId === myTeacherId;
-                      return (
-                        <div key={m.id} className="border border-slate-100 rounded-lg p-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span>
-                              {m.teacherName} — {new Date(m.scheduledAt).toLocaleString()}
-                            </span>
-                            <span className="font-semibold">{m.status}</span>
-                          </div>
-                          {m.status === "COMPLETED" && m.outcomeNotes && (
-                            <p className="text-slate-600 mt-1 whitespace-pre-wrap">{m.outcomeNotes}</p>
-                          )}
-                          {mine && m.status === "SCHEDULED" && (
-                            <div className="mt-1 space-y-1">
-                              {outcomeDraftFor === m.id ? (
-                                <>
-                                  <textarea
-                                    value={outcomeDraft}
-                                    onChange={(e) => setOutcomeDraft(e.target.value)}
-                                    rows={2}
-                                    placeholder="What was discussed / outcome..."
-                                    className="w-full border border-slate-200 rounded-lg px-2 py-1"
-                                  />
-                                  {r.evaluations.length > 0 && (
-                                    <select
-                                      value={outcomeLinkedEvalId}
-                                      onChange={(e) => setOutcomeLinkedEvalId(e.target.value)}
-                                      className="w-full border border-slate-200 rounded-lg px-2 py-1"
-                                    >
-                                      <option value="">Link a prepared evaluation (optional)...</option>
-                                      {r.evaluations.map((ev) => (
-                                        <option key={ev.id} value={ev.id}>
-                                          {ev.teacherName}: {ev.remarks.slice(0, 40)}
-                                          {ev.remarks.length > 40 ? "..." : ""}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                  <div className="flex gap-3">
-                                    <button onClick={() => completeMeeting(m.id)} className="text-mega-green font-medium">
-                                      Mark Completed
-                                    </button>
-                                    <button onClick={() => setOutcomeDraftFor(null)} className="text-slate-500">
-                                      Cancel
-                                    </button>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => {
-                                      setOutcomeDraftFor(m.id);
-                                      setOutcomeDraft("");
-                                    }}
-                                    className="text-mega-green font-medium"
-                                  >
-                                    Mark Completed
-                                  </button>
-                                  <button onClick={() => cancelMeeting(m.id)} className="text-slate-500">
-                                    Cancel Meeting
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {schedulingFor === r.studentId ? (
-                    <div className="space-y-1">
-                      {isAdmin && (
-                        <select
-                          value={meetingForm.teacherId}
-                          onChange={(e) => setMeetingForm((f) => ({ ...f, teacherId: e.target.value }))}
-                          className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1"
-                        >
-                          <option value="">Meeting with teacher...</option>
-                          {classTeacherOptions.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <input
-                        type="datetime-local"
-                        value={meetingForm.scheduledAt}
-                        onChange={(e) => setMeetingForm((f) => ({ ...f, scheduledAt: e.target.value }))}
-                        className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => scheduleMeeting(r.studentId)}
-                          disabled={busy}
-                          className="text-xs font-semibold text-white bg-mega-navy rounded-lg px-3 py-1.5 disabled:opacity-50"
-                        >
-                          Schedule
-                        </button>
-                        <button onClick={() => setSchedulingFor(null)} className="text-xs text-slate-500">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setSchedulingFor(r.studentId)}
-                      className="text-xs text-mega-blue font-medium"
-                    >
-                      + Schedule Meeting
-                    </button>
-                  )}
+                  <MeetingActions
+                    schoolId={schoolId}
+                    studentId={r.studentId}
+                    meetings={r.meetings}
+                    evaluations={r.evaluations}
+                    isAdmin={isAdmin}
+                    myTeacherId={myTeacherId}
+                    teacherOptions={classTeacherOptions}
+                  />
                 </div>
               </div>
             );

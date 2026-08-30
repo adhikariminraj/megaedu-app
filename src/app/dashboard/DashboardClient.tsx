@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
 import AccountantGrantForm from "@/components/AccountantGrantForm";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
@@ -136,6 +137,14 @@ export default function DashboardClient({
     title: "Student Evaluations",
     description: "General development remarks and subject-specific evaluations for any student.",
     href: "/dashboard/evaluations",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
+    icon: "🗓️",
+    title: "Parent-Teacher Meetings",
+    description: "See and manage every meeting at your school — filter by teacher, status, or upcoming/past.",
+    href: "/dashboard/meetings",
     cta: "Open",
     accent: "purple",
   });
@@ -753,6 +762,12 @@ export default function DashboardClient({
                     </button>
                   )}
                 </div>
+
+                {s.approved && (
+                  <Link href={`/dashboard/students/${s.id}`} className="text-xs text-mega-blue font-medium">
+                    View Profile →
+                  </Link>
+                )}
 
                 {s.approved && s.placement && (
                   <div className="mt-3 pt-3 border-t border-slate-100">

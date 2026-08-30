@@ -11,138 +11,9 @@ import CreateSchoolPrompt from "./CreateSchoolPrompt";
 import CreateOrgPrompt from "./CreateOrgPrompt";
 import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
-import type { AttendanceRow, ProgressRow, TestResultRow, EvaluationRow } from "@/components/AcademicProgressPanel";
+import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 
 export const dynamic = "force-dynamic";
-
-/**
- * The Phase 3B/3C academic summary (attendance, teaching progress, test
- * results, evaluations) for exactly one student — the sole place this
- * query shape is written, shared by the STUDENT branch (their own data)
- * and the PARENT branch (once per linked child) below, so the two can
- * never drift apart. Callers are responsible for only ever passing a
- * studentId they've already verified the caller is allowed to see —
- * this function itself does no authorization.
- *
- * `audience` controls which StudentEvaluation rows come back:
- * "STUDENT" filters on visibleToStudent, "PARENT" filters on
- * visibleToParent — the two are fully independent gates (a Student and
- * their Parent may legitimately see different evaluations), so this
- * function is always called once per intended audience, never shared
- * between a Student's own view and a Parent's view of that same child.
- */
-async function fetchAcademicProgress(
-  studentId: string,
-  audience: "STUDENT" | "PARENT"
-): Promise<{
-  attendance: AttendanceRow[];
-  teachingProgress: ProgressRow[];
-  testResults: TestResultRow[];
-  evaluations: EvaluationRow[];
-}> {
-  const [recentAttendance, currentPlacement, testResults, evaluations] = await Promise.all([
-    prisma.attendance.findMany({
-      where: { studentId },
-      orderBy: { date: "desc" },
-      take: 15,
-    }),
-    prisma.gradeHistory.findFirst({
-      where: { studentId, academicSession: { status: "ACTIVE" } },
-      include: { schoolGrade: true, section: true },
-    }),
-    prisma.unitTestResult.findMany({
-      where: { studentId },
-      include: { unitTest: { include: { unit: { include: { subject: true } } } } },
-      orderBy: { unitTest: { testDate: "desc" } },
-      take: 20,
-    }),
-    prisma.studentEvaluation.findMany({
-      where: {
-        studentId,
-        ...(audience === "STUDENT" ? { visibleToStudent: true } : { visibleToParent: true }),
-      },
-      include: { teacher: { include: { user: true } }, gradeSubject: { include: { subject: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
-  ]);
-
-  let teachingProgress: ProgressRow[] = [];
-  if (currentPlacement) {
-    const gradeSubjects = await prisma.gradeSubject.findMany({
-      where: { schoolGradeId: currentPlacement.schoolGradeId, academicSessionId: currentPlacement.academicSessionId },
-      include: {
-        subject: true,
-        teachingUnits: {
-          where: currentPlacement.sectionId
-            ? { OR: [{ sectionId: null }, { sectionId: currentPlacement.sectionId }] }
-            : { sectionId: null },
-        },
-      },
-    });
-    teachingProgress = gradeSubjects.map((gs) => ({
-      subjectName: gs.subject.name,
-      total: gs.teachingUnits.length,
-      completed: gs.teachingUnits.filter((u) => u.status === "COMPLETED").length,
-      inProgress: gs.teachingUnits.filter((u) => u.status === "IN_PROGRESS").length,
-    }));
-  }
-
-  return {
-    attendance: recentAttendance.map((a) => ({
-      date: a.date.toISOString().slice(0, 10),
-      status: a.status,
-      remarks: a.remarks,
-    })),
-    teachingProgress,
-    testResults: testResults.map((r) => ({
-      id: r.id,
-      testTitle: r.unitTest.title,
-      unitTitle: r.unitTest.unit.title,
-      subjectName: r.unitTest.unit.subject.name,
-      testDate: r.unitTest.testDate.toISOString().slice(0, 10),
-      maxMarks: r.unitTest.maxMarks,
-      status: r.status,
-      marksObtained: r.marksObtained,
-      remarks: r.remarks,
-    })),
-    evaluations: evaluations.map((ev) => ({
-      id: ev.id,
-      teacherName: ev.teacher.user.name,
-      subjectName: ev.gradeSubject?.subject.name ?? null,
-      remarks: ev.remarks,
-      createdAt: ev.createdAt.toISOString().slice(0, 10),
-    })),
-  };
-}
-
-/**
- * ParentTeacherMeeting read data for exactly one student — called ONLY
- * from the PARENT branch below. Deliberately NOT part of
- * fetchAcademicProgress() and NOT called from the STUDENT branch at
- * all: Students have no PTM visibility in this phase (see
- * PRODUCT_RULES.md) — kept as a structurally separate code path, not
- * just a hidden UI section, so there's no query result a Student's own
- * page could ever accidentally render.
- */
-async function fetchParentMeetings(studentId: string) {
-  const meetings = await prisma.parentTeacherMeeting.findMany({
-    where: { studentId },
-    include: { teacher: { include: { user: true } }, gradeSubject: { include: { subject: true } } },
-    orderBy: { scheduledAt: "desc" },
-    take: 20,
-  });
-  return meetings.map((m) => ({
-    id: m.id,
-    teacherName: m.teacher.user.name,
-    subjectName: m.gradeSubject?.subject.name ?? null,
-    scheduledAt: m.scheduledAt.toISOString(),
-    location: m.location,
-    onlineUrl: m.onlineUrl,
-    status: m.status,
-    outcomeNotes: m.outcomeNotes,
-  }));
-}
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -382,7 +253,7 @@ export default async function DashboardPage() {
         parent.children.map(async (c) => ({
           ...c,
           progress: await fetchAcademicProgress(c.student.id, "PARENT"),
-          meetings: await fetchParentMeetings(c.student.id),
+          meetings: await fetchMeetingsForStudent(c.student.id, "PARENT"),
         }))
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;

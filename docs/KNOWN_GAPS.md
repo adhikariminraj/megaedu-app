@@ -79,9 +79,6 @@ Explicitly out of scope for Phase 3B. **Partially closed by Phase 3C-1**: Teache
 
 ## Phase 3C (Teacher Qualitative Evaluation & Parent-Teacher Meetings)
 
-### Meeting-scheduling UI exists only on the General Evaluations page, not yet on the Subject Evaluations panel ⚠️
-`POST /api/schools/[id]/meetings` fully supports a `gradeSubjectId`-scoped meeting (verified directly via the API), but `/dashboard/academics/[gradeSubjectId]`'s Subject Evaluations panel has no "Schedule Meeting" UI of its own yet — a Subject Teacher can still be scheduled as the meeting's teacher from the General Evaluations page (by an Admin or a Class/Section Teacher naming them), just not self-serve it from their own subject page. A small, scoped follow-up, not a backend gap.
-
 ### `ParentTeacherMeeting.outcomeNotes` is not audited 🔭
 Only `StudentEvaluation.remarks` has the audit-on-share requirement (explicitly specified for this phase); a meeting's outcome notes remain freely editable, current-state data — consistent with `TeacherAcademicAssignment`'s own non-audited precedent, not an oversight.
 

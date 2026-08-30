@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 type Skill = { id: string; name: string; addedBy: { name: string } };
 type StudentWithSkills = {
@@ -72,6 +73,9 @@ export default function StudentSkillManager({ schoolId }: { schoolId: string }) 
 
           {openStudentId === s.id && (
             <div className="mt-4 space-y-3">
+              <Link href={`/dashboard/students/${s.id}`} className="text-xs text-mega-blue font-medium">
+                View full profile →
+              </Link>
               <div className="flex flex-wrap gap-2">
                 {s.skills.length === 0 && <p className="text-xs text-slate-400">No skills added yet.</p>}
                 {s.skills.map((sk) => (

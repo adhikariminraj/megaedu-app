@@ -6,17 +6,7 @@ import AcademicProgressPanel, {
   TestResultRow,
   EvaluationRow,
 } from "@/components/AcademicProgressPanel";
-
-type MeetingRow = {
-  id: string;
-  teacherName: string;
-  subjectName: string | null;
-  scheduledAt: string;
-  location: string | null;
-  onlineUrl: string | null;
-  status: string;
-  outcomeNotes: string | null;
-};
+import type { MeetingRow } from "@/lib/academicProgress";
 
 type Parent = {
   id: string;
@@ -140,6 +130,11 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
                           </p>
                           {m.status === "COMPLETED" && m.outcomeNotes && (
                             <p className="text-slate-600 mt-1 whitespace-pre-wrap">{m.outcomeNotes}</p>
+                          )}
+                          {m.linkedEvaluationRemarks && (
+                            <p className="text-slate-500 text-xs mt-1 italic">
+                              Related evaluation: {m.linkedEvaluationRemarks}
+                            </p>
                           )}
                         </div>
                       ))}
