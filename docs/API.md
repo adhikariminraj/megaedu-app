@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -102,6 +102,17 @@ Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTea
 | `PATCH` | `/api/schools/[id]/units/[unitId]` | Update a unit's title and/or teaching-progress status | `{title?, status?}` | Status transitions manage `startedAt`/`completedAt` automatically |
 | `POST` | `/api/schools/[id]/units/[unitId]/tests` | Create a Unit/Chapter Test | `{title, testDate, maxMarks}` | `400` if the unit is still `NOT_STARTED`; pre-creates a `PENDING` `UnitTestResult` row for every enrolled student in the unit's scope |
 | `PATCH` | `/api/schools/[id]/tests/[unitTestId]/results` | Bulk-record student evaluations | `{results: [{studentId, status, marksObtained?, remarks?}]}` | `status: "ABSENT"` forces `marksObtained: null`; `status: "EVALUATED"` requires `0 ≤ marksObtained ≤ maxMarks`, otherwise skipped |
+
+## Schools — Teacher Qualitative Evaluation & Parent-Teacher Meetings (Phase 3C)
+
+Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTeacherAssignment` scope noted per route — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for full behavioral detail; this table is structural.
+
+| Method | Endpoint | Purpose | Important request data | Important response / errors |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/students/[studentId]/evaluations` | Create a General (`gradeSubjectId` omitted) or Subject (`gradeSubjectId` set) qualitative evaluation | `{teacherId?, gradeSubjectId?, remarks}` | Auth: `requireTeacherAssignment` (subject set) or `requireClassTeacher` (general) for the acting teacher, OR `requireSchoolAdmin` with a validated `teacherId` in the body. `409` if this teacher already has an evaluation for this student/session/scope — explicit app-level pre-check for the `gradeSubjectId: null` NULL-uniqueness gap |
+| `PATCH` | `/api/schools/[id]/evaluations/[evaluationId]` | Edit `remarks` and/or share with Parent/Student | `{remarks?, share?: "PARENT" \| "STUDENT"}` | Remarks edits go through `updateEvaluationRemarks()` — silent while private, inserts a `StudentEvaluationAudit` row once shared with either audience. Sharing is one-way (no un-share) |
+| `POST` | `/api/schools/[id]/meetings` | Bulk-schedule Parent-Teacher Meetings — one item for occasional, many for periodic | `{meetings: [{studentId, teacherId?, gradeSubjectId?, scheduledAt, location?, onlineUrl?}]}` | Every item resolved/validated before the transaction opens (Postgres-safe pattern, not the SQLite-only catch-mid-transaction one); ineligible items silently counted in `skipped` |
+| `PATCH` | `/api/schools/[id]/meetings/[meetingId]` | Update status/outcomeNotes/linkedEvaluationId | `{status?, outcomeNotes?, linkedEvaluationId?}` | Auth by identity — `requireSchoolAdmin` OR specifically the teacher the meeting's own `teacherId` names, not re-derived scope. `linkedEvaluationId` validated to belong to the same student |
 
 ## Organizations
 

@@ -159,17 +159,29 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
           </p>
           <div className="space-y-2">
             {teacher.classTeacherAssignments.map((c) => (
-              <Link
+              <div
                 key={c.id}
-                href={`/dashboard/attendance?grade=${c.schoolGradeId}${c.section ? `&section=${c.section.id}` : ""}`}
-                className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition"
+                className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700"
               >
                 {c.schoolGrade.displayName} —{" "}
                 <span className="text-slate-400">
                   {c.section ? `Section Teacher — Section ${c.section.name}` : "Grade Class Teacher"}
                 </span>
-                <span className="text-mega-blue"> — Take attendance →</span>
-              </Link>
+                <div className="flex gap-4 mt-1">
+                  <Link
+                    href={`/dashboard/attendance?grade=${c.schoolGradeId}${c.section ? `&section=${c.section.id}` : ""}`}
+                    className="text-mega-blue font-medium"
+                  >
+                    Take attendance →
+                  </Link>
+                  <Link
+                    href={`/dashboard/evaluations?grade=${c.schoolGradeId}${c.section ? `&section=${c.section.id}` : ""}`}
+                    className="text-mega-blue font-medium"
+                  >
+                    General evaluation →
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         </div>

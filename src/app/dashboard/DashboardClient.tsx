@@ -132,6 +132,14 @@ export default function DashboardClient({
     accent: "purple",
   });
   heroCards.push({
+    icon: "📝",
+    title: "Student Evaluations",
+    description: "General development remarks and subject-specific evaluations for any student.",
+    href: "/dashboard/evaluations",
+    cta: "Open",
+    accent: "purple",
+  });
+  heroCards.push({
     icon: "📢",
     title: "Post an opportunity",
     description: "Scholarships, competitions, or events for your students.",

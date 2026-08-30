@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management), against the current codebase.
+> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -75,6 +75,17 @@ requireClassTeacher(
 Both gate Phase 3B's operational routes: `requireTeacherAssignment()` for Teaching Units, Teaching Plans, and Unit/Chapter Tests (scoped to the unit/plan/test's own grade/section/subject); `requireClassTeacher()` for Attendance (scoped to the grade/section being marked — passing `sectionId: null` when marking the whole grade correctly requires a Grade Class Teacher, not just any Section Teacher). Verified live through a real logged-in Section Teacher account: marking their own section succeeded, marking a different section or the whole grade unscoped both returned `403`.
 
 Both are deliberately teacher-only, no School-Admin bypass baked in; a caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`, and every Phase 3B write route does the same (`requireSchoolAdmin(...) || requireClassTeacher(...)` / `requireTeacherAssignment(...)`). See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md), and [PRODUCT_RULES.md](PRODUCT_RULES.md).
+
+## Checking a NAMED teacher's assignment — `teacherHoldsSubjectAssignment()` / `teacherHoldsClassAssignment()` ✅
+
+Added in Phase 3C for exactly one new situation none of the helpers above cover: a School Admin creating a `StudentEvaluation` "on behalf of" a specific teacher, where there's no session to resolve a teacher identity from in the first place — the admin names the teacher explicitly in the request body. These two functions take that `teacherId` directly (not resolved from `getServerSession`) and check it against `TeacherAcademicAssignment`/`ClassTeacherAssignment` respectively, reusing the same `sectionScopeWhere()` three-way semantics (now exported from `authorize.ts` for this reuse) as `requireTeacherAssignment()`/`requireClassTeacher()`:
+
+```ts
+teacherHoldsSubjectAssignment(teacherId: string, scope: {academicSessionId, schoolGradeId, sectionId?, subjectId}): Promise<boolean>
+teacherHoldsClassAssignment(teacherId: string, scope: {academicSessionId, schoolGradeId, sectionId?}): Promise<boolean>
+```
+
+Unlike every other helper in this file, these return a plain `boolean`, not a `userId | null` — there's no session identity to hand back, since the caller (the School Admin) is already independently authorized via `requireSchoolAdmin()`. Used only by `POST /api/schools/[id]/students/[studentId]/evaluations` and `POST /api/schools/[id]/meetings` to validate an admin-supplied `teacherId` before attributing a new evaluation or meeting to that teacher. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 
 ## Access patterns not covered by `authorize.ts` ✅
 

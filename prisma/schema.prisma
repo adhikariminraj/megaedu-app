@@ -53,6 +53,10 @@ model User {
   teachingPlansCreated     TeachingPlan[]     @relation("TeachingPlanCreatedBy")
   unitTestsCreated         UnitTest[]         @relation("UnitTestCreatedBy")
   unitTestResultsEvaluated UnitTestResult[]   @relation("UnitTestResultEvaluatedBy")
+
+  studentEvaluationsCreated StudentEvaluation[]      @relation("StudentEvaluationCreatedBy")
+  studentEvaluationAudits   StudentEvaluationAudit[] @relation("StudentEvaluationAuditChangedBy")
+  parentTeacherMeetingsCreated ParentTeacherMeeting[] @relation("ParentTeacherMeetingCreatedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -109,6 +113,7 @@ model School {
   academicSessions AcademicSession[]
   grades           SchoolGrade[]
   subjects         Subject[]
+  parentTeacherMeetings ParentTeacherMeeting[]
 }
 
 model SchoolAdmin {
@@ -171,6 +176,8 @@ model Teacher {
   gradeAssignments TeacherGradeAssignment[]
   academicAssignments TeacherAcademicAssignment[]
   classTeacherAssignments ClassTeacherAssignment[]
+  studentEvaluations StudentEvaluation[]
+  parentTeacherMeetings ParentTeacherMeeting[]
 
   @@index([schoolId])
 }
@@ -204,6 +211,8 @@ model Student {
   gradeHistory      GradeHistory[]
   attendances       Attendance[]
   unitTestResults   UnitTestResult[]
+  evaluations       StudentEvaluation[]
+  parentTeacherMeetings ParentTeacherMeeting[]
 
   @@index([schoolId])
 }
@@ -255,6 +264,8 @@ model AcademicSession {
   teachingUnits           TeachingUnit[]
   teachingPlans           TeachingPlan[]
   interestLockedStudents  Student[]
+  studentEvaluations      StudentEvaluation[]
+  parentTeacherMeetings   ParentTeacherMeeting[]
 
   @@index([schoolId])
 }
@@ -290,6 +301,7 @@ model SchoolGrade {
   attendances        Attendance[]
   teachingUnits      TeachingUnit[]
   teachingPlans      TeachingPlan[]
+  studentEvaluations StudentEvaluation[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -316,6 +328,7 @@ model Section {
   attendances    Attendance[]
   teachingUnits  TeachingUnit[]
   teachingPlans  TeachingPlan[]
+  studentEvaluations StudentEvaluation[]
 
   @@unique([schoolGradeId, name])
   @@index([schoolGradeId])
@@ -456,6 +469,8 @@ model GradeSubject {
   teacherAssignments TeacherAcademicAssignment[]
   teachingUnits      TeachingUnit[]
   teachingPlans      TeachingPlan[]
+  studentEvaluations StudentEvaluation[]
+  parentTeacherMeetings ParentTeacherMeeting[]
 
   @@unique([schoolGradeId, subjectId, academicSessionId])
   @@index([schoolGradeId])
@@ -706,6 +721,130 @@ model UnitTestResult {
 
   @@unique([unitTestId, studentId])
   @@index([studentId])
+}
+
+// ============================================================
+// ASSESSMENT & EVALUATION — Phase 3C
+// Additive on top of Phase 2/3A/3B — no existing model's columns
+// changed, only new relation-array fields. StudentEvaluation is a
+// narrative record distinct from UnitTestResult (marks): a Subject
+// Teacher's remark (gradeSubjectId set) or a Grade Class/Section
+// Teacher's general remark (gradeSubjectId null) about a student's
+// broader development. The UI derives "General" vs "Subject" labeling
+// from whether gradeSubjectId is set — no separate type field.
+// ============================================================
+
+// A teacher's qualitative, narrative evaluation of a student — freely
+// editable while private (visibleToParent and visibleToStudent both
+// false). Once shared with EITHER audience, further remarks changes
+// must go through updateEvaluationRemarks() (src/lib/evaluation.ts),
+// which pairs every subsequent edit with a StudentEvaluationAudit row
+// in the same transaction — so previously shared information can never
+// be silently rewritten. Sharing itself (flipping visibleToParent/
+// visibleToStudent to true) is a one-way action in this phase — no
+// un-share path exists, matching how a Certificate is permanent once
+// issued elsewhere in this schema.
+model StudentEvaluation {
+  id                String   @id @default(cuid())
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId         String
+  teacher           Teacher  @relation(fields: [teacherId], references: [id])
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section? @relation(fields: [sectionId], references: [id])
+  // null = general/pastoral evaluation (Grade Class Teacher or Section
+  // Teacher, via requireClassTeacher); set = subject-specific evaluation
+  // (Subject Teacher, via requireTeacherAssignment). The UI derives its
+  // "General Student Evaluation" vs "Subject Evaluation" label from
+  // this field alone.
+  gradeSubjectId    String?
+  gradeSubject      GradeSubject? @relation(fields: [gradeSubjectId], references: [id])
+
+  remarks           String
+
+  // Two fully independent visibility gates — a Student-visible
+  // evaluation is not automatically Parent-visible, or vice versa.
+  visibleToParent      Boolean   @default(false)
+  sharedWithParentAt   DateTime?
+  visibleToStudent     Boolean   @default(false)
+  sharedWithStudentAt  DateTime?
+
+  createdByUserId   String
+  createdBy         User     @relation("StudentEvaluationCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  audits            StudentEvaluationAudit[]
+  meetings          ParentTeacherMeeting[]
+
+  // NOTE: this constraint reliably catches an exact duplicate
+  // subject-specific slot, but — the same NULL≠NULL unique-index gap
+  // already found and fixed twice elsewhere in this schema
+  // (TeacherAcademicAssignment, ClassTeacherAssignment) — does NOT by
+  // itself catch a second general (gradeSubjectId: null) evaluation
+  // from the same teacher/student/session. The create route pre-checks
+  // that case explicitly, inside the same transaction, from the start.
+  @@unique([studentId, teacherId, academicSessionId, gradeSubjectId])
+  @@index([studentId])
+}
+
+// Append-only correction log for StudentEvaluation, written only once
+// an evaluation has been shared with a Parent and/or a Student — mirrors
+// GradeHistoryAudit/AttendanceAudit's shape exactly.
+model StudentEvaluationAudit {
+  id              String   @id @default(cuid())
+  evaluationId    String
+  evaluation      StudentEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  changedByUserId String
+  changedBy       User     @relation("StudentEvaluationAuditChangedBy", fields: [changedByUserId], references: [id])
+  changedAt       DateTime @default(now())
+  previousRemarks String
+  newRemarks      String
+}
+
+// A scheduled meeting between a Teacher and a Student's Parent(s),
+// initiated by a School Admin or an authorized Teacher — Parents are
+// read-only recipients in this phase (see PRODUCT_RULES.md). Covers
+// both periodic (bulk-scheduled, e.g. a PTM week for a whole grade) and
+// occasional (single) meetings through the same model and the same
+// create route — the only difference is how many rows one request
+// creates. Parent-visible only; Students have no visibility into this
+// model in this phase.
+model ParentTeacherMeeting {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  school             School   @relation(fields: [schoolId], references: [id])
+  academicSessionId  String
+  academicSession    AcademicSession @relation(fields: [academicSessionId], references: [id])
+  studentId          String
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId          String
+  teacher            Teacher  @relation(fields: [teacherId], references: [id])
+  // null = general meeting; set = about one specific subject.
+  gradeSubjectId     String?
+  gradeSubject       GradeSubject? @relation(fields: [gradeSubjectId], references: [id])
+  scheduledAt        DateTime
+  location           String?
+  onlineUrl          String?
+  status             String   @default("SCHEDULED") // "SCHEDULED" | "COMPLETED" | "CANCELLED"
+  outcomeNotes       String?
+  // Optional link to an evaluation prepared ahead of the meeting and
+  // discussed during it — many meetings may reference the same
+  // evaluation (e.g. a follow-up meeting), so this is a plain FK, not a
+  // unique one.
+  linkedEvaluationId String?
+  linkedEvaluation   StudentEvaluation? @relation(fields: [linkedEvaluationId], references: [id])
+  createdByUserId    String
+  createdBy          User     @relation("ParentTeacherMeetingCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([schoolId])
 }
 
 // ============================================================

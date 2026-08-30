@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B), against `prisma/schema.prisma` directly.
+> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -202,6 +202,33 @@ Seven new models, additive on top of Phase 2/3A — no existing model's columns 
 **Constraints**: `@@unique([unitTestId, studentId])`.
 **Delete behavior**: cascades from `UnitTest`/`Student`; no delete route — rows are pre-created for the test's roster at creation time, only ever updated afterward.
 **Notes**: pre-created (`status: "PENDING"`) for every student enrolled in the test's scope (via `GradeHistory`) when the `UnitTest` is created — a stable roster snapshot. `status: "ABSENT"` forces `marksObtained` to `null`; `status: "EVALUATED"` requires `marksObtained` between `0` and the test's `maxMarks`.
+
+---
+
+## Teacher Qualitative Evaluation & Parent-Teacher Meetings — Phase 3C ✅ (fully implemented and in active use)
+
+Two new models, additive on top of Phase 2/3A/3B — no existing model's columns changed, only new relation-array fields. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for the full behavioral write-up; this section covers structure only.
+
+### `StudentEvaluation`
+**Purpose**: a teacher's narrative, qualitative evaluation of one student, for one session — General (`gradeSubjectId: null`, Class/Section Teacher) or Subject (`gradeSubjectId` set, Subject Teacher). **Currently used**: yes.
+**Key fields**: `id, studentId (FK), teacherId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK), gradeSubjectId? (FK), remarks, visibleToParent (default false), sharedWithParentAt?, visibleToStudent (default false), sharedWithStudentAt?, createdByUserId (FK), createdAt, updatedAt`.
+**Constraints**: `@@unique([studentId, teacherId, academicSessionId, gradeSubjectId])` — reliably catches an exact duplicate subject-specific slot; does **not**, by itself, catch a second general (`gradeSubjectId: null`) evaluation from the same teacher/student/session (the familiar `NULL ≠ NULL` unique-index gap already seen with `TeacherAcademicAssignment`/`ClassTeacherAssignment`) — the create route pre-checks this case explicitly.
+**Delete behavior**: cascades from `Student`; no delete route — remarks are edited in place via `updateEvaluationRemarks()`, never deleted and recreated.
+**Notes**: `visibleToParent`/`visibleToStudent` are two fully independent gates — sharing with one audience never affects the other, verified live. `remarks` is freely editable while both flags are `false`; once either is `true`, every subsequent edit is routed through `updateEvaluationRemarks()` (`src/lib/evaluation.ts`), which pairs the update with a `StudentEvaluationAudit` row in the same transaction. Sharing itself (`shareEvaluation()`) is one-way — no un-share path exists.
+
+### `StudentEvaluationAudit`
+**Purpose**: append-only correction log for `StudentEvaluation`, written only once an evaluation has been shared with a Parent and/or a Student. **Currently used**: yes.
+**Key fields**: `id, evaluationId (FK), changedByUserId (FK), changedAt, previousRemarks, newRemarks`.
+**Constraints**: none beyond FKs.
+**Delete behavior**: cascades from `StudentEvaluation`; no update or delete route ever touches this table — `updateEvaluationRemarks()` is the sole writer and only ever inserts, and only when the evaluation was already shared at the time of the edit.
+**Notes**: unlike `GradeHistoryAudit`/`AttendanceAudit` (audited from the very first write), this table is deliberately silent while an evaluation is still a private draft — verified live: 0 audit rows after a private edit, exactly 1 after the first edit following a share action.
+
+### `ParentTeacherMeeting`
+**Purpose**: a scheduled meeting between one `Teacher` and one `Student`'s parent(s) — covers both periodic (bulk-scheduled) and occasional (single) meetings through the same rows. **Currently used**: yes.
+**Key fields**: `id, schoolId (FK), academicSessionId (FK), studentId (FK), teacherId (FK), gradeSubjectId? (FK), scheduledAt, location?, onlineUrl?, status (default "SCHEDULED"), outcomeNotes?, linkedEvaluationId? (FK to StudentEvaluation), createdByUserId (FK), createdAt, updatedAt`. Valid `status`: `SCHEDULED | COMPLETED | CANCELLED`.
+**Constraints**: none beyond FKs — no uniqueness constraint blocks multiple meetings for the same student/teacher (a follow-up meeting is expected).
+**Delete behavior**: cascades from `Student`; no delete route — a meeting is cancelled (`status: "CANCELLED"`), never deleted.
+**Notes**: `linkedEvaluationId` is a plain (non-unique) FK — many meetings may reference the same evaluation. **Parent-visible only in this phase** — `fetchParentMeetings()` (`dashboard/page.tsx`) is called exclusively from the Parent branch; there is no code path where a Student's own page render ever queries this table, a structural guarantee rather than a hidden UI section. `outcomeNotes` is not audited (only `StudentEvaluation.remarks` has that requirement) — freely editable, current-state data.
 
 ---
 

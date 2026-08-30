@@ -30,10 +30,12 @@ export default async function GradeSubjectUnitsPage({
 
   let editableSectionIds = new Set<string>();
   let canEditGradeWide = isAdmin;
+  let myTeacherId: string | null = null;
 
   if (!isAdmin) {
     const teacher = await prisma.teacher.findFirst({ where: { userId, schoolId, approved: true } });
     if (!teacher) redirect("/dashboard");
+    myTeacherId = teacher.id;
     const anyAccess = await requireTeacherAssignment(schoolId, {
       academicSessionId: gradeSubject.academicSessionId,
       schoolGradeId: gradeSubject.schoolGradeId,
@@ -77,7 +79,7 @@ export default async function GradeSubjectUnitsPage({
     ? searchParams.section
     : null;
 
-  const [plan, units] = await Promise.all([
+  const [plan, units, roster] = await Promise.all([
     prisma.teachingPlan.findFirst({
       where: { gradeSubjectId: params.gradeSubjectId, sectionId: selectedSectionId },
     }),
@@ -91,7 +93,44 @@ export default async function GradeSubjectUnitsPage({
         },
       },
     }),
+    prisma.gradeHistory.findMany({
+      where: {
+        schoolGradeId: gradeSubject.schoolGradeId,
+        academicSessionId: gradeSubject.academicSessionId,
+        ...(selectedSectionId ? { sectionId: selectedSectionId } : {}),
+      },
+      include: { student: { include: { user: true } } },
+      orderBy: { student: { user: { name: "asc" } } },
+    }),
   ]);
+
+  const subjectTeacherOptions = isAdmin
+    ? await prisma.teacherAcademicAssignment.findMany({
+        where: {
+          schoolGradeId: gradeSubject.schoolGradeId,
+          academicSessionId: gradeSubject.academicSessionId,
+          subjectId: gradeSubject.subjectId,
+          OR: [{ sectionId: null }, { sectionId: selectedSectionId }],
+        },
+        include: { teacher: { include: { user: true } } },
+      })
+    : [];
+
+  const evaluations = await prisma.studentEvaluation.findMany({
+    where: {
+      studentId: { in: roster.map((r) => r.studentId) },
+      academicSessionId: gradeSubject.academicSessionId,
+      gradeSubjectId: params.gradeSubjectId,
+    },
+    include: { teacher: { include: { user: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  const evaluationsByStudent = new Map<string, typeof evaluations>();
+  for (const ev of evaluations) {
+    const list = evaluationsByStudent.get(ev.studentId) ?? [];
+    list.push(ev);
+    evaluationsByStudent.set(ev.studentId, list);
+  }
 
   return (
     <UnitsClient
@@ -104,6 +143,21 @@ export default async function GradeSubjectUnitsPage({
       sections={sections.map((s) => ({ id: s.id, name: s.name }))}
       selectedSectionId={selectedSectionId}
       canEdit={selectedSectionId ? editableSectionIds.has(selectedSectionId) : canEditGradeWide}
+      isAdmin={isAdmin}
+      myTeacherId={myTeacherId}
+      subjectTeacherOptions={subjectTeacherOptions.map((t) => ({ id: t.teacherId, name: t.teacher.user.name }))}
+      evaluationRoster={roster.map((r) => ({
+        studentId: r.studentId,
+        studentName: r.student.user.name,
+        evaluations: (evaluationsByStudent.get(r.studentId) ?? []).map((ev) => ({
+          id: ev.id,
+          teacherId: ev.teacherId,
+          teacherName: ev.teacher.user.name,
+          remarks: ev.remarks,
+          visibleToParent: ev.visibleToParent,
+          visibleToStudent: ev.visibleToStudent,
+        })),
+      }))}
       plan={plan ? { plannedTotal: plan.plannedTotal, unitLabel: plan.unitLabel } : null}
       units={units.map((u) => ({
         id: u.id,

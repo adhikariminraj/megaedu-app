@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -74,8 +74,22 @@ Explicitly out of scope, confirmed twice — once for `TeacherAcademicAssignment
 ### No retest concept for Unit/Chapter Tests 🔭
 `UnitTestResult` supports `PENDING`/`EVALUATED`/`ABSENT` only — explicitly deferred, not built.
 
-### Homework, examinations beyond Unit/Chapter Tests, report cards, and analytics are not started 🔭
-All explicitly out of scope for Phase 3B, to be scoped and approved separately in a later Phase 3 sub-phase. See [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md).
+### Homework, formal examinations beyond Unit/Chapter Tests, report cards, and analytics are not started 🔭
+Explicitly out of scope for Phase 3B. **Partially closed by Phase 3C-1**: Teacher Qualitative Evaluation (General and Subject) and Parent-Teacher Meetings are now built — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md). Still genuinely missing: homework/assignments, formal term-wide examinations (beyond the existing per-unit Unit/Chapter Tests), report cards, and continuous/aggregate progress rollups — all reserved for a later Phase 3C sub-phase, to be scoped and approved separately.
+
+## Phase 3C (Teacher Qualitative Evaluation & Parent-Teacher Meetings)
+
+### Meeting-scheduling UI exists only on the General Evaluations page, not yet on the Subject Evaluations panel ⚠️
+`POST /api/schools/[id]/meetings` fully supports a `gradeSubjectId`-scoped meeting (verified directly via the API), but `/dashboard/academics/[gradeSubjectId]`'s Subject Evaluations panel has no "Schedule Meeting" UI of its own yet — a Subject Teacher can still be scheduled as the meeting's teacher from the General Evaluations page (by an Admin or a Class/Section Teacher naming them), just not self-serve it from their own subject page. A small, scoped follow-up, not a backend gap.
+
+### `ParentTeacherMeeting.outcomeNotes` is not audited 🔭
+Only `StudentEvaluation.remarks` has the audit-on-share requirement (explicitly specified for this phase); a meeting's outcome notes remain freely editable, current-state data — consistent with `TeacherAcademicAssignment`'s own non-audited precedent, not an oversight.
+
+### No un-share path for a `StudentEvaluation` 🔭
+`visibleToParent`/`visibleToStudent` only ever flip `false → true`. Matches the "permanent once released" precedent already established for `Certificate` issuance; revisit only if a genuine correction-after-sharing need arises.
+
+### No parent-initiated Parent-Teacher Meeting requests 🔭
+Explicitly deferred for this phase — "Parents are read-only recipients for now. Parent meeting requests can be considered later." See [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
 ## Authentication
 

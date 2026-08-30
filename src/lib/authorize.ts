@@ -108,7 +108,7 @@ export async function requireSchoolFinance(schoolId: string): Promise<string | n
  * would have wrongly authorized a section-specific-only teacher to
  * manage a grade-wide unit once Phase 3B started depending on it.
  */
-function sectionScopeWhere(sectionId: string | null | undefined) {
+export function sectionScopeWhere(sectionId: string | null | undefined) {
   if (sectionId === undefined) return {};
   if (sectionId === null) return { sectionId: null };
   return { OR: [{ sectionId: null }, { sectionId }] };
@@ -206,6 +206,50 @@ export async function requireClassTeacher(
     },
   });
   return match ? userId : null;
+}
+
+/**
+ * Checks whether a SPECIFIC teacherId (not the logged-in session) holds
+ * a TeacherAcademicAssignment matching the given scope — used only when
+ * a School Admin creates a StudentEvaluation "on behalf of" a named
+ * teacher, where there's no session to resolve teacherId from in the
+ * first place. Same sectionScopeWhere() three-way semantics as
+ * requireTeacherAssignment(). Deliberately does not check `approved` —
+ * that's the caller's job if it matters for the specific route.
+ */
+export async function teacherHoldsSubjectAssignment(
+  teacherId: string,
+  scope: { academicSessionId: string; schoolGradeId: string; sectionId?: string | null; subjectId: string }
+): Promise<boolean> {
+  const match = await prisma.teacherAcademicAssignment.findFirst({
+    where: {
+      teacherId,
+      academicSessionId: scope.academicSessionId,
+      schoolGradeId: scope.schoolGradeId,
+      subjectId: scope.subjectId,
+      ...sectionScopeWhere(scope.sectionId),
+    },
+  });
+  return !!match;
+}
+
+/**
+ * Same idea as teacherHoldsSubjectAssignment() but for ClassTeacherAssignment
+ * (general/pastoral scope, no subject).
+ */
+export async function teacherHoldsClassAssignment(
+  teacherId: string,
+  scope: { academicSessionId: string; schoolGradeId: string; sectionId?: string | null }
+): Promise<boolean> {
+  const match = await prisma.classTeacherAssignment.findFirst({
+    where: {
+      teacherId,
+      academicSessionId: scope.academicSessionId,
+      schoolGradeId: scope.schoolGradeId,
+      ...sectionScopeWhere(scope.sectionId),
+    },
+  });
+  return !!match;
 }
 
 /**

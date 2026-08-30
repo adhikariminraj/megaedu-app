@@ -6,6 +6,7 @@ import AcademicProgressPanel, {
   AttendanceRow,
   ProgressRow,
   TestResultRow,
+  EvaluationRow,
 } from "@/components/AcademicProgressPanel";
 
 type Student = {
@@ -28,6 +29,7 @@ export default function StudentDashboard({
   attendance,
   teachingProgress,
   testResults,
+  evaluations,
   interestsLocked,
 }: {
   student: Student;
@@ -35,6 +37,7 @@ export default function StudentDashboard({
   attendance: AttendanceRow[];
   teachingProgress: ProgressRow[];
   testResults: TestResultRow[];
+  evaluations: EvaluationRow[];
   interestsLocked: boolean;
 }) {
   if (!student.school) {
@@ -150,6 +153,7 @@ export default function StudentDashboard({
         attendance={attendance}
         teachingProgress={teachingProgress}
         testResults={testResults}
+        evaluations={evaluations}
       />
 
       <div>

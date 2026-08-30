@@ -4,7 +4,19 @@ import AcademicProgressPanel, {
   AttendanceRow,
   ProgressRow,
   TestResultRow,
+  EvaluationRow,
 } from "@/components/AcademicProgressPanel";
+
+type MeetingRow = {
+  id: string;
+  teacherName: string;
+  subjectName: string | null;
+  scheduledAt: string;
+  location: string | null;
+  onlineUrl: string | null;
+  status: string;
+  outcomeNotes: string | null;
+};
 
 type Parent = {
   id: string;
@@ -19,7 +31,12 @@ type Parent = {
       attendance: AttendanceRow[];
       teachingProgress: ProgressRow[];
       testResults: TestResultRow[];
+      evaluations: EvaluationRow[];
     };
+    // Parent-only — Students have no PTM visibility in this phase, so
+    // this field deliberately doesn't exist anywhere in StudentDashboard's
+    // own props.
+    meetings: MeetingRow[];
   }[];
 };
 
@@ -82,13 +99,51 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
 
                 {(c.progress.attendance.length > 0 ||
                   c.progress.teachingProgress.length > 0 ||
-                  c.progress.testResults.length > 0) && (
+                  c.progress.testResults.length > 0 ||
+                  c.progress.evaluations.length > 0) && (
                   <div className="mt-4 pt-4 border-t border-slate-100 [&>div:last-child]:mb-0">
                     <AcademicProgressPanel
                       attendance={c.progress.attendance}
                       teachingProgress={c.progress.teachingProgress}
                       testResults={c.progress.testResults}
+                      evaluations={c.progress.evaluations}
                     />
+                  </div>
+                )}
+
+                {c.meetings.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <h3 className="font-semibold text-slate-800 mb-1">Parent-Teacher Meetings</h3>
+                    <div className="space-y-2">
+                      {c.meetings.map((m) => (
+                        <div key={m.id} className="text-sm text-slate-700 border border-slate-100 rounded-lg px-3 py-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">
+                              {m.subjectName ?? "General"} — {m.teacherName}
+                            </span>
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                m.status === "COMPLETED"
+                                  ? "bg-green-100 text-green-700"
+                                  : m.status === "CANCELLED"
+                                  ? "bg-slate-100 text-slate-500"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {m.status}
+                            </span>
+                          </div>
+                          <p className="text-slate-400 text-xs mt-1">
+                            {new Date(m.scheduledAt).toLocaleString()}
+                            {m.location ? ` — ${m.location}` : ""}
+                            {m.onlineUrl ? ` — ${m.onlineUrl}` : ""}
+                          </p>
+                          {m.status === "COMPLETED" && m.outcomeNotes && (
+                            <p className="text-slate-600 mt-1 whitespace-pre-wrap">{m.outcomeNotes}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

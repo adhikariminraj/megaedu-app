@@ -3,7 +3,7 @@
 This document collects every business rule and architectural decision that was **explicitly discussed and approved** during this project's design work — not inferred, not assumed. Each entry states the rule, why it exists, and where it applies. Treat this as the tie-breaker when a future change seems to conflict with existing behavior: if it's here, it was a deliberate choice, not an oversight.
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B, plus School Admin Direct Student & Teacher Management), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
+> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase. Read this file before modifying any business logic — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md).
 
 ---
 
@@ -192,6 +192,60 @@ This document collects every business rule and architectural decision that was *
 **Rule**: `UnitTestResult` rows are pre-created (`status: "PENDING"`) for every student currently enrolled in the test's scope (via `GradeHistory`, matching the unit's grade and, if set, section) at the moment the `UnitTest` is created — never inferred afterward by diffing the current roster against existing results.
 **Why**: explicitly approved — "This creates a stable test roster and allows direct tracking of Pending / Evaluated / Absent" — a roster that could silently change after the fact (a transfer, a late enrollment) would make "who's still pending" ambiguous.
 **Applies to**: `POST /api/schools/[id]/units/[unitId]/tests`.
+
+---
+
+## Teacher Qualitative Evaluation & Parent-Teacher Meetings (Phase 3C)
+
+### General vs. Subject evaluation is one model, one nullable field — not a type field, not two systems ✅
+**Rule**: `StudentEvaluation.gradeSubjectId` being `null` (General — Class/Section Teacher) or set (Subject — Subject Teacher) is the *entire* distinction. No separate `evaluationType` string, no two models. The UI derives its "General Student Evaluation" / "Subject Evaluation" label purely from whether the field is set.
+**Why**: explicitly required — "clear terminology... derived from `gradeSubjectId` without adding another database field." Mirrors the identical precedent already established by `TeachingUnit.sectionId: null` (grade-wide vs. section-specific).
+**Applies to**: `StudentEvaluation` and every route/UI surface that reads or writes it.
+
+### An evaluation is freely editable while private; once shared with either audience, every edit is audited ✅
+**Rule**: `updateEvaluationRemarks()` (`src/lib/evaluation.ts`) is the only code path allowed to change an existing `StudentEvaluation`'s `remarks`. While `visibleToParent` and `visibleToStudent` are both `false`, it's a plain update — no audit row. The moment **either** becomes `true`, every subsequent edit instead pairs the update with a `StudentEvaluationAudit` row (`previousRemarks`/`newRemarks`) in the same transaction.
+**Why**: explicitly required — "Evaluations may be freely edited while private/draft. Once shared with a parent, subsequent changes must be auditable so previously shared information cannot be silently changed." Generalized to *either* audience (not parent-sharing specifically), on the reasoning that an evaluation shared with a Student only has the identical integrity need as one shared with a Parent — confirmed with the requester as the intended reading before implementation.
+**Applies to**: `StudentEvaluation`/`StudentEvaluationAudit`. Verified live: 0 audit rows after a private edit, exactly 1 after the first edit following a share action, with correct before/after remarks captured.
+
+### Parent visibility and Student visibility of an evaluation are two independent gates, not one ✅
+**Rule**: `visibleToParent`/`sharedWithParentAt` and `visibleToStudent`/`sharedWithStudentAt` are separate fields, separate actions (`shareEvaluation({audience: "PARENT" | "STUDENT"})`), and separate read-side filters (`fetchAcademicProgress(studentId, audience)` takes an explicit `audience` parameter). Sharing with one never implies or affects the other.
+**Why**: explicitly required — "Do not automatically assume that everything visible to a Parent is visible to the Student. Design Parent and Student visibility separately where appropriate."
+**Applies to**: `StudentEvaluation`. Verified live: a Subject Evaluation shared with Student only was confirmed present on the Student's dashboard and confirmed **absent** from the Parent's dashboard for the same child, while a General Evaluation shared with both appeared on both.
+
+### Sharing an evaluation is a one-way action — no un-share path exists in this phase ✅
+**Rule**: `shareEvaluation()` only ever flips `visibleToParent`/`visibleToStudent` from `false` to `true`; there is no route or function that flips either back to `false`.
+**Why**: matches the "permanent once released" precedent already established for `Certificate` issuance elsewhere in this schema — not revisited or challenged during Phase 3C-1's design approval, so kept consistent with existing behavior rather than introduced as a new pattern.
+**Applies to**: `StudentEvaluation.visibleToParent`/`visibleToStudent`.
+
+### A School Admin may author an evaluation or schedule a meeting "on behalf of" a named teacher — validated independently, not trusted ✅
+**Rule**: `POST /api/schools/[id]/students/[studentId]/evaluations` and `POST /api/schools/[id]/meetings` both accept a School-Admin-supplied `teacherId`, matching every other Phase 3 write route's School-Admin/Teacher parity (`requireSchoolAdmin(...) || requireTeacherAssignment(...)`/`requireClassTeacher(...)`). The named `teacherId` is independently checked — `teacherHoldsSubjectAssignment()`/`teacherHoldsClassAssignment()` (`src/lib/authorize.ts`) — never simply trusted because the caller is an admin.
+**Why**: keeps this feature consistent with the established access pattern rather than inventing a new one, while still preventing an admin from attributing an evaluation/meeting to a teacher who has no real relationship to that student.
+**Applies to**: both routes above. Verified live: a legitimate admin-attributed creation succeeded; an admin-or-teacher attempt naming a teacher without a matching assignment was rejected/skipped.
+
+### Duplicate general evaluations are prevented at the application level, proactively — not discovered via a live bug this time ✅
+**Rule**: `@@unique([studentId, teacherId, academicSessionId, gradeSubjectId])` reliably blocks an exact duplicate subject-specific slot, but the same `NULL ≠ NULL` unique-index gap already found in `TeacherAcademicAssignment` and `ClassTeacherAssignment` means it does **not**, by itself, block a second general (`gradeSubjectId: null`) evaluation from the same teacher/student/session. The create route pre-checks this exact case explicitly, inside its transaction, from the first implementation.
+**Why**: this class of gap has now been found and fixed twice elsewhere in this schema — recorded here explicitly as a reminder (consistent with the standing note already in this file): any new model with an optional field in its unique key needs this same app-level check, built in from the start rather than caught later by a live duplicate-creation test.
+**Applies to**: `StudentEvaluation`. Verified live: a second general-evaluation attempt for the same teacher/student/session returned `409`, not a silently-accepted duplicate.
+
+### Parent-Teacher Meetings — periodic and occasional are the same model, same route, different cardinality ✅
+**Rule**: `ParentTeacherMeeting` has no separate "recurring series" concept. `POST /api/schools/[id]/meetings` accepts `{meetings: [...]}` — one item is an occasional meeting, many items in one request is a periodic batch (e.g. a PTM week). No recurrence rule, exception, or series entity exists or is planned.
+**Why**: explicitly decided during design — nothing in the approved brief asked for recurrence, and building one would have been the same kind of unnecessary complexity already avoided elsewhere in this project (e.g. no teaching hierarchy, no section-level teacher assignment). "Periodic" is satisfied entirely by submitting more items in one request.
+**Applies to**: `ParentTeacherMeeting`, `POST /api/schools/[id]/meetings`.
+
+### Parent-Teacher Meetings are initiated by School Admins or authorized Teachers only — Parents are read-only recipients in this phase ✅
+**Rule**: no route allows a Parent to create, edit, or request a `ParentTeacherMeeting`. Every write route resolves scope from `requireSchoolAdmin`/`requireTeacherAssignment`/`requireClassTeacher` only.
+**Why**: explicitly scoped this way for Phase 3C-1 — "Parents are read-only recipients for now. Parent meeting requests can be considered later." Recorded here so a future request to add parent-initiated scheduling isn't mistaken for closing an oversight.
+**Applies to**: `ParentTeacherMeeting` and its two routes.
+
+### Parent-Teacher Meetings are Parent-visible only — Students have no visibility in this phase, structurally not just in the UI ✅
+**Rule**: `fetchParentMeetings(studentId)` (`dashboard/page.tsx`) is called exclusively from the PARENT branch. It is deliberately **not** folded into `fetchAcademicProgress()` (the function both the STUDENT and PARENT branches share for evaluations/attendance/progress/tests) specifically so there is no code path where a Student's own page render could ever query `ParentTeacherMeeting`, even by future accident.
+**Why**: explicitly required — "ParentTeacherMeeting is Parent-visible only in Phase 3C. Students should have no PTM visibility yet." Kept as a structural guarantee (a query that's never called) rather than a UI-level hide, the same discipline already applied to server-derived `studentId` resolution everywhere else in this app (see the Parent Academic Visibility rule elsewhere in this file).
+**Applies to**: `ParentTeacherMeeting`'s entire read side. Verified live: a Student whose evaluations and meetings both existed and were fully populated saw their shared evaluations but no Parent-Teacher Meetings section anywhere on their own dashboard.
+
+### An evaluation can be linked to a meeting as prep/context — a plain FK, not a decision ✅
+**Rule**: `ParentTeacherMeeting.linkedEvaluationId` is a plain, non-unique FK to `StudentEvaluation`, validated at write time to belong to the same student as the meeting. Not audited, not exclusive — multiple meetings may reference the same evaluation (e.g. a follow-up meeting revisiting the same prepared note).
+**Why**: explicitly required — "Linking Teacher Qualitative Evaluation to Parent–Teacher Meetings, so evaluations can be prepared and discussed during a meeting." A simple reference satisfies this without inventing a join table or a new audited relationship.
+**Applies to**: `ParentTeacherMeeting.linkedEvaluationId`. Verified live: linking a real evaluation while marking a meeting `COMPLETED` round-tripped correctly.
 
 ---
 

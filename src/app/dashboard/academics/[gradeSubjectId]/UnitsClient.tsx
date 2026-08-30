@@ -17,6 +17,15 @@ type Result = {
 type Test = { id: string; title: string; testDate: string; maxMarks: number; results: Result[] };
 type Unit = { id: string; title: string; order: number; status: string; tests: Test[] };
 type Plan = { plannedTotal: number; unitLabel: string } | null;
+type StudentEval = {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  remarks: string;
+  visibleToParent: boolean;
+  visibleToStudent: boolean;
+};
+type EvalRosterRow = { studentId: string; studentName: string; evaluations: StudentEval[] };
 
 export default function UnitsClient({
   schoolId,
@@ -28,6 +37,10 @@ export default function UnitsClient({
   sections,
   selectedSectionId,
   canEdit,
+  isAdmin,
+  myTeacherId,
+  subjectTeacherOptions,
+  evaluationRoster,
   plan,
   units,
 }: {
@@ -40,6 +53,10 @@ export default function UnitsClient({
   sections: { id: string; name: string }[];
   selectedSectionId: string | null;
   canEdit: boolean;
+  isAdmin: boolean;
+  myTeacherId: string | null;
+  subjectTeacherOptions: { id: string; name: string }[];
+  evaluationRoster: EvalRosterRow[];
   plan: Plan;
   units: Unit[];
 }) {
@@ -51,6 +68,11 @@ export default function UnitsClient({
   const [testForm, setTestForm] = useState<Record<string, { title: string; testDate: string; maxMarks: string }>>({});
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
   const [evalDrafts, setEvalDrafts] = useState<Record<string, { status: string; marksObtained: string; remarks: string }>>({});
+  const [newEvalFor, setNewEvalFor] = useState<string | null>(null);
+  const [newEvalRemarks, setNewEvalRemarks] = useState("");
+  const [newEvalTeacherId, setNewEvalTeacherId] = useState("");
+  const [editingEvalId, setEditingEvalId] = useState<string | null>(null);
+  const [editEvalRemarks, setEditEvalRemarks] = useState("");
 
   async function call(url: string, options: RequestInit) {
     setError(null);
@@ -128,6 +150,49 @@ export default function UnitsClient({
           },
         ],
       }),
+    });
+  }
+
+  async function addSubjectEvaluation(studentId: string) {
+    if (!newEvalRemarks.trim()) {
+      setError("Enter remarks first.");
+      return;
+    }
+    if (isAdmin && !newEvalTeacherId) {
+      setError("Select which teacher this evaluation is attributed to.");
+      return;
+    }
+    const result = await call(`/api/schools/${schoolId}/students/${studentId}/evaluations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        remarks: newEvalRemarks,
+        gradeSubjectId,
+        ...(isAdmin ? { teacherId: newEvalTeacherId } : {}),
+      }),
+    });
+    if (result) {
+      setNewEvalFor(null);
+      setNewEvalRemarks("");
+      setNewEvalTeacherId("");
+    }
+  }
+
+  async function saveEvalEdit(evaluationId: string) {
+    if (!editEvalRemarks.trim()) return;
+    const result = await call(`/api/schools/${schoolId}/evaluations/${evaluationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ remarks: editEvalRemarks }),
+    });
+    if (result) setEditingEvalId(null);
+  }
+
+  async function shareEval(evaluationId: string, audience: "PARENT" | "STUDENT") {
+    await call(`/api/schools/${schoolId}/evaluations/${evaluationId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ share: audience }),
     });
   }
 
@@ -392,6 +457,135 @@ export default function UnitsClient({
           </button>
         </div>
       )}
+
+      <div className="mt-10 pt-8 border-t border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-800 mb-1">Subject Evaluations</h2>
+        <p className="text-xs text-slate-400 mb-4">
+          Qualitative remarks on this student's development in {subjectName} — separate from Unit/Chapter
+          Test marks above.
+        </p>
+        {evaluationRoster.length === 0 ? (
+          <p className="text-slate-400 text-sm">No students placed here yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {evaluationRoster.map((r) => {
+              const canAddMore = canEdit && (isAdmin || !r.evaluations.some((ev) => ev.teacherId === myTeacherId));
+              return (
+                <div key={r.studentId} className="border border-slate-200 rounded-xl p-3">
+                  <p className="text-sm font-medium text-slate-800 mb-2">{r.studentName}</p>
+                  {r.evaluations.length === 0 && (
+                    <p className="text-xs text-slate-400 mb-2">No subject evaluation yet.</p>
+                  )}
+                  <div className="space-y-2">
+                    {r.evaluations.map((ev) => {
+                      const mine = canEdit && (isAdmin || ev.teacherId === myTeacherId);
+                      return (
+                        <div key={ev.id} className="border border-slate-100 rounded-lg p-2 text-xs">
+                          <p className="text-slate-400 mb-1">
+                            By {ev.teacherName}
+                            {ev.visibleToParent && <span className="ml-2 text-mega-green">Shared with parent</span>}
+                            {ev.visibleToStudent && <span className="ml-2 text-mega-navy">Shared with student</span>}
+                          </p>
+                          {editingEvalId === ev.id ? (
+                            <div className="space-y-1">
+                              <textarea
+                                value={editEvalRemarks}
+                                onChange={(e) => setEditEvalRemarks(e.target.value)}
+                                rows={2}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1"
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => saveEvalEdit(ev.id)} className="text-mega-navy font-semibold">
+                                  Save
+                                </button>
+                                <button onClick={() => setEditingEvalId(null)} className="text-slate-500">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-slate-700 whitespace-pre-wrap">{ev.remarks}</p>
+                              {mine && (
+                                <div className="flex gap-3 mt-1">
+                                  <button
+                                    onClick={() => {
+                                      setEditingEvalId(ev.id);
+                                      setEditEvalRemarks(ev.remarks);
+                                    }}
+                                    className="text-mega-blue font-medium"
+                                  >
+                                    Edit
+                                  </button>
+                                  {!ev.visibleToParent && (
+                                    <button onClick={() => shareEval(ev.id, "PARENT")} className="text-mega-green font-medium">
+                                      Share with Parent
+                                    </button>
+                                  )}
+                                  {!ev.visibleToStudent && (
+                                    <button onClick={() => shareEval(ev.id, "STUDENT")} className="text-mega-navy font-medium">
+                                      Share with Student
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {canAddMore && (
+                    <div className="mt-2 pt-2 border-t border-slate-100">
+                      {newEvalFor === r.studentId ? (
+                        <div className="space-y-1">
+                          {isAdmin && (
+                            <select
+                              value={newEvalTeacherId}
+                              onChange={(e) => setNewEvalTeacherId(e.target.value)}
+                              className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1"
+                            >
+                              <option value="">Attribute to teacher...</option>
+                              {subjectTeacherOptions.map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <textarea
+                            value={newEvalRemarks}
+                            onChange={(e) => setNewEvalRemarks(e.target.value)}
+                            rows={2}
+                            placeholder={`Development in ${subjectName}...`}
+                            className="w-full text-xs border border-slate-200 rounded-lg px-2 py-1"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => addSubjectEvaluation(r.studentId)}
+                              className="text-xs font-semibold text-white bg-mega-navy rounded-lg px-3 py-1"
+                            >
+                              Save Evaluation
+                            </button>
+                            <button onClick={() => setNewEvalFor(null)} className="text-xs text-slate-500">
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button onClick={() => setNewEvalFor(r.studentId)} className="text-xs text-mega-blue font-medium">
+                          + Add Evaluation
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

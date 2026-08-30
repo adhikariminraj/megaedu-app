@@ -11,6 +11,13 @@ export type TestResultRow = {
   marksObtained: number | null;
   remarks: string | null;
 };
+export type EvaluationRow = {
+  id: string;
+  teacherName: string;
+  subjectName: string | null; // null = General Student Evaluation; set = Subject Evaluation
+  remarks: string;
+  createdAt: string;
+};
 
 /**
  * Read-only Phase 3B academic summary — Teaching Progress, Test
@@ -26,13 +33,33 @@ export default function AcademicProgressPanel({
   attendance,
   teachingProgress,
   testResults,
+  evaluations,
 }: {
   attendance: AttendanceRow[];
   teachingProgress: ProgressRow[];
   testResults: TestResultRow[];
+  evaluations: EvaluationRow[];
 }) {
   return (
     <>
+      {evaluations.length > 0 && (
+        <div className="border border-slate-200 rounded-xl p-5 mb-8">
+          <h3 className="font-semibold text-slate-800 mb-1">Teacher Evaluations</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Qualitative remarks shared by your teachers — general development or subject-specific.
+          </p>
+          <div className="space-y-2">
+            {evaluations.map((ev) => (
+              <div key={ev.id} className="text-sm text-slate-700 border border-slate-100 rounded-lg px-3 py-2">
+                <span className="font-medium">{ev.subjectName ?? "General Evaluation"}</span>
+                <span className="text-slate-400"> — {ev.teacherName} — {ev.createdAt}</span>
+                <p className="text-slate-600 mt-1 whitespace-pre-wrap">{ev.remarks}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {teachingProgress.length > 0 && (
         <div className="border border-slate-200 rounded-xl p-5 mb-8">
           <h3 className="font-semibold text-slate-800 mb-1">Teaching Progress</h3>
