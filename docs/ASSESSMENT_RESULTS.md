@@ -1,8 +1,8 @@
 # Assessment Results, Publishing, and Report Cards (Phase 3D-2/3/4)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30, against the current codebase.
-> Part of **Phase 3D — Assessment, Examination, Result, and Report Card system**. This document covers the remaining Phase 3D work built on top of Phase 3D-1's configuration foundation — marks entry, the draft/publish workflow, the central calculation engine, and the Report Card. See [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) for the framework/component/grading-scale model this builds on, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles.
+> Last verified: 2026-08-31 (added `computeUnweightedAveragePercentage()` and the Class Overview as a fourth consumer), against the current codebase.
+> Part of **Phase 3D — Assessment, Examination, Result, and Report Card system**. This document covers the remaining Phase 3D work built on top of Phase 3D-1's configuration foundation — marks entry, the draft/publish workflow, the central calculation engine, and the Report Card. See [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) for the framework/component/grading-scale model this builds on, [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) for the Class Overview page that reuses this calculation engine for ranking, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles.
 
 ## Why this exists ✅
 
@@ -67,6 +67,12 @@ AssessmentComponent[]             AssessmentComponent[] (periodId set)
 
 **Verified live**: two published subjects with `gradePoint` 3.6 each produced a displayed GPA of exactly 3.60.
 
+### `computeUnweightedAveragePercentage()` — the fallback when no subject resolves a GPA ✅
+
+Added when the Class Overview page needed a ranking basis for schools whose grading scale has no `gradePoint` anywhere (e.g. label-only bands like "A+", "Outstanding" with no numeric point). Same unweighted-average shape as `computeUnweightedGPA()`, just averaging each subject's `subjectTotal.percentage` instead — subjects with no percentage yet (still incomplete, or descriptive-only) are excluded from the average, never counted as zero. Per [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md)'s ranking rule: "prefer GPA where available, otherwise the published aggregate percentage" — this function *is* that "otherwise."
+
+**Verified live**: a real school-created grading scale with every `gradePoint` left `null` (label/description-only bands) correctly produced `gpa: null`, and ranking fell back to this function's percentage average — confirmed against the actual Class Overview page and cross-checked by hand (45/50 = 90.0%, 30/50 = 60.0%).
+
 ## GPA is never forced where a scale doesn't support it ✅
 
 A marks-only framework (`gradingScaleId: null`) produces a percentage but no grade/point at all. A descriptive-only framework (every component `DESCRIPTIVE`) produces neither a percentage nor a grade — `totalMax: 0`, `percentage: null`, `isComplete: true` (there's nothing non-descriptive left to be pending). Neither case is special-cased in the calculation engine; both fall out naturally from the same `aggregateGroup()`/`lookupGrade()` functions.
@@ -111,6 +117,10 @@ No admin-attribution ("on behalf of a named teacher") validation was added — u
 **Unlike `ParentTeacherMeeting`, `"STUDENT"` is a real member of this audience type** — published results are explicitly meant to reach the Student, so this reuses `fetchAcademicProgress`'s precedent, not the PTM one. Rendered via a new "Assessment Results" section added directly to the shared `AcademicProgressPanel.tsx` — the same component "Teacher Evaluations" was added to in Phase 3C, since there's no policy reason (unlike meetings) to keep this out of the Student's shared render path.
 
 **Verified live**: with one subject `PUBLISHED` and one left `DRAFT`, the Student's own dashboard, the Student's own Report Card, and the linked Parent's dashboard all showed only the published subject — the draft subject appeared nowhere in any of the three. The Student Profile page (School Admin, `"STAFF"` audience) showed all three subjects including the draft one, with its publication status visibly labeled.
+
+### A fourth consumer: the Class Overview's Top 5 ranking ✅
+
+`/dashboard/grades/[schoolGradeId]` (see [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md)) calls `fetchAssessmentResults(studentId, "STUDENT")` once per roster student — the identical published-only call the Student's own dashboard makes, not a parallel or looser one — to compute each student's ranking score (`gpa`, falling back to `computeUnweightedAveragePercentage()` above), then ranks and badges the top five grade-wide. This is the fourth call site for this function (Student dashboard, Parent dashboard per child, Student Profile page, and now Class Overview), and it's the reason `"STUDENT"` had to be a real, non-excluded member of this audience type in the first place — ranking staff-side data would defeat the entire "never rank on draft results" requirement.
 
 ## Report Card — a live view, never a persisted snapshot ✅
 

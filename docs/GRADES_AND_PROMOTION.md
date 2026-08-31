@@ -1,8 +1,8 @@
 # Grades & Promotion
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (plus School Admin Direct Student & Teacher Management), against the current codebase.
-> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for Phase 3B's Class/Section Teachers, Attendance, Teaching Units, and Unit Tests, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions).
+> Last verified: 2026-08-31 (Class Overview — Teachers, Sections, and Ranking), against the current codebase.
+> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for Phase 3B's Class/Section Teachers, Attendance, Teaching Units, and Unit Tests, [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) for the ranking calculation the Class Overview reuses, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions, and the `CURRENT_ROSTER_STATUSES` rule).
 
 ## Why this exists ✅
 
@@ -62,7 +62,7 @@ A student's *first* `GradeHistory` row for a session can now be created four way
 
 ## Student Promotion workflow — per grade, per session ✅
 
-`/dashboard/grades/[schoolGradeId]` — a School Admin opens one `SchoolGrade`'s roster for the active session, sees every currently-`ENROLLED` student, multi-selects some, and applies one decision to the whole batch:
+`/dashboard/grades/[schoolGradeId]` — a School Admin opens one `SchoolGrade`'s Class Overview for the active session (see [Class Overview](#class-overview--teachers-sections-and-ranking-) below for everything the page shows beyond the promotion panel itself), multi-selects students from the roster, and applies one decision to the whole selected batch. **The decision panel's own eligibility is deliberately narrower than the page's roster** — see [Class Overview](#class-overview--teachers-sections-and-ranking-) for the distinction; only a still-`ENROLLED` row can actually be decided, whether or not other, already-decided students are also visible on the same page:
 
 | Decision | `GradeHistory.status` | `outcomeGradeId` | Meaning |
 |---|---|---|---|
@@ -86,6 +86,44 @@ A student's *first* `GradeHistory` row for a session can now be created four way
 **The final-grade edge case**: promoting a student already in the school's highest configured grade shows no default target (empty dropdown, not a bad guess), with an explanatory note ("No later grade is configured..."), and blocks submission with a clear error until the admin picks a grade manually or chooses a different decision. Verified live.
 
 **Promotion is completely independent of section**: applying a decision (Promote/Repeat/Transfer/Leave) never reads or writes the row's `sectionId` — the roster's "Apply Decision" button and its separate "Assign Section" panel hit entirely different endpoints (`grade-decisions` vs. `section-assignments`), share only the same checkbox selection, and can be used in either order or independently. Verified live: a student assigned to Section A, then promoted to the next grade, kept `sectionId` unchanged on their (now-`COMPLETED`) current-session row — promotion neither cleared it nor moved it anywhere. See [Sections](#sections-) below for what happens to section on the *new* session's row.
+
+## Class Overview — Teachers, Sections, and Ranking ✅
+
+`/dashboard/grades/[schoolGradeId]` (`page.tsx` + `PromotionRoster.tsx`) is both the Promotion action panel described above *and* a broader Class Overview — a School Admin opening one grade sees who's currently in it, who teaches what, and (once results exist) how the class is performing, not just an action list.
+
+### The current-roster definition — `CURRENT_ROSTER_STATUSES` ✅
+
+**Corrected from an earlier, narrower version of this page**: the roster is *not* `GradeHistory.status: "ENROLLED"` alone. `CURRENT_ROSTER_STATUSES` (`src/lib/gradeHistory.ts`) — `["ENROLLED", "COMPLETED", "REPEATED"]` — is the single, shared definition of "physically in this grade for the rest of this session," used identically by this page's roster query and by the Grades index's own "N enrolled" card count (`/dashboard/grades/page.tsx`), so the two can never disagree.
+
+**Why `COMPLETED`/`REPEATED` are included, not just `ENROLLED`**: a decision about *next* session (`COMPLETED` = promoted, `REPEATED` = repeating) doesn't remove a student from *this* grade the moment it's recorded — the school year isn't over, and the student is still sitting in class. Excluding them the moment a decision is recorded would make the roster silently shrink mid-year, well before the year actually ends. This was found as a real, live bug during Class Overview development: a genuine seed-data row already had a `REPEATED` decision recorded on its *current*-session row, and the old `ENROLLED`-only query made that student invisible on a page that should have shown them.
+
+**Why `TRANSFERRED`/`LEFT` are still excluded**: unlike a promotion or repeat decision, these mean the student has genuinely left the school — there is no "rest of this session" for them to be counted in. They're the only two statuses the current-roster definition treats as truly gone.
+
+**The Promotion action panel's own eligibility stays narrower, deliberately, on purpose**: only a still-`ENROLLED` row can be selected for a *new* decision — `recordGradeDecision()`'s own route (`POST /api/schools/[id]/grade-decisions`) independently re-validates `status === "ENROLLED"` server-side regardless of what the UI shows, silently skipping (never erroring) anything else, exactly as documented above. Broadening the *display* roster to include `COMPLETED`/`REPEATED` students changes nothing about who a decision can actually be applied to — it only makes the page honestly show everyone currently in the grade, decided or not. The separate "Assign Section" panel is not narrowed this way at all — section reassignment has nothing to do with promotion eligibility, so an already-decided-but-still-present student can still have their section corrected.
+
+### Teachers & Subjects ✅
+
+A "Teachers" list above the roster shows every `TeacherAcademicAssignment` for this grade and session — subject, teacher name, and (when the assignment is section-specific rather than grade-wide) which section, so a subject taught differently per section is never misread as grade-wide. No new model — the exact same query shape `/dashboard/academics` already uses.
+
+### Section-wise grouping ✅
+
+Students are grouped by their **current-session `GradeHistory` row's own `sectionId`/section name** — never inferred from an older row — sorted alphabetically by section name, with a final **"Unassigned / No Section"** group (never hidden, never dropped) for anyone with `sectionId: null`. Roll No. (a display-only sequential position, not a stored field — see [KNOWN_GAPS.md](KNOWN_GAPS.md)) restarts at `01` for each section group, matching how real class roll numbers work. A newly-admitted or repeated student placed into a real section appears correctly grouped with no special-case logic — the grouping is a pure function of the same `sectionName` every row already carries.
+
+### The "Repeated" badge — derived, never guessed ✅
+
+A student's Status badge ("Regular" or "Repeated") reflects only their **prior-session** `GradeHistory` row: `Repeated` if that row's `status === "REPEATED"` **and** its `outcomeGradeId` equals the grade being viewed — i.e., they were decided to repeat *into* this exact grade. A student with no prior row at all (a fresh admission) is `Regular` by definition. This is deliberately independent of the student's own *current*-session row's status — a student who has already been decided `REPEATED` for *next* session still shows `Regular` today unless their *own* arrival into this grade was itself a repeat; conflating the two would misreport a forward-looking decision as a description of how the student got here. Verified live with both cases present simultaneously in the same roster.
+
+### Top 5 ranking — grade-wide, never re-scored per section ✅
+
+Ranking is computed **once, across the whole grade**, before any section grouping happens — a section's own display is purely a rendering concern, so a Section A student and a Section D student can legitimately hold Rank 1 and Rank 2 on the same page. The ranking basis and the numbers themselves come entirely from the existing central calculation engine (`fetchAssessmentResults()`/`computeUnweightedGPA()`/`computeUnweightedAveragePercentage()`, `src/lib/assessmentResults.ts` — see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md)), filtered to **published results only**; a student with zero published subjects has no score and is excluded from ranking entirely, not ranked last. Nothing is persisted — recalculated on every page load. Badges: 🥇 Rank 1 / 🥈 Rank 2 / 🥉 Rank 3 / Rank 4 / Rank 5, each paired with a distinct highlight color on the row, never color alone. Before any result is published anywhere in the grade, the page shows "Student rankings will appear after the first assessment results are published" instead of an empty or misleading ranking.
+
+### Back button ✅
+
+Replaces the earlier plain "← All grades" link with a `← Back` control that prefers real browser history (`router.back()`) when the visit genuinely came from elsewhere in the app (`document.referrer` same-origin and real history depth), falling back to `/dashboard/grades` only for a direct/bookmarked load with nothing to go back to. Verified both branches live.
+
+### Authorization — unchanged ✅
+
+Every addition above reuses the page's existing `requireSchoolAdmin`-gated access exactly as it already was — School-Admin-only, same as the Promotion panel it extends. No new role gets access to this page, and published-results-only filtering for ranking means nothing beyond what a School Admin can already see elsewhere (the Student Profile page, `/dashboard/assessment-results`) is newly exposed.
 
 ## Undecided students & next-session activation ✅
 

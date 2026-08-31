@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-08-31 (guided Create Assessment System wizard; Class Overview roster/ranking enhancement) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -101,6 +101,11 @@ Added specifically so a future Promotion-roster page could display computed pass
 
 ### No credit for a component's marks being derived from `UnitTestResult` 🔭
 Deliberately not built — see [PRODUCT_RULES.md](PRODUCT_RULES.md) for the reasoning. A teacher whose "Class Test" component happens to match one of their own unit-test scores must re-enter it; no convenience link exists between the two systems.
+
+## Class Overview (Grades & Promotion enhancement)
+
+### "Roll No." on the Class Overview is a display-only position, not a persisted student field 🔭
+No roll-number concept exists anywhere in the Prisma schema — confirmed via a direct search across `schema.prisma` returning zero matches. The number shown next to each student on `/dashboard/grades/[schoolGradeId]` is computed purely for display: each student's sequential position within their section's list, in whatever order that section's roster query returns them. It is not stored, not stable against a future reordering of the underlying query, and not something any other page or route can reference. A school that needs a real, persisted, admin-assignable roll number would need a genuinely new schema field — this was not an oversight of the Class Overview work, just outside what it set out to build.
 
 ## Authentication
 

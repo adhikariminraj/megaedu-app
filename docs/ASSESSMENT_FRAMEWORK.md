@@ -1,8 +1,8 @@
 # Assessment Framework Foundation (Phase 3D-1)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30, against the current codebase.
-> Part of **Phase 3D — Assessment, Examination, Result, and Report Card system**. This document covers Phase 3D-1 only — the configuration foundation (grading scales, marking-scheme templates, and their assignment to a grade/subject). No marks entry, aggregation, GPA calculation, report cards, or promotion logic exists yet; those are reserved for 3D-2 through 3D-5, to be designed and approved separately. See [PRODUCT_RULES.md](PRODUCT_RULES.md) and [DATABASE.md](DATABASE.md) for how this fits the rest of the schema.
+> Last verified: 2026-08-31 (guided "Create Assessment System" wizard added on top of the unchanged 3D-1 backend), against the current codebase.
+> Part of **Phase 3D — Assessment, Examination, Result, and Report Card system**. This document covers Phase 3D-1's backend — the configuration foundation (grading scales, marking-scheme templates, and their assignment to a grade/subject) — plus the guided setup UI built on top of it afterward. Marks entry, aggregation, GPA calculation, publishing, and Report Cards are Phase 3D-2/3/4, documented in [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md). See [PRODUCT_RULES.md](PRODUCT_RULES.md) and [DATABASE.md](DATABASE.md) for how this fits the rest of the schema.
 
 ## Why this exists ✅
 
@@ -33,7 +33,7 @@ Six new models, additive only — no existing model's columns changed, only new 
 
 `AssessmentComponent.maxMarks: Float` is the single number a component is worth, interpreted consistently as "how many points, out of whatever the framework's components sum to." A component worth 10% in a weighted-grade system and a component worth 10 raw marks in a marks-based system are the identical shape — only `entryMode` differs. This is a deliberate simplification over treating "weight" and "marks" as two parallel systems needing reconciliation; see [PRODUCT_RULES.md](PRODUCT_RULES.md) for the full reasoning.
 
-`entryMode` (`"MARKS" | "GRADE" | "DESCRIPTIVE"`) controls how a student's result for that component will eventually be recorded (Phase 3D-2, not built yet):
+`entryMode` (`"MARKS" | "GRADE" | "DESCRIPTIVE"`) controls how a student's result for that component is recorded (Phase 3D-2 — see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md)):
 - **`MARKS`** — a raw number, `0 ≤ marksObtained ≤ maxMarks`.
 - **`GRADE`** — a label picked from the framework's own `GradingScale`, to be converted via that label's `gradePoint`, weighted by `maxMarks`'s share of the total.
 - **`DESCRIPTIVE`** — free text only, excluded from any numeric aggregate.
@@ -67,9 +67,20 @@ Every write route is gated by `requireSchoolAdmin(schoolId)` alone — no `requi
 
 **Verified live**: a logged-in Teacher (Demo Teacher, approved, with a real Class Teacher assignment) received `403 {"error": "Forbidden"}` from all four write routes attempted directly via `fetch()` (create framework, create assignment, create grading scale, patch framework), and direct navigation to `/dashboard/assessment-frameworks` redirected them to `/dashboard` before any page content rendered — the same School-Admin-only page-access pattern already used by `/dashboard/academics`.
 
-## Read-side UI ✅
+## Setup UI — guided wizard as the primary path, the original editor as Advanced management ✅
 
-`/dashboard/assessment-frameworks` — a single School Admin configuration page (`page.tsx` fetches directly via Prisma, no `GET` API routes were built, matching every other Phase 3 admin config page's convention): create/toggle grading scales, create/toggle frameworks with nested periods and components, add periods/components to an existing framework, remove periods/components, and assign a framework to a grade or subject for the active session. Linked from the School Admin dashboard as a new "Assessment Frameworks" card, alongside "Subjects & Teacher Assignments" and "Attendance".
+**`/dashboard/assessment-frameworks/new` — "Create Assessment System" — is the primary, promoted way a School Admin sets up a new framework.** A 6-step guided flow (`CreateAssessmentSystemWizard.tsx`) in plain, school-friendly language, deliberately hiding the underlying backend concepts described elsewhere in this document rather than exposing them directly:
+
+1. **Name it** — framework name + optional description. No mention of "framework" as a technical term.
+2. **Terms or one overall assessment?** — a Yes/No choice maps directly to `periods: string[]` (empty array for "No"); quick-add chips suggest "First Term"/"Second Term"/"Final Term".
+3. **How are students assessed?** — a plain "Assessment / Full Marks" table (one per period, if any) maps directly to `components: [{name, maxMarks, entryMode, periodName}]`. `entryMode` defaults to `MARKS` and stays hidden behind a "Change how this is scored" link — a component's `GRADE`/`DESCRIPTIVE` modes exist for a school that needs them, but nothing forces every admin to understand three entry modes just to enter "Classwork, 10 marks."
+4. **How should results be shown?** ("Just the marks" / "Marks with a grade") — deliberately framed as a results-display question, never as "attach a grading scale." Choosing a grade offers picking an existing `GradingScale`, a one-click "standard grade levels" template (pre-fills the same band-editor with a sensible A+–D starter set, fully editable), or building custom levels from a blank band-editor — all three reuse the identical `GradingScale`/`GradingScaleBand` backend and the same band-editing UI the Advanced editor already has.
+5. **Where should this apply?** — "Whole grade (every subject)" vs. "Just one subject" maps directly to `gradeSubjectId: null` vs. set on the `AssessmentFrameworkAssignment` — the grade-default/subject-override distinction is never named as such in the wizard's own language.
+6. **Review & confirm** — a full summary of every prior step; **nothing is created until this screen's confirm action**. Confirming fires, in order: an optional `POST /grading-scales` (only if a new scale was built), then the single bundled `POST /assessment-frameworks` (name + periods + components + the resolved `gradingScaleId` — the same one-call bundled shape the schema was designed around from 3D-1), then `POST /assessment-framework-assignments`. **Zero new API routes** — the wizard is a UI layer in front of the exact routes already documented above.
+
+`/dashboard/assessment-frameworks` itself is now the landing page: a plain-language "Your Assessment Systems" list (name + which grade/subjects it's applied to, in the same non-technical wording) with the wizard's "+ Create Assessment System" button promoted above it, and the original detailed editor — grading scales, per-framework period/component editing, the raw assignment form, everything this document describes above — tucked behind a collapsed **"Advanced management"** disclosure for anyone who needs to edit something after creation (rename a component, deactivate a scale, add a period later, remove an assignment). Nothing about the original editor's behavior changed; it's the same component, just no longer the first thing an admin sees. No new `GET` API routes were added for either surface — both read directly via Prisma, the same convention as every other Phase 3 admin page.
+
+Linked from the School Admin dashboard as a new "Assessment Frameworks" card, alongside "Subjects & Teacher Assignments" and "Attendance".
 
 ## No integration with `UnitTest`/`UnitTestResult` — deliberately ✅
 
@@ -77,10 +88,9 @@ Every write route is gated by `requireSchoolAdmin(schoolId)` alone — no `requi
 
 ## Known scope decisions — deliberate, not oversights ⚠️
 
-- **Framework structural edits (components/weights) are unrestricted in this phase.** No marks exist yet to be invalidated by an edit, so this can't cause a real problem today — but it must be revisited once Phase 3D-2 introduces real per-student results, since editing a framework already in use could silently invalidate previously-computed aggregates.
-- **No versioning/locking of a framework once it's been assigned.** Same reasoning as above — deferred to 3D-2, not solved prematurely.
-- **No `GET` list API routes exist for any of the six new models.** Every read happens through `page.tsx`'s own direct Prisma queries, the same convention already used by every other Phase 3A/3B admin config page — a route would only be needed if something other than this one page ever needed to read this data over HTTP.
+- **Framework structural edits (components/weights) were unrestricted in 3D-1** — deliberately deferred, since no marks existed yet to be invalidated by an edit. **Resolved in 3D-2**: `AssessmentComponent.maxMarks`/`entryMode` now lock once any result exists for that component, and `GradingScaleBand`'s structural fields lock once any published result uses that scale — see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md)'s Data Integrity Protections.
+- **No `GET` list API routes exist for any of the six new models.** Every read happens through the relevant page's own direct Prisma queries (`/dashboard/assessment-frameworks`'s landing list and Advanced management, `/dashboard/assessment-frameworks/new`'s wizard), the same convention already used by every other Phase 3A/3B admin config page — a route would only be needed if something other than these pages ever needed to read this data over HTTP.
 
 ## Deliberately out of scope
 
-Per the approved Phase 3D-1 design: marks entry, weighted/GPA aggregation, term/annual result computation, report card generation, and any connection to `GradeHistory`/promotion are all untouched by this work — reserved for Phase 3D-2 through 3D-5, each to be designed and approved separately.
+Per the approved Phase 3D-1 design, this document's own scope stayed limited to configuration and its guided setup UI. Marks entry, weighted/GPA aggregation, term/annual result computation, and Report Cards were built afterward, per a separately approved design — see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md). Any connection to `GradeHistory`/promotion remains untouched — reserved for a future Phase 3D-5, still to be designed and approved.
