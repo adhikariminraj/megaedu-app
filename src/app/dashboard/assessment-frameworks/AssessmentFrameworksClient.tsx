@@ -237,9 +237,7 @@ export default function AssessmentFrameworksClient({
   const assignGradeSubjects = grades.find((g) => g.id === assignGradeId)?.offeredSubjects || [];
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-12">
-      <h1 className="text-2xl font-bold text-slate-800 mb-1">Assessment Frameworks</h1>
-      <p className="text-sm text-slate-500 mb-1">{schoolName}</p>
+    <div className="px-3 pb-8">
       <p className="text-xs text-slate-400 mb-8">
         Configuration only — no marks entry, calculation, or report cards yet. Grading scales and
         frameworks are reusable templates; assigning one to a grade or subject is what's specific to{" "}

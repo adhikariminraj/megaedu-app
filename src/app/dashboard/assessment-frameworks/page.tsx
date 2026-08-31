@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -90,46 +91,101 @@ export default async function AssessmentFrameworksPage() {
     }));
   }
 
+  const gradeNameById = Object.fromEntries(schoolGrades.map((g) => [g.id, g.displayName]));
+  const appliedToByFrameworkId: Record<string, string[]> = {};
+  for (const a of assignments) {
+    const grade = gradeNameById[a.schoolGradeId] || "—";
+    const label = a.subjectName ? `${grade} — ${a.subjectName}` : `${grade} — all subjects`;
+    (appliedToByFrameworkId[a.frameworkId] ||= []).push(label);
+  }
+
   return (
-    <AssessmentFrameworksClient
-      schoolId={schoolId}
-      schoolName={schoolAdmin.school.name}
-      activeSession={activeSession ? { id: activeSession.id, name: activeSession.name } : null}
-      gradingScales={gradingScales.map((s) => ({
-        id: s.id,
-        name: s.name,
-        isActive: s.isActive,
-        bands: s.bands.map((b) => ({
-          id: b.id,
-          minPercent: b.minPercent,
-          maxPercent: b.maxPercent,
-          label: b.label,
-          gradePoint: b.gradePoint,
-          description: b.description,
-        })),
-      }))}
-      frameworks={frameworks.map((f) => ({
-        id: f.id,
-        name: f.name,
-        description: f.description,
-        isActive: f.isActive,
-        gradingScaleId: f.gradingScaleId,
-        gradingScaleName: f.gradingScale?.name ?? null,
-        periods: f.periods.map((p) => ({ id: p.id, name: p.name })),
-        components: f.components.map((c) => ({
-          id: c.id,
-          periodId: c.periodId,
-          name: c.name,
-          maxMarks: c.maxMarks,
-          entryMode: c.entryMode,
-        })),
-      }))}
-      grades={schoolGrades.map((g) => ({
-        id: g.id,
-        displayName: g.displayName,
-        offeredSubjects: gradeSubjectsByGrade[g.id] || [],
-      }))}
-      assignments={assignments}
-    />
+    <div className="max-w-3xl mx-auto px-6 py-12">
+      <h1 className="text-2xl font-bold text-slate-800 mb-1">Assessment Frameworks</h1>
+      <p className="text-sm text-slate-500 mb-8">{schoolAdmin.school.name}</p>
+
+      <Link
+        href="/dashboard/assessment-frameworks/new"
+        className="block border-2 border-mega-navy rounded-xl px-5 py-4 text-sm font-semibold text-mega-navy mb-8 hover:bg-slate-50 transition"
+      >
+        + Create Assessment System
+        <p className="text-xs text-slate-400 font-normal mt-1">
+          A guided setup — name it, add assessments, choose how results are shown, and apply it to a class or subject.
+        </p>
+      </Link>
+
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-slate-800 mb-3">Your Assessment Systems</h2>
+        {frameworks.length === 0 ? (
+          <p className="text-slate-400 text-sm">None yet — create your first one above.</p>
+        ) : (
+          <div className="space-y-2">
+            {frameworks.map((f) => (
+              <div key={f.id} className="border border-slate-200 rounded-xl px-4 py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-slate-800">
+                    {f.name}
+                    {!f.isActive && <span className="ml-2 text-xs text-slate-400">(inactive)</span>}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {(appliedToByFrameworkId[f.id] || []).length > 0
+                    ? `Applied to: ${appliedToByFrameworkId[f.id].join(", ")}`
+                    : "Not applied to any class or subject yet"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <details className="border border-slate-200 rounded-xl">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-700">
+          Advanced management (edit assessments, grade levels, and application details)
+        </summary>
+        <div className="border-t border-slate-200 px-1 pt-4">
+          <AssessmentFrameworksClient
+            schoolId={schoolId}
+            schoolName={schoolAdmin.school.name}
+            activeSession={activeSession ? { id: activeSession.id, name: activeSession.name } : null}
+            gradingScales={gradingScales.map((s) => ({
+              id: s.id,
+              name: s.name,
+              isActive: s.isActive,
+              bands: s.bands.map((b) => ({
+                id: b.id,
+                minPercent: b.minPercent,
+                maxPercent: b.maxPercent,
+                label: b.label,
+                gradePoint: b.gradePoint,
+                description: b.description,
+              })),
+            }))}
+            frameworks={frameworks.map((f) => ({
+              id: f.id,
+              name: f.name,
+              description: f.description,
+              isActive: f.isActive,
+              gradingScaleId: f.gradingScaleId,
+              gradingScaleName: f.gradingScale?.name ?? null,
+              periods: f.periods.map((p) => ({ id: p.id, name: p.name })),
+              components: f.components.map((c) => ({
+                id: c.id,
+                periodId: c.periodId,
+                name: c.name,
+                maxMarks: c.maxMarks,
+                entryMode: c.entryMode,
+              })),
+            }))}
+            grades={schoolGrades.map((g) => ({
+              id: g.id,
+              displayName: g.displayName,
+              offeredSubjects: gradeSubjectsByGrade[g.id] || [],
+            }))}
+            assignments={assignments}
+          />
+        </div>
+      </details>
+    </div>
   );
 }
