@@ -10,6 +10,22 @@ export const GRADE_HISTORY_STATUSES = [
 ] as const;
 export type GradeHistoryStatus = (typeof GRADE_HISTORY_STATUSES)[number];
 
+/**
+ * The statuses that mean a student is still physically in this grade
+ * for the REST of the current session — the single authoritative
+ * definition of "current roster," shared by every page that needs to
+ * count or list who's currently in a grade (the Grades index's "N
+ * enrolled" card count, the Class Overview roster). ENROLLED/COMPLETED/
+ * REPEATED all qualify: a decision about NEXT session (COMPLETED =
+ * promoted, REPEATED = repeating) doesn't remove a student from THIS
+ * session's grade the moment it's recorded — only TRANSFERRED/LEFT mean
+ * the student has genuinely left. Deliberately excludes the Promotion
+ * action panel's own narrower ENROLLED-only eligibility — that's a
+ * decision-eligibility rule, not a roster-membership rule, and stays
+ * enforced independently by recordGradeDecision()'s own callers.
+ */
+export const CURRENT_ROSTER_STATUSES: GradeHistoryStatus[] = ["ENROLLED", "COMPLETED", "REPEATED"];
+
 type RecordGradeDecisionInput = {
   gradeHistoryId: string;
   newStatus: GradeHistoryStatus;

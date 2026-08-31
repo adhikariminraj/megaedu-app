@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { findPendingStudents } from "@/lib/gradeRollover";
+import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
 import PendingQueue from "./PendingQueue";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export default async function GradesIndexPage() {
   if (activeSession) {
     const counts = await prisma.gradeHistory.groupBy({
       by: ["schoolGradeId"],
-      where: { academicSessionId: activeSession.id, status: "ENROLLED" },
+      where: { academicSessionId: activeSession.id, status: { in: CURRENT_ROSTER_STATUSES } },
       _count: { _all: true },
     });
     enrolledCounts = Object.fromEntries(counts.map((c) => [c.schoolGradeId, c._count._all]));

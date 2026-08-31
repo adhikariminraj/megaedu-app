@@ -261,6 +261,20 @@ export function computeUnweightedGPA(subjectResults: SubjectResult[]): number | 
   return points.reduce((sum, p) => sum + p, 0) / points.length;
 }
 
+/**
+ * The fallback ranking basis when a student's subjects don't resolve a
+ * GPA (e.g. every subject uses a marks-only scale, no gradePoint
+ * anywhere) — an unweighted average of each subject's own percentage,
+ * the same "explicitly unweighted, never fabricated" principle as
+ * computeUnweightedGPA() above. Subjects with no percentage (still
+ * incomplete, or descriptive-only) are excluded, not counted as zero.
+ */
+export function computeUnweightedAveragePercentage(subjectResults: SubjectResult[]): number | null {
+  const percentages = subjectResults.map((s) => s.subjectTotal.percentage).filter((p): p is number => typeof p === "number");
+  if (percentages.length === 0) return null;
+  return percentages.reduce((sum, p) => sum + p, 0) / percentages.length;
+}
+
 // ============================================================
 // Read side — resolves live data, then hands it to the pure functions
 // above. Follows fetchAcademicProgress()'s exact audience convention.

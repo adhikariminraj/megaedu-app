@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
 type SchoolGradeRef = { id: string; displayName: string; gradeReference: { code: string; order: number } };
 type RosterRow = {
@@ -11,9 +10,23 @@ type RosterRow = {
   studentName: string;
   sectionId: string | null;
   sectionName: string | null;
+  rollNo: string;
+  isRepeated: boolean;
+  resultLabel: string | null;
+  rank: number | null;
 };
 type SectionOption = { id: string; name: string };
+type TeacherAssignmentRow = { id: string; teacherName: string; subjectName: string; sectionName: string | null };
+type AssessmentStatus = "NO_FRAMEWORK" | "IN_PROGRESS" | "PUBLISHED";
 type Decision = "COMPLETED" | "REPEATED" | "TRANSFERRED" | "LEFT";
+
+const RANK_STYLES: Record<number, { badge: string; row: string }> = {
+  1: { badge: "🥇 Rank 1", row: "bg-amber-50 border-amber-200" },
+  2: { badge: "🥈 Rank 2", row: "bg-slate-100 border-slate-300" },
+  3: { badge: "🥉 Rank 3", row: "bg-orange-50 border-orange-200" },
+  4: { badge: "Rank 4", row: "bg-sky-50 border-sky-200" },
+  5: { badge: "Rank 5", row: "bg-green-50 border-green-200" },
+};
 
 const DECISION_LABELS: Record<Decision, string> = {
   COMPLETED: "Promote",
@@ -44,6 +57,8 @@ export default function PromotionRoster({
   roster,
   allSchoolGrades,
   sections,
+  teacherAssignments,
+  assessmentStatus,
 }: {
   schoolId: string;
   schoolGrade: SchoolGradeRef;
@@ -52,9 +67,40 @@ export default function PromotionRoster({
   roster: RosterRow[];
   allSchoolGrades: SchoolGradeRef[];
   sections: SectionOption[];
+  teacherAssignments: TeacherAssignmentRow[];
+  assessmentStatus: AssessmentStatus;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Prefer real browser history (so "Back" returns to whatever page
+  // actually linked here — the Grades page, the Pending queue, etc.);
+  // fall back to the Grades page only when there's nothing to go back
+  // to (a bookmarked/direct link, or history from outside the app).
+  function goBack() {
+    const cameFromThisApp =
+      typeof window !== "undefined" && window.history.length > 1 && document.referrer.startsWith(window.location.origin);
+    if (cameFromThisApp) router.back();
+    else router.push("/dashboard/grades");
+  }
+
+  const uniqueTeacherCount = new Set(teacherAssignments.map((t) => t.teacherName)).size;
+  const hasTop5 = roster.some((r) => r.rank !== null);
+
+  // Grouped for DISPLAY only — the section a student is shown under
+  // comes straight from their own CURRENT-session GradeHistory row
+  // (sectionName, resolved server-side, never an older record), so a
+  // new admission or a repeated student placed into a section already
+  // shows up correctly grouped with no extra logic here. A student
+  // with no section falls into "Unassigned" rather than being dropped.
+  // Ranking is NOT recomputed per group — r.rank already reflects the
+  // grade-wide ranking computed once, server-side, and just travels
+  // with each row regardless of which section block renders it.
+  const sectionNames = [...new Set(roster.map((r) => r.sectionName).filter((n): n is string => n !== null))].sort();
+  const groupOrder = [...sectionNames, null]; // named sections alphabetically, "Unassigned" last
+  const rosterBySection = new Map<string | null, typeof roster>();
+  for (const key of groupOrder) rosterBySection.set(key, []);
+  for (const r of roster) (rosterBySection.get(r.sectionName) ?? rosterBySection.get(null)!).push(r);
   const [decision, setDecision] = useState<Decision | "">("");
   const [outcomeGradeId, setOutcomeGradeId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -171,18 +217,78 @@ export default function PromotionRoster({
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
-      <Link href="/dashboard/grades" className="text-sm text-mega-blue font-medium">
-        ← All grades
-      </Link>
+      <button onClick={goBack} className="text-sm text-mega-blue font-medium">
+        ← Back
+      </button>
       <p className="text-sm text-slate-400 mt-3 mb-1">{academicSessionName}</p>
-      <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-bold text-slate-800">{schoolGrade.displayName} — Roster</h1>
+      <div className="flex items-center gap-3 mb-4">
+        <h1 className="text-2xl font-bold text-slate-800">{schoolGrade.displayName}</h1>
         {isClosedSession && (
           <span className="text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
             Closed session — resolving a pending decision
           </span>
         )}
       </div>
+
+      <div className="flex flex-wrap gap-2 mb-2">
+        <span className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-full px-3 py-1.5">
+          Total Students: {roster.length}
+        </span>
+        <span className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-full px-3 py-1.5">
+          Sections: {sectionNames.length}
+        </span>
+        <span className="text-xs font-semibold text-slate-600 bg-slate-100 rounded-full px-3 py-1.5">
+          Teachers: {uniqueTeacherCount}
+        </span>
+        <span
+          className={`text-xs font-semibold rounded-full px-3 py-1.5 ${
+            assessmentStatus === "PUBLISHED"
+              ? "bg-green-100 text-green-700"
+              : assessmentStatus === "IN_PROGRESS"
+              ? "bg-amber-100 text-amber-700"
+              : "bg-slate-100 text-slate-500"
+          }`}
+        >
+          {assessmentStatus === "PUBLISHED"
+            ? "Results published"
+            : assessmentStatus === "IN_PROGRESS"
+            ? "Assessments in progress — none published yet"
+            : "No assessment framework assigned yet"}
+        </span>
+      </div>
+
+      {sectionNames.length > 0 && (
+        <p className="text-xs text-slate-400 mb-6">
+          {sectionNames
+            .map((name) => `Section ${name}: ${rosterBySection.get(name)!.length} student${rosterBySection.get(name)!.length === 1 ? "" : "s"}`)
+            .join(" · ")}
+          {rosterBySection.get(null)!.length > 0 && ` · Unassigned: ${rosterBySection.get(null)!.length}`}
+        </p>
+      )}
+
+      <section className="mb-8">
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Teachers</h2>
+        {teacherAssignments.length === 0 ? (
+          <p className="text-slate-400 text-sm">No subject-teacher assignments recorded for this grade this session.</p>
+        ) : (
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+            {teacherAssignments.map((t) => (
+              <div key={t.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                <span className="font-medium text-slate-700">{t.subjectName}</span>
+                <span className="text-slate-500">
+                  {t.teacherName}
+                  {t.sectionName && <span className="text-slate-400 text-xs"> — Section {t.sectionName}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Students</h2>
+      <p className="text-xs text-slate-400 mb-3">
+        Roll No. shown here is each section&apos;s alphabetical position — MEGA.EDU doesn&apos;t yet store an official roll number. Ranking is grade-wide, not reset per section.
+      </p>
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-mega-red text-sm rounded-lg px-4 py-2.5 mb-4">
@@ -199,30 +305,71 @@ export default function PromotionRoster({
         <p className="text-slate-400 text-sm">No currently-enrolled students in this grade for this session.</p>
       ) : (
         <>
-          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 mb-4 max-h-96 overflow-y-auto">
-            <label className="flex items-center gap-3 px-4 py-2 text-xs text-slate-500 bg-slate-50">
-              <input
-                type="checkbox"
-                checked={selected.size === roster.length}
-                onChange={toggleAll}
-                className="accent-mega-navy"
-              />
-              Select all ({roster.length})
-            </label>
-            {roster.map((r) => (
-              <label key={r.gradeHistoryId} className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selected.has(r.gradeHistoryId)}
-                  onChange={() => toggle(r.gradeHistoryId)}
-                  className="accent-mega-navy"
-                />
-                <span className="font-medium text-slate-700">{r.studentName}</span>
-                <span className="text-xs text-slate-400">
-                  {r.sectionName ? `Section ${r.sectionName}` : "No section"}
-                </span>
-              </label>
-            ))}
+          {hasTop5 ? (
+            <p className="text-xs text-slate-500 mb-2">🏆 Top 5 students highlighted below, based on published assessment results.</p>
+          ) : (
+            <p className="text-xs text-slate-400 mb-2">
+              Student rankings will appear after the first assessment results are published.
+            </p>
+          )}
+
+          <label className="flex items-center gap-3 px-4 py-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl mb-3">
+            <input
+              type="checkbox"
+              checked={selected.size === roster.length}
+              onChange={toggleAll}
+              className="accent-mega-navy"
+            />
+            Select all ({roster.length})
+          </label>
+
+          <div className="space-y-4 mb-4">
+            {groupOrder.map((key) => {
+              const group = rosterBySection.get(key)!;
+              if (group.length === 0) return null;
+              return (
+                <div key={key ?? "unassigned"}>
+                  <p className="text-xs font-semibold text-slate-600 mb-1.5">
+                    {key ? `Section ${key}` : "Unassigned / No Section"} — {group.length} Student{group.length === 1 ? "" : "s"}
+                  </p>
+                  <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-96 overflow-y-auto">
+                    {group.map((r) => {
+                      const rankStyle = r.rank ? RANK_STYLES[r.rank] : null;
+                      return (
+                        <label
+                          key={r.gradeHistoryId}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer border-l-4 ${
+                            rankStyle ? rankStyle.row : "border-transparent"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.gradeHistoryId)}
+                            onChange={() => toggle(r.gradeHistoryId)}
+                            className="accent-mega-navy"
+                          />
+                          <span className="text-xs text-slate-400 w-8">{r.rollNo}</span>
+                          <span className="font-medium text-slate-700 flex-1">{r.studentName}</span>
+                          {rankStyle && (
+                            <span className="text-xs font-semibold bg-white/70 border border-slate-200 rounded-full px-2 py-0.5">
+                              {rankStyle.badge}
+                            </span>
+                          )}
+                          {r.resultLabel && <span className="text-xs font-medium text-slate-600">{r.resultLabel}</span>}
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              r.isRepeated ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                            }`}
+                          >
+                            {r.isRepeated ? "Repeated" : "Regular"}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
