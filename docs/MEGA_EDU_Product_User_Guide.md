@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-08-31, against what is actually available in the app today.
+> **Last verified**: 2026-09-01, against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -17,9 +17,10 @@
 7. [Report Cards](#7-report-cards)
 8. [Promotion](#8-promotion)
 9. [Dashboards](#9-dashboards)
-10. [Certificates and MEGA Academy](#10-certificates-and-mega-academy)
-11. [Frequently Asked Questions](#11-frequently-asked-questions)
-12. [Glossary of Terms](#12-glossary-of-terms)
+10. [Trying MEGA.EDU with Demo Data](#10-trying-megaedu-with-demo-data)
+11. [Certificates and MEGA Academy](#11-certificates-and-mega-academy)
+12. [Frequently Asked Questions](#12-frequently-asked-questions)
+13. [Glossary of Terms](#13-glossary-of-terms)
 
 ---
 
@@ -86,6 +87,20 @@ A single person can hold more than one role at once (for example, a Teacher who 
 **How to use it:** From your dashboard's Profile tab, edit your school's description, contact email/phone, location, and the grades your school offers, and post Programs, News, and Opportunities for your school community.
 
 **Important rules:** Your school only appears in the public school directory once a Platform Administrator has verified it — verification is a one-time review done by MEGA.EDU, not something you can self-approve.
+
+### Your school's logo
+
+**What is this?** Your school's own logo, shown on your School Directory card, your public school profile, and your dashboard, instead of a generic placeholder.
+
+**Who can use it?** Any School Administrator for that school.
+
+**How to use it:** From your dashboard's Profile tab, find the **School Logo** section. Choose **Upload logo** and pick a PNG, JPEG, or WebP image up to 2MB.
+
+**Changing your logo:** Uploading a new image replaces the current one.
+
+**Removing your logo:** Choose **Remove** to clear it.
+
+**No logo yet?** Your school still looks intentional, not broken — MEGA.EDU shows a clean, bordered monogram made from your school's initials (for example, "SA" for Sunrise Academy) everywhere the logo would otherwise appear.
 
 ### Academic sessions
 
@@ -394,9 +409,33 @@ Your dashboard shows your own school status, your interests and credited skills,
 
 Your dashboard shows, for each of your linked children, the same progress information they see themselves — school status, teaching progress, test results, recent attendance, shared evaluations, published assessment results — plus your Parent-Teacher Meetings, which your child never sees on their own dashboard.
 
+### My Profile
+
+Every role — School Administrator, Teacher, Student, and Parent — has a **My Profile** page, reachable from the small avatar next to your name in the top menu. It's a simple, focused page: your profile photo, your name, your email, your MEGA ID, your school (where applicable), and your role(s).
+
+**Your profile photo belongs to your MEGA.EDU identity, and can appear wherever you participate in the network** — your dashboard, class rosters, attendance lists, and anywhere else your identity is shown — the same photo everywhere, because it's one photo attached to your one MEGA ID, not something you set up separately for each role.
+
+**Uploading a photo:** From My Profile, choose **Upload photo** and pick a PNG, JPEG, or WebP image up to 2MB.
+
+**Changing your photo:** Choosing a new photo replaces the old one — there's no separate "replace" step, just upload again.
+
+**Removing your photo:** Choose **Remove** to clear it. There's nothing wrong with not having a photo — see below.
+
+**No photo yet?** You're not left with a blank space — MEGA.EDU shows a neat initials badge instead (for example, "DA" for Demo Admin), colored consistently just for you, so you're always recognizable even before you've uploaded anything.
+
 ---
 
-## 10. Certificates and MEGA Academy
+## 10. Trying MEGA.EDU with Demo Data
+
+MEGA.EDU includes a realistic, fully fictional demonstration environment — a ready-made example of the platform in use, so you can explore how schools, teachers, students, parents, classes, assessments, and results all fit together without needing to set any of it up yourself first.
+
+The demo environment includes two example schools — a full-featured one and a smaller, independent second school that shows how completely separate two schools' data stays on MEGA.EDU — along with example teachers, students, parents, classes, published results, attendance, and more, all fictional and clearly labeled as demo content.
+
+If your organization is evaluating MEGA.EDU or training new staff, ask your system administrator about loading the demo environment — it's the fastest way to see a genuinely working school, not just an empty account.
+
+---
+
+## 11. Certificates and MEGA Academy
 
 ### What's actually available today
 
@@ -411,7 +450,7 @@ Your dashboard shows, for each of your linked children, the same progress inform
 
 ---
 
-## 11. Frequently Asked Questions
+## 12. Frequently Asked Questions
 
 **Q: Can a student see their marks before they're published?**
 No. A mark that's been entered but not yet published is completely invisible to the student and their parent — only staff can see draft marks.
@@ -448,11 +487,13 @@ No — it's simply each student's position in the list within their section, rec
 
 ---
 
-## 12. Glossary of Terms
+## 13. Glossary of Terms
 
 | Term | Meaning |
 |---|---|
 | **MEGA ID** | A person's single account on MEGA.EDU, usable across every role they hold |
+| **Profile Photo / Avatar** | A person's picture, attached to their MEGA ID and shown wherever their identity appears; shows as an initials badge when none is uploaded |
+| **School Logo** | A school's uploaded logo, shown on its Directory card and profile; shows as an initials monogram when none is uploaded |
 | **Academic Session** | One school year on MEGA.EDU |
 | **Grade** | A class level (e.g. Class 6) |
 | **Section** | An optional subdivision of a grade (e.g. 6A, 6B) |

@@ -137,3 +137,4 @@ Exits non-zero if any check fails.
 - No application code, API routes, authorization logic, or the Prisma schema were changed to build this — `seed-demo.ts` and `verify-demo-data.ts` are pure data scripts, using direct Prisma Client calls exactly like the existing `seed.ts` already does.
 - The only edit to a *pre-existing* row anywhere in this script is filling in previously-`null` `gradePoint`/`isPassing` values on the existing grading scale's bands — no existing value is overwritten.
 - Nothing is ever deleted. Re-running `db:seed:demo` is always additive/idempotent.
+- No fake school logos or profile photos are seeded — every demo school and person deliberately shows the real initials-based fallback (`src/components/Avatar.tsx`), the same one a real school or user would see before uploading their own. This demonstrates the fallback behavior honestly rather than faking a populated-looking network.

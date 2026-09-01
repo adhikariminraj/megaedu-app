@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-08-31 (guided Create Assessment System wizard; Class Overview roster/ranking enhancement) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-01 (School Logos & User Profile Photos identity system) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 

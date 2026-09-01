@@ -1,7 +1,7 @@
 # Deployment
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase. This document describes only what actually exists — no production infrastructure has been set up, and nothing below should be read as implying otherwise.
+> Last verified: 2026-09-01, against the current codebase. This document describes only what actually exists — no production infrastructure has been set up, and nothing below should be read as implying otherwise.
 
 ## Local development ✅
 

@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-08-31, against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-01 (School Logos & User Profile Photos identity system), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -32,19 +32,21 @@
 21. [Report Card Architecture](#21-report-card-architecture)
 22. [Promotion & Grade Decisions](#22-promotion--grade-decisions)
 23. [Certificate System](#23-certificate-system)
-24. [Dashboard Architecture](#24-dashboard-architecture)
-25. [API Architecture & Major Routes](#25-api-architecture--major-routes)
-26. [Business Rules & Data Integrity Protections](#26-business-rules--data-integrity-protections)
-27. [Audit Trails](#27-audit-trails)
-28. [Security Model](#28-security-model)
-29. [Calculation Engines & Shared Libraries](#29-calculation-engines--shared-libraries)
-30. [Deployment & Setup Requirements](#30-deployment--setup-requirements)
-31. [Environment Variables](#31-environment-variables)
-32. [Database Migration & Update Procedures](#32-database-migration--update-procedures)
-33. [Development Workflow & Verification](#33-development-workflow--verification)
-34. [Maintenance Guidelines](#34-maintenance-guidelines)
-35. [Known Gaps & Deliberate Out-of-Scope Decisions](#35-known-gaps--deliberate-out-of-scope-decisions)
-36. [Appendix: Documentation Index](#36-appendix-documentation-index)
+24. [School Logos & User Profile Photos](#24-school-logos--user-profile-photos)
+25. [Dashboard Architecture](#25-dashboard-architecture)
+26. [API Architecture & Major Routes](#26-api-architecture--major-routes)
+27. [Business Rules & Data Integrity Protections](#27-business-rules--data-integrity-protections)
+28. [Audit Trails](#28-audit-trails)
+29. [Security Model](#29-security-model)
+30. [Calculation Engines & Shared Libraries](#30-calculation-engines--shared-libraries)
+31. [Deployment & Setup Requirements](#31-deployment--setup-requirements)
+32. [Environment Variables](#32-environment-variables)
+33. [Database Migration & Update Procedures](#33-database-migration--update-procedures)
+34. [Development Workflow & Verification](#34-development-workflow--verification)
+35. [Demo & Sample Environment](#35-demo--sample-environment)
+36. [Maintenance Guidelines](#36-maintenance-guidelines)
+37. [Known Gaps & Deliberate Out-of-Scope Decisions](#37-known-gaps--deliberate-out-of-scope-decisions)
+38. [Appendix: Documentation Index](#38-appendix-documentation-index)
 
 ---
 
@@ -52,7 +54,7 @@
 
 This document is a single technical reference for MEGA.EDU, consolidating the detailed, individually-verified documents already maintained under `/docs` (each covering one subsystem in depth) into one narrative a new developer, system administrator, or maintainer can read top to bottom. It does not replace those documents — it cross-references them throughout, and the reader is expected to follow those links for full implementation detail (exact request/response shapes, full verification evidence, field-by-field schema notes). This document is the map; the individual `/docs` files are the territory.
 
-Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard** and **Class Overview** enhancements. Nothing here is invented, and nothing planned is described as available today — see [§35](#35-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
+Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard**, **Class Overview** enhancements, and the **School Logos & User Profile Photos** identity system. Nothing here is invented, and nothing planned is described as available today — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
 
 ---
 
@@ -202,7 +204,7 @@ Key structural facts this map summarizes:
 
 - **`GradeHistory` (Promotion/`PROMO`) underlies everything.** Attendance, Unit Tests, Evaluations, and Assessment Results all resolve a student's current placement through `GradeHistory`, not an independently-maintained roster.
 - **`TeacherAcademicAssignment`/`ClassTeacherAssignment` gate almost every teacher-facing write.** Attendance and general Evaluations require `requireClassTeacher()`; Unit Tests, Subject Evaluations, and Assessment Results marks entry all require `requireTeacherAssignment()` scoped to the exact subject.
-- **Assessment Results is the only module both Report Card and Class Overview ranking depend on.** Both reuse `fetchAssessmentResults()`/`buildReportCard()` — see [§20](#20-grading--gpa-calculations) and [§29](#29-calculation-engines--shared-libraries).
+- **Assessment Results is the only module both Report Card and Class Overview ranking depend on.** Both reuse `fetchAssessmentResults()`/`buildReportCard()` — see [§20](#20-grading--gpa-calculations) and [§30](#30-calculation-engines--shared-libraries).
 - **Promotion (`recordGradeDecision()`) has no dependency on Assessment Results at all** — a Promotion decision can be recorded with zero assessment data ever entered. The relationship only exists in the *display* direction: Class Overview reads both the roster (from `GradeHistory`) and the ranking (from Assessment Results) on the same page, but neither module's write path touches the other.
 
 ---
@@ -216,15 +218,15 @@ Key structural facts this map summarizes:
 | Styling | Tailwind CSS | Utility-first, no CSS-in-JS library |
 | ORM | Prisma 5.20 | Single `PrismaClient` singleton (`src/lib/prisma.ts`) |
 | Database (dev) | SQLite | Single file, `prisma/dev.db` |
-| Database (production, planned) | PostgreSQL 🔭 | Never configured or tested — see [§30](#30-deployment--setup-requirements) |
+| Database (production, planned) | PostgreSQL 🔭 | Never configured or tested — see [§31](#31-deployment--setup-requirements) |
 | Authentication | NextAuth 4 | Single Credentials provider, JWT session strategy |
 | Password hashing | `bcryptjs` | `bcrypt.compare`/`bcrypt.hash(password, 10)` |
 | Validation | `zod` | Used on registration routes |
-| Dev tooling | TypeScript compiler, ESLint (`next lint`), Prisma Studio | No automated test framework installed — see [§33](#33-development-workflow--verification) |
+| Dev tooling | TypeScript compiler, ESLint (`next lint`), Prisma Studio | No automated test framework installed — see [§34](#34-development-workflow--verification) |
 
 *(Source: [PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md), [DEPLOYMENT.md](DEPLOYMENT.md))*
 
-**No Prisma `enum`s are used anywhere in this schema** — SQLite's Prisma connector doesn't support them, even unused ones. Every status/type/role field is a plain `String`, with valid values documented in a comment above the field. This is a project-wide, explicitly-approved rule (see [§26](#26-business-rules--data-integrity-protections)), not an oversight, and it is intended to remain the convention even after a future move to PostgreSQL (which does support enums).
+**No Prisma `enum`s are used anywhere in this schema** — SQLite's Prisma connector doesn't support them, even unused ones. Every status/type/role field is a plain `String`, with valid values documented in a comment above the field. This is a project-wide, explicitly-approved rule (see [§27](#27-business-rules--data-integrity-protections)), not an oversight, and it is intended to remain the convention even after a future move to PostgreSQL (which does support enums).
 
 ---
 
@@ -244,6 +246,7 @@ src/
       evaluations/         # General Student Evaluations + meeting scheduling
       meetings/            # Cross-role Parent-Teacher Meetings management
       students/[studentId]/    # Staff-only Student Profile page
+      profile/                 # Self-service "My Profile" — avatar, identity info
       assessment-frameworks/   # Landing page, guided wizard, Advanced management
       assessment-results/      # Marks entry, publish workflow
       report-card/[studentId]/ # Live Report Card view
@@ -251,11 +254,12 @@ src/
     ...                    # public pages: schools, courses, opportunities, etc.
   components/              # shared client components (SiteHeader, DashboardHero,
                            #   AcademicProgressPanel, MeetingActions, certificate/)
-  lib/                     # server-side helpers — see §29
+  lib/                     # server-side helpers — see §30 (includes uploads.ts)
   types/                   # ambient type augmentation (next-auth.d.ts)
 prisma/
   schema.prisma            # single source of truth for the data model
-  seed.ts                  # idempotent demo data + platform fixtures (upserts)
+  seed.ts                  # idempotent bootstrap fixtures (upserts)
+  seed-demo.ts             # optional, fuller demo/sample environment — see §35
 ```
 
 *(Source: [ARCHITECTURE.md](ARCHITECTURE.md))*
@@ -269,7 +273,7 @@ Two consistent patterns are used throughout, never mixed within one page:
 
 ### The `src/lib` layer — "the only path" pattern
 
-A recurring, deliberate architectural decision: for any write that must be atomic with a side effect, or must never be bypassed, the codebase centralizes it into one function, and every caller goes through it rather than calling `prisma.<model>.update()` directly. See [§29](#29-calculation-engines--shared-libraries) for the full inventory.
+A recurring, deliberate architectural decision: for any write that must be atomic with a side effect, or must never be bypassed, the codebase centralizes it into one function, and every caller goes through it rather than calling `prisma.<model>.update()` directly. See [§30](#30-calculation-engines--shared-libraries) for the full inventory.
 
 ---
 
@@ -278,11 +282,11 @@ A recurring, deliberate architectural decision: for any write that must be atomi
 **Datasource**: SQLite in development (`prisma/dev.db`); the schema's own header comment and `.env.example` both mark PostgreSQL as the intended production target — nothing production-specific is configured yet. Every model below is ✅ implemented (exists, migrated, and has at least one route reading/writing it) unless marked otherwise. Full field-by-field detail lives in [DATABASE.md](DATABASE.md); this section is an organized summary.
 
 ### MEGA ID & roles
-- **`User`** — the single identity record (email unique, `passwordHash`, `name`). Every other model traces back to a `User` for who did what.
+- **`User`** — the single identity record (email unique, `passwordHash`, `name`, `avatarUrl`). Every other model traces back to a `User` for who did what. `avatarUrl` lives here rather than on `Teacher`/`Student`/`Parent` specifically because a photo belongs to the person, not any one role — see [§24](#24-school-logos--user-profile-photos).
 - **`UserRole`** — which role(s) a user holds (`PLATFORM_ADMIN | SCHOOL_ADMIN | TEACHER | STUDENT | PARENT | ORGANIZATION_ADMIN | ACCOUNTANT`), `@@unique([userId, role])` — a user can hold several different roles at once.
 
 ### Schools & Organizations
-- **`School`** — `verified`/`isActive` flags (⚠️ `isActive` is read in two places but nothing ever sets it `false` — no deactivation action exists), `logoUrl` (unpopulated on every school today).
+- **`School`** — `verified`/`isActive` flags (⚠️ `isActive` is read in two places but nothing ever sets it `false` — no deactivation action exists), `logoUrl` (uploadable/manageable by an authorized School Admin — see [§24](#24-school-logos--user-profile-photos)).
 - **`SchoolAdmin`/`SchoolAccountant`** — join tables granting access to one school.
 - **`Organization`**, **`OrganizationAdmin`/`OrganizationAccountant`** — the parallel structure for MEGA Academy publishers. ⚠️ `Organization` has no `logoUrl` field in the schema at all.
 
@@ -701,7 +705,7 @@ The Class Overview roster uses the broadened `CURRENT_ROSTER_STATUSES` (see [§1
 ### Class Overview additions
 
 - **Teachers & Subjects** — every `TeacherAcademicAssignment` for the grade/session.
-- **Section-wise grouping** — by the student's current-session `sectionId`; a final "Unassigned / No Section" group, never hidden; a per-section, **display-only** Roll No. (not a persisted field — see [§35](#35-known-gaps--deliberate-out-of-scope-decisions)).
+- **Section-wise grouping** — by the student's current-session `sectionId`; a final "Unassigned / No Section" group, never hidden; a per-section, **display-only** Roll No. (not a persisted field — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)).
 - **"Repeated" badge** — derived from the student's **prior-session** row only (`status === "REPEATED"` and its `outcomeGradeId` equals this grade), never from their current-session status — a forward-looking decision about *next* session is never conflated with how they arrived in *this* one.
 - **Top 5 ranking** — computed **once, across the whole grade**, before any section grouping; reuses `fetchAssessmentResults()`/`computeUnweightedGPA()`/`computeUnweightedAveragePercentage()`, filtered to published results only.
 
@@ -721,17 +725,73 @@ A student never decided stays `ENROLLED` indefinitely. On rollover, they're excl
 
 **Grade certificates 🟡** — `Certificate.gradeHistoryId` is a reserved, unlinked column; `issueGradeCertificate()` **does not exist**. This was a deliberate Phase 2 scope exclusion, not an oversight — `GradeHistory` fully exists, but the issuance path was never built.
 
-**Display**: `CertificateDocument.tsx`, a true-to-size A4 landscape layout driven by a pure view-model builder (`buildCertificateViewModel()`), reading only frozen snapshot fields plus a live logo lookup (the one deliberate exception to the snapshot rule — see [§26](#26-business-rules--data-integrity-protections)). Shown at `/dashboard/certificates/[id]/preview` (access-gated to the recipient or a Platform Admin) and publicly, unstyled, at `/verify/[code]`.
+**Display**: `CertificateDocument.tsx`, a true-to-size A4 landscape layout driven by a pure view-model builder (`buildCertificateViewModel()`), reading only frozen snapshot fields plus a live logo lookup (the one deliberate exception to the snapshot rule — see [§27](#27-business-rules--data-integrity-protections)). Shown at `/dashboard/certificates/[id]/preview` (access-gated to the recipient or a Platform Admin) and publicly, unstyled, at `/verify/[code]`.
 
-**Not built**: PDF export 🔭, QR code generation 🔭 (a space is marked but empty). No school/organization in the current database has a logo, so every certificate today renders the name-only fallback — explicitly designed for, not a broken state.
+**Not built**: PDF export 🔭, QR code generation 🔭 (a space is marked but empty). A school with a logo uploaded (see [§24](#24-school-logos--user-profile-photos)) shows it here; organizations still have no `logoUrl` field at all (see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)), so an organization-issued certificate always renders the name-only fallback — explicitly designed for, not a broken state.
 
 *(Source: [CERTIFICATES.md](CERTIFICATES.md))*
 
 ---
 
-## 24. Dashboard Architecture
+## 24. School Logos & User Profile Photos
 
-`dashboard/page.tsx` is a single server component that branches on the caller's role-priority order (see [§9](#9-user-roles--permissions)), resolves the relevant data with direct Prisma queries, and renders the matching role-specific client component (`DashboardClient.tsx`, `TeacherDashboard.tsx`, `StudentDashboard.tsx`, `ParentDashboard.tsx`, `OrgDashboard.tsx`, `PlatformAdminDashboard.tsx`).
+An identity/media-upload layer added on top of the existing `School` and `User` models — no new models, one additive field on each.
+
+### Data model
+
+- **`School.logoUrl`** (pre-existing field, previously unpopulated) — now actively managed. Displayed on School Directory cards, a school's public profile page, the homepage's "Recently joined schools," and the School Admin dashboard's identity header.
+- **`User.avatarUrl`** (new field) — deliberately placed on the shared `User` model, **not** duplicated onto `Teacher`, `Student`, or `Parent`. This follows MEGA ID's core principle directly: **one identity, many roles** — a person's photo is a property of *them*, not of any one role they hold, so the same avatar automatically appears across every dashboard/list surface regardless of which role is being viewed.
+
+### API routes & authorization
+
+| Route | Methods | Authorization |
+|---|---|---|
+| `/api/schools/[id]/logo` | `POST` (upload/replace), `DELETE` (remove) | `requireSchoolAdmin(schoolId)` — the same helper every other school-profile write route uses |
+| `/api/user/avatar` | `GET` (read own), `POST` (upload/replace), `DELETE` (remove) | Session-based self-service only — the caller's own `userId`, inline-checked the same way `/api/interests` already does. There is no route or code path through which one user can set another user's `avatarUrl`. |
+
+### Upload validation
+
+Enforced server-side in `src/lib/uploads.ts` — the client-supplied filename and browser-reported MIME type are never trusted:
+
+- Accepted formats: **PNG, JPEG, WebP** — detected by reading the file's actual magic bytes, not the filename extension or the `Content-Type` header. **SVG is not accepted** (avoids script-injection risk from uploaded SVG markup).
+- Maximum size: **2MB**.
+- Stored filenames are always a fresh server-generated UUID (`crypto.randomUUID()`) plus the sniffed extension — the original uploaded filename is never used or persisted anywhere.
+- A file that fails validation (wrong format, too large, or spoofed type) is rejected before anything is written to disk — no partial or orphaned file results from a rejected upload.
+
+### Storage architecture
+
+Local filesystem, under `public/uploads/{schools,users}/...` (gitignored — never committed; user-uploaded content is never part of the repository). `logoUrl`/`avatarUrl` store the resulting root-relative URL, served by Next.js's normal static file handling and rendered through `next/image` for optimized, responsive delivery.
+
+⚠️ **This storage implementation requires persistent filesystem storage and is appropriate for the current development/traditional server deployment model. Before deployment to typical serverless infrastructure, uploads should be migrated behind an object-storage adapter** (e.g. S3-compatible) — a serverless/edge host's filesystem is typically ephemeral or read-only. No schema change would be needed for that migration; only the save/delete functions in `src/lib/uploads.ts` would change. See [§31](#31-deployment--setup-requirements).
+
+### Replacement & removal lifecycle
+
+Both upload routes follow the same strict ordering, so a failure partway through never leaves a user or school without their previous image:
+
+1. The new image is validated and saved to disk first.
+2. The database row (`logoUrl`/`avatarUrl`) is updated.
+3. Only once both of those succeed is the *previous* stored file deleted.
+
+A `DELETE` call removes the stored file and clears the field to `null`. Neither route accumulates unused files across normal replace/remove cycles — verified directly (upload → replace → confirm exactly one file remains and the old one is gone; remove → confirm the file is deleted from disk).
+
+### Fallback system — `src/components/Avatar.tsx`
+
+One shared component renders both people and schools, with a deliberate visual distinction between the two rather than one generic treatment:
+
+- **People** — a circular avatar. With no photo, a deterministic two-letter initials badge (first + last name initial) in one of the five brand accent colors, chosen by hashing the person's name — the same person always gets the same color, no randomness.
+- **Schools** — a softly rounded-square "institution mark," bordered, always a fixed white-background/navy-text treatment (not the person palette) — both to read as distinctly institutional rather than personal, and so the fallback stays legible even placed on a navy background (e.g. the school profile page's hero band), where a randomly-assigned navy fallback would otherwise be invisible.
+
+### `/dashboard/profile` — the My Profile page
+
+A new, deliberately minimal self-service page — available to any authenticated role — showing the caller's photo (with upload/replace/remove via `ProfilePhotoManager.tsx`), name, email, MEGA ID, linked school (where applicable), and role(s). Reachable from a small avatar/"My Profile" link in `SiteHeader.tsx`. Not a full account-management surface — no password change or editable name/email exist here; this is a foundation for future MEGA ID profile work, not that work itself.
+
+*(Source: `src/lib/uploads.ts`, `src/components/Avatar.tsx`, `src/app/api/schools/[id]/logo/route.ts`, `src/app/api/user/avatar/route.ts`, `src/app/dashboard/profile/page.tsx`)*
+
+---
+
+## 25. Dashboard Architecture
+
+`dashboard/page.tsx` is a single server component that branches on the caller's role-priority order (see [§9](#9-user-roles--permissions)), resolves the relevant data with direct Prisma queries, and renders the matching role-specific client component (`DashboardClient.tsx`, `TeacherDashboard.tsx`, `StudentDashboard.tsx`, `ParentDashboard.tsx`, `OrgDashboard.tsx`, `PlatformAdminDashboard.tsx`). Each role dashboard's `DashboardHero` now optionally shows an identity badge — the school's logo for the School Admin dashboard, the person's own avatar for Teacher/Student/Parent — via the shared `Avatar` component (see [§24](#24-school-logos--user-profile-photos)). A separate, role-agnostic `/dashboard/profile` page (also §24) is the self-service surface for managing that avatar, reachable from `SiteHeader.tsx`.
 
 **Shared presentational components**, reused rather than duplicated per role:
 
@@ -744,7 +804,7 @@ A student never decided stays `ENROLLED` indefinitely. On rollover, they're excl
 
 ---
 
-## 25. API Architecture & Major Routes
+## 26. API Architecture & Major Routes
 
 All routes live under `src/app/api/**/route.ts`, grouped by resource. There is no separate backend — API routes and pages share the same Prisma client and `src/lib` helpers. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`. **No `GET` list routes exist for any Phase 3 config/results model** — every read happens through the relevant page's own direct Prisma query, a deliberate, consistent convention across every admin/results page in this codebase.
 
@@ -755,7 +815,7 @@ The full, exact inventory (method, path, auth, request/response shape) is mainta
 | Auth & registration | `/api/auth/*` | none / NextAuth |
 | Post-registration affiliation | `/api/teacher\|student\|parent/*`, `/api/schools/create-for-admin` | session |
 | Platform Admin | `/api/admin/*` | `requirePlatformAdmin` |
-| School directory & profile | `/api/schools/[id]`, `.../programs`, `.../news`, `.../opportunities` | `requireSchoolAdmin` |
+| School directory & profile | `/api/schools/[id]`, `.../programs`, `.../news`, `.../opportunities`, `.../logo` | `requireSchoolAdmin` |
 | Staff & students | `.../students`, `.../teachers`, `.../accountants` | `requireSchoolAdmin` |
 | Sessions & grades (Phase 2) | `.../academic-sessions*`, `.../grades*`, `.../grade-placements`, `.../grade-decisions`, `.../section-assignments` | `requireSchoolAdmin` |
 | Subjects & academic assignment (3A) | `.../subjects*`, `.../teacher-academic-assignments*` | `requireSchoolAdmin` |
@@ -764,13 +824,13 @@ The full, exact inventory (method, path, auth, request/response shape) is mainta
 | Assessment Framework (3D-1) | `.../grading-scales*`, `.../assessment-frameworks*`, `.../assessment-framework-assignments*` | `requireSchoolAdmin` only |
 | Assessment Results (3D-2/3/4) | `.../components/[id]/results`, `.../publish`, `/api/schools/[id]/assessment-results/[resultId]` | `requireSchoolAdmin` OR `requireTeacherAssignment` |
 | Organizations & courses | `/api/organizations/*`, `/api/courses/*`, `/api/enrollments/*` | `requireOrgAdmin`/`requireCourseOwner`/inline |
-| Identity & notifications | `/api/interests/*`, `/api/notifications/*` | session/inline |
+| Identity & notifications | `/api/interests/*`, `/api/notifications/*`, `/api/user/avatar` | session/inline |
 
 *(Source: [API.md](API.md))*
 
 ---
 
-## 26. Business Rules & Data Integrity Protections
+## 27. Business Rules & Data Integrity Protections
 
 The full, individually-approved rule set — each with its rule, rationale, and applicability — is maintained in [PRODUCT_RULES.md](PRODUCT_RULES.md). It is the tie-breaker whenever a future change seems to conflict with existing behavior: if a rule is documented there, it was a deliberate choice, not an oversight. Categories, summarized:
 
@@ -785,7 +845,7 @@ The full, individually-approved rule set — each with its rule, rationale, and 
 
 ---
 
-## 27. Audit Trails
+## 28. Audit Trails
 
 | Model audited | Audit table | Written by | Trigger |
 |---|---|---|---|
@@ -801,18 +861,18 @@ Every audit table in this system is genuinely **append-only** — no route anywh
 
 ---
 
-## 28. Security Model
+## 29. Security Model
 
 - **Session**: JWT-based (NextAuth), not database sessions; `bcrypt.compare` for login.
 - **Authorization**: enforced server-side on every write route via the `requireX()` suite (see [§8](#8-authentication--authorization)) — never trusted from UI state alone. Verified repeatedly, throughout every phase, via direct `fetch()` calls from an unauthorized session confirming `403`, not just that a button was hidden.
 - **Data isolation**: every `studentId`/`schoolId` used in a read is resolved server-side from the caller's own session-derived relationships (a Parent's own `parent.children`, a School Admin's own `SchoolAdmin` row) — never trusted from client-supplied query parameters. Verified live for Parent academic visibility, the Class Overview roster, and the Student Profile page.
-- **What's absent 🔭**: no rate limiting on login/registration/any route; no CSRF protection beyond NextAuth's own; no session revocation ("log out everywhere" — JWTs live until expiry); no OAuth/SSO; no email verification; no password reset flow; no audit log of authorization *decisions* themselves (as distinct from the data-level audit trails in [§27](#27-audit-trails)).
+- **What's absent 🔭**: no rate limiting on login/registration/any route; no CSRF protection beyond NextAuth's own; no session revocation ("log out everywhere" — JWTs live until expiry); no OAuth/SSO; no email verification; no password reset flow; no audit log of authorization *decisions* themselves (as distinct from the data-level audit trails in [§28](#28-audit-trails)).
 
 *(Source: [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md), [MEGA_ID.md](MEGA_ID.md), [KNOWN_GAPS.md](KNOWN_GAPS.md))*
 
 ---
 
-## 29. Calculation Engines & Shared Libraries
+## 30. Calculation Engines & Shared Libraries
 
 | Module | Purpose |
 |---|---|
@@ -836,7 +896,7 @@ All five "sole write path" functions (`issueCourseCertificate`, `recordGradeDeci
 
 ---
 
-## 30. Deployment & Setup Requirements
+## 31. Deployment & Setup Requirements
 
 ### Local development
 
@@ -850,6 +910,10 @@ Other scripts: `npm run build`, `npm run start`, `npm run lint`, `npm run db:pus
 ### Database
 
 Development uses SQLite (`prisma/dev.db`). PostgreSQL is the marked, **never-configured-or-tested** production target. Switching requires changing `provider = "sqlite"` to `provider = "postgresql"` in `schema.prisma` and pointing `DATABASE_URL` at a real connection string.
+
+### File uploads — School Logos & Profile Photos ⚠️
+
+Saved to the local filesystem under `public/uploads/` (see [§24](#24-school-logos--user-profile-photos)). **This storage implementation requires persistent filesystem storage and is appropriate for the current development/traditional server deployment model. Before deployment to typical serverless infrastructure, uploads should be migrated behind an object-storage adapter.**
 
 ### Production 🔭
 
@@ -867,7 +931,7 @@ Development uses SQLite (`prisma/dev.db`). PostgreSQL is the marked, **never-con
 
 ---
 
-## 31. Environment Variables
+## 32. Environment Variables
 
 The complete, real list — nothing else is read anywhere in the app:
 
@@ -883,7 +947,7 @@ The complete, real list — nothing else is read anywhere in the app:
 
 ---
 
-## 32. Database Migration & Update Procedures
+## 33. Database Migration & Update Procedures
 
 This project uses `npx prisma db push` — direct schema application, **no `prisma migrate`/`migrations/` folder** — appropriate for the current single-environment SQLite setup, not necessarily for a multi-environment production deployment.
 
@@ -902,13 +966,13 @@ This project uses `npx prisma db push` — direct schema application, **no `pris
 
 ---
 
-## 33. Development Workflow & Verification
+## 34. Development Workflow & Verification
 
 This project has **no automated test suite** (no Jest/Vitest/Playwright/Cypress, no `*.test.*` files anywhere). The established substitute, followed consistently across every phase of this project, is a disciplined manual workflow:
 
 1. **Investigate before designing.** A read-only pass over the relevant schema, `authorize.ts` patterns, and any precedent feature (e.g. reading `certificateView.ts` before designing the Report Card, or `UnitTestResult`'s eager-roster pattern before deciding Assessment Results should be lazy instead) precedes any code.
 2. **Design and get explicit approval before implementing.** Non-trivial features (a new phase, a schema change) get a proposed design reviewed and approved before any code is written — the same discipline this very documentation task followed (Table of Contents approved before writing).
-3. **Implement additively**, following the migration discipline in [§32](#32-database-migration--update-procedures).
+3. **Implement additively**, following the migration discipline in [§33](#33-database-migration--update-procedures).
 4. **Typecheck as a gate**: `npx tsc --noEmit -p tsconfig.json` after every non-trivial change.
 5. **Verify live, against the running dev server and the real database** — not mocked, not assumed. This includes negative cases (confirming an unrelated user is correctly redirected/`403`'d, not just that the right person succeeds) and, for anything transactional, confirming the transaction actually behaves atomically (a duplicate is skipped without crashing the batch; a partial failure doesn't leave inconsistent rows).
 6. **Throwaway verification scripts**, run once via `npx tsx` and then deleted — never left behind in the repository. Used for anything touching real data: checking for existing duplicate rows before adding a constraint, timing a bulk route, proving a sweep is idempotent.
@@ -922,7 +986,29 @@ Seeded demo accounts (`prisma/seed.ts`, idempotent) are the de facto manual test
 
 ---
 
-## 34. Maintenance Guidelines
+## 35. Demo & Sample Environment
+
+Beyond the minimal bootstrap seed described above, `prisma/seed-demo.ts` builds an optional, idempotent, self-sufficient demonstration environment on top of it — for testing, demonstration, training, exploring workflows, and multi-school testing.
+
+**Two demonstration schools**, deliberately different in scale, to demonstrate genuine multi-school data isolation:
+- **Sunrise Academy** — the flagship, full-depth demonstration environment.
+- **Himalayan Secondary School** — a smaller, independent school, showing that each school's data (sessions, grades, teachers, students) stays fully isolated from the other.
+
+The environment includes realistic **fictional** examples of schools, teachers, students, parents, academic structures, promotion history, assessment results, attendance, evaluations, unit tests, Parent-Teacher Meetings, and courses/certificates — all generated deterministically (a seeded PRNG), so re-running the seed produces identical results every time.
+
+```bash
+npm run db:seed         # baseline bootstrap
+npm run db:seed:demo    # full demo environment
+npm run db:verify:demo  # confirms internal consistency against real calculation logic
+```
+
+Full operational detail — the complete account/login list, reset procedure, and what each module contains — is maintained in [DEMO_DATA.md](DEMO_DATA.md) and not duplicated here.
+
+*(Source: [DEMO_DATA.md](DEMO_DATA.md))*
+
+---
+
+## 36. Maintenance Guidelines
 
 For anyone — human or AI-assisted — making a future change to this codebase:
 
@@ -938,7 +1024,7 @@ For anyone — human or AI-assisted — making a future change to this codebase:
 
 ---
 
-## 35. Known Gaps & Deliberate Out-of-Scope Decisions
+## 37. Known Gaps & Deliberate Out-of-Scope Decisions
 
 The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNOWN_GAPS.md). Organized here by category and status:
 
@@ -948,10 +1034,11 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 |---|---|
 | `School.isActive`/`Organization.isActive` never set to `false` | Read in two places, no deactivation action exists anywhere |
 | Organization verification not enforced | Nothing checks `Organization.verified` before course publishing or enrollment |
-| SQLite-specific bulk-write transaction pattern | Would misbehave on PostgreSQL — see [§32](#32-database-migration--update-procedures) |
-| No automated test suite | See [§33](#33-development-workflow--verification) for the manual substitute |
+| SQLite-specific bulk-write transaction pattern | Would misbehave on PostgreSQL — see [§33](#33-database-migration--update-procedures) |
+| No automated test suite | See [§34](#34-development-workflow--verification) for the manual substitute |
 | `Organization` has no `logoUrl` field | Certificates fall back to name-only for organization-issued certificates |
 | "Roll No." on Class Overview is display-only | Not a persisted schema field — a per-section sequential position computed at render time |
+| School logo / avatar uploads assume a persistent local filesystem | Appropriate for the current dev/traditional-server model; would need an object-storage adapter before serverless deployment — see [§24](#24-school-logos--user-profile-photos), [§31](#31-deployment--setup-requirements) |
 
 ### 🔭 Deliberately out of scope (approved decisions, not oversights)
 
@@ -977,7 +1064,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 
 ---
 
-## 36. Appendix: Documentation Index
+## 38. Appendix: Documentation Index
 
 | Document | Covers |
 |---|---|
@@ -1003,5 +1090,6 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Local dev setup, environment variables, production readiness |
 | [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md) | Rules for future work on this codebase |
 | [TESTING.md](TESTING.md) | Verification practice, seeded demo accounts |
+| [DEMO_DATA.md](DEMO_DATA.md) | The full demo/sample environment: schools, accounts, login info, seed/reset/verify commands |
 
 **Note on the prior technical PDF**: `docs/MEGA_EDU_Technical_Documentation.pdf` predates Phases 3A–3D and the guided wizard/Class Overview work (last touched 2026-08-28). This Markdown document supersedes it as the current technical reference; the PDF has been left in place rather than deleted, since removing it was outside the scope of this task.
