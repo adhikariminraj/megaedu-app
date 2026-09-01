@@ -14,7 +14,7 @@ type Student = {
   id: string;
   gradeLevel: string | null;
   approved: boolean;
-  user: { name: string; email: string; interests: { id: string; name: string }[] };
+  user: { name: string; email: string; avatarUrl: string | null; interests: { id: string; name: string }[] };
   school: { name: string; slug: string } | null;
   skills: { id: string; name: string; addedBy: { name: string } }[];
   courseEnrollments: {
@@ -106,6 +106,7 @@ export default function StudentDashboard({
       <DashboardHero
         name={userName}
         subtitle={`Student${student.gradeLevel ? ` · ${student.gradeLevel}` : ""} at ${student.school.name}`}
+        avatar={{ url: student.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />
 

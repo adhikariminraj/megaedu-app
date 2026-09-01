@@ -1,6 +1,7 @@
 import Link from "next/link";
+import Avatar from "@/components/Avatar";
 
-type SchoolCard = { id: string; slug: string; name: string; location: string | null };
+type SchoolCard = { id: string; slug: string; name: string; location: string | null; logoUrl: string | null };
 type CourseCard = {
   id: string;
   slug: string;
@@ -51,10 +52,13 @@ export default function ExploreNetwork({
               <Link
                 key={s.id}
                 href={`/schools/${s.slug}`}
-                className="block border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
+                className="flex items-start gap-3 border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
               >
-                <h4 className="font-semibold text-slate-800">{s.name}</h4>
-                <p className="text-sm text-slate-500 mt-1">{s.location || "Nepal"}</p>
+                <Avatar src={s.logoUrl} name={s.name} variant="school" />
+                <div>
+                  <h4 className="font-semibold text-slate-800">{s.name}</h4>
+                  <p className="text-sm text-slate-500 mt-1">{s.location || "Nepal"}</p>
+                </div>
               </Link>
             ))}
           </div>

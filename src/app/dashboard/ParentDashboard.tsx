@@ -11,6 +11,7 @@ import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults
 
 type Parent = {
   id: string;
+  user: { avatarUrl: string | null };
   children: {
     student: {
       gradeLevel: string | null;
@@ -65,6 +66,7 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
             ? `Following ${childNames}'s progress.`
             : "Link your child to get started."
         }
+        avatar={{ url: parent.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards}
       />
 

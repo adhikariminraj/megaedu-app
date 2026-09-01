@@ -20,7 +20,7 @@ export default async function HomePage() {
       where: { verified: true },
       orderBy: { createdAt: "desc" },
       take: 3,
-      select: { id: true, slug: true, name: true, location: true },
+      select: { id: true, slug: true, name: true, location: true, logoUrl: true },
     }),
     prisma.course.findMany({
       where: { published: true },

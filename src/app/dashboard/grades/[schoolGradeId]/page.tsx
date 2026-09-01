@@ -190,6 +190,7 @@ export default async function GradeRosterPage({
           gradeHistoryId: r.id,
           studentId: r.studentId,
           studentName: r.student.user.name,
+          avatarUrl: r.student.user.avatarUrl,
           sectionId: r.sectionId,
           sectionName: r.section?.name ?? null,
           rollNo: rollNoByGradeHistoryId.get(r.id)!,

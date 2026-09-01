@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
+import Avatar from "@/components/Avatar";
 
 const NAV_LINKS = [
   { href: "/schools", label: "Schools" },
@@ -15,15 +16,21 @@ export default function SiteHeader() {
   const { data: session, status } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") {
       setUnreadCount(0);
+      setAvatarUrl(null);
       return;
     }
     fetch("/api/notifications/unread-count")
       .then((res) => res.json())
       .then((data) => setUnreadCount(data.count || 0))
+      .catch(() => {});
+    fetch("/api/user/avatar")
+      .then((res) => res.json())
+      .then((data) => setAvatarUrl(data.avatarUrl || null))
       .catch(() => {});
   }, [status]);
 
@@ -87,6 +94,9 @@ export default function SiteHeader() {
               >
                 Sign out
               </button>
+              <Link href="/dashboard/profile" title="My Profile">
+                <Avatar src={avatarUrl} name={session?.user?.name || "?"} size="sm" />
+              </Link>
             </>
           ) : (
             <>
@@ -154,6 +164,14 @@ export default function SiteHeader() {
                 </Link>
                 <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="py-2.5">
                   Dashboard
+                </Link>
+                <Link
+                  href="/dashboard/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="py-2.5 flex items-center gap-2"
+                >
+                  <Avatar src={avatarUrl} name={session?.user?.name || "?"} size="sm" />
+                  My Profile
                 </Link>
                 <button
                   onClick={() => {

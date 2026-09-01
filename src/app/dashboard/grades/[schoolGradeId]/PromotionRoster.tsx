@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 
 type SchoolGradeRef = { id: string; displayName: string; gradeReference: { code: string; order: number } };
 type RosterRow = {
   gradeHistoryId: string;
   studentId: string;
   studentName: string;
+  avatarUrl: string | null;
   sectionId: string | null;
   sectionName: string | null;
   rollNo: string;
@@ -349,6 +351,7 @@ export default function PromotionRoster({
                             className="accent-mega-navy"
                           />
                           <span className="text-xs text-slate-400 w-8">{r.rollNo}</span>
+                          <Avatar src={r.avatarUrl} name={r.studentName} size="sm" />
                           <span className="font-medium text-slate-700 flex-1">{r.studentName}</span>
                           {rankStyle && (
                             <span className="text-xs font-semibold bg-white/70 border border-slate-200 rounded-full px-2 py-0.5">

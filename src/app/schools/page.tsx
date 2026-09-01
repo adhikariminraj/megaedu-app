@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import Avatar from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -56,13 +57,16 @@ export default async function SchoolsDirectoryPage({
             <Link
               key={s.id}
               href={`/schools/${s.slug}`}
-              className="block border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
+              className="flex items-start gap-4 border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
             >
-              <h3 className="font-semibold text-slate-800">{s.name}</h3>
-              <p className="text-sm text-slate-500 mt-1">{s.location || "Nepal"}</p>
-              {s.gradesOffered && (
-                <p className="text-xs text-slate-400 mt-2">Grades {s.gradesOffered}</p>
-              )}
+              <Avatar src={s.logoUrl} name={s.name} variant="school" size="lg" />
+              <div>
+                <h3 className="font-semibold text-slate-800">{s.name}</h3>
+                <p className="text-sm text-slate-500 mt-1">{s.location || "Nepal"}</p>
+                {s.gradesOffered && (
+                  <p className="text-xs text-slate-400 mt-2">Grades {s.gradesOffered}</p>
+                )}
+              </div>
             </Link>
           ))}
         </div>

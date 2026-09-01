@@ -6,12 +6,14 @@ import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
 import AccountantGrantForm from "@/components/AccountantGrantForm";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
+import SchoolLogoManager from "@/components/SchoolLogoManager";
 
 type School = {
   id: string;
   name: string;
   slug: string;
   verified: boolean;
+  logoUrl: string | null;
   description: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
@@ -343,6 +345,7 @@ export default function DashboardClient({
         name={userName}
         subtitle={`Here's what's new at ${school.name}.`}
         cards={heroCards.slice(0, 3)}
+        avatar={{ url: school.logoUrl, label: school.name, variant: "school" }}
       />
 
       {error && (
@@ -398,6 +401,7 @@ export default function DashboardClient({
 
       {tab === "profile" && (
         <div className="space-y-4 max-w-lg">
+          <SchoolLogoManager schoolId={school.id} schoolName={school.name} logoUrl={school.logoUrl} />
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea

@@ -21,6 +21,10 @@ model User {
   email        String   @unique
   passwordHash String
   name         String
+  // Shared across every role a person holds (Student/Teacher/Parent/etc.)
+  // — one identity, one photo, matching MEGA ID's "one account, many
+  // roles" design. Deliberately not duplicated onto Teacher/Student/Parent.
+  avatarUrl    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -245,7 +245,10 @@ export default async function DashboardPage() {
   if (roles?.includes("PARENT")) {
     const parent = await prisma.parent.findUnique({
       where: { userId },
-      include: { children: { include: { student: { include: { user: true, school: true } } } } },
+      include: {
+        user: true,
+        children: { include: { student: { include: { user: true, school: true } } } },
+      },
     });
     if (parent) {
       // childStudentIds is derived ENTIRELY from the logged-in parent's

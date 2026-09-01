@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
 
 const STATUSES = ["PRESENT", "ABSENT", "LATE", "EXCUSED"] as const;
 
 type RosterRow = {
   studentId: string;
   studentName: string;
+  avatarUrl: string | null;
   sectionName: string | null;
   attendanceId: string | null;
   status: string | null;
@@ -166,7 +168,8 @@ export default function AttendanceClient({
             return (
               <div key={r.studentId} className="border border-slate-200 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-slate-800">
+                  <span className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                    <Avatar src={r.avatarUrl} name={r.studentName} size="sm" />
                     {r.studentName}
                     {r.sectionName && <span className="text-slate-400"> — Section {r.sectionName}</span>}
                   </span>

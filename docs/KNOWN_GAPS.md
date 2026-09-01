@@ -5,7 +5,7 @@
 ## Data model gaps
 
 ### `Organization` has no logo field at all ⚠️
-Unlike `School` (which has `logoUrl`, just unpopulated), `Organization` has no such column in the schema. The certificate system already handles this gracefully (name-only fallback), so it isn't breaking anything today, but it's a real structural gap if organization logos are ever wanted. See [DATABASE.md](DATABASE.md), [CERTIFICATES.md](CERTIFICATES.md).
+Unlike `School` (which now has a real, uploadable `logoUrl` — School Admins manage it from their dashboard's Profile tab), `Organization` has no such column in the schema. The certificate system already handles this gracefully (name-only fallback), so it isn't breaking anything today, but it's a real structural gap if organization logos are ever wanted. See [DATABASE.md](DATABASE.md), [CERTIFICATES.md](CERTIFICATES.md).
 
 ### `School.isActive` / `Organization.isActive` are read but never written ⚠️
 Both fields default to `true` and are used as a filter in two places (`schools/search`, Platform Admin dashboard counts), but **no route anywhere ever sets either to `false`**. There is no deactivation action in the app. Confirmed via a direct search: `isActive` appears in exactly three files, all reads.
@@ -20,6 +20,11 @@ Both fields default to `true` and are used as a filter in two places (`schools/s
 ### SQLite-specific transaction behavior in two bulk-write routes ⚠️
 `POST /api/schools/[id]/grade-placements` and `POST /api/schools/[id]/teacher-assignments` catch a unique-constraint violation inside an open `prisma.$transaction` and continue the loop — this relies on SQLite tolerating a caught statement error without poisoning the rest of the transaction, which is **not** true on Postgres (the documented production target). Measured, not assumed: verified directly that SQLite continues correctly; reasoned (not yet tested against a real Postgres instance, since none exists in this project) that Postgres would abort the transaction after the first collision. Needs rework before any Postgres migration. Full detail: [PRODUCT_RULES.md](PRODUCT_RULES.md), [DEPLOYMENT.md](DEPLOYMENT.md).
 **Not affected**: `grade-decisions` and the rollover carry-forward sweep — both validate eligibility *before* opening the transaction and never intentionally hit a duplicate mid-transaction, a genuinely different and Postgres-safe pattern.
+
+## File storage
+
+### School logo / profile photo uploads assume a persistent local filesystem ⚠️
+`src/lib/uploads.ts` writes to `public/uploads/` on local disk — the simplest architecture for the current deployment model (nothing is deployed anywhere yet), but it will not survive on typical serverless/edge hosting, where the filesystem is ephemeral or read-only. Needs an object-storage adapter (e.g. S3-compatible) before that kind of deployment; the schema (`logoUrl`/`avatarUrl` as plain URL strings) doesn't need to change. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Testing
 

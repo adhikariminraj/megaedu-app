@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import Avatar from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +21,16 @@ export default async function SchoolProfilePage({ params }: { params: { slug: st
     <div>
       <div className="bg-mega-navy text-white">
         <div className="max-w-6xl mx-auto px-6 py-16">
-          <h1 className="text-3xl md:text-4xl font-bold">{school.name}</h1>
-          <p className="text-slate-300 mt-2">
-            {school.location || "Nepal"}
-            {school.gradesOffered ? ` · Grades ${school.gradesOffered}` : ""}
-          </p>
+          <div className="flex items-center gap-5">
+            <Avatar src={school.logoUrl} name={school.name} variant="school" size="xl" />
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold">{school.name}</h1>
+              <p className="text-slate-300 mt-2">
+                {school.location || "Nepal"}
+                {school.gradesOffered ? ` · Grades ${school.gradesOffered}` : ""}
+              </p>
+            </div>
+          </div>
           {school.approaches.length > 0 && (
             <div className="flex gap-2 mt-4 flex-wrap">
               {school.approaches.map((sa) => (

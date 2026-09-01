@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Avatar from "@/components/Avatar";
 
 export type HeroCard = {
   icon: string; // single emoji, keeps this dependency-free
@@ -32,12 +33,17 @@ export default function DashboardHero({
   title,
   subtitle,
   cards,
+  avatar,
 }: {
   name: string;
   /** Overrides the default "{greeting}, {firstName}." heading when set. */
   title?: string;
   subtitle?: string;
   cards: HeroCard[];
+  /** Optional identity badge — a School's logo, or a person's own
+   * profile photo — shown next to the greeting. Omit where there's
+   * nothing to show yet (a brand-new account, no school linked). */
+  avatar?: { url: string | null; label: string; variant: "person" | "school" };
 }) {
   const firstName = name.split(" ")[0];
 
@@ -48,11 +54,16 @@ export default function DashboardHero({
         style={{ backgroundImage: "url('/hero-himalaya.jpg')" }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/55 via-slate-900/45 to-slate-900/65" />
-        <div className="relative px-8 py-12">
-          <h1 className="text-2xl md:text-3xl font-bold drop-shadow-md">
-            {title || `${timeGreeting()}, ${firstName}.`}
-          </h1>
-          {subtitle && <p className="text-slate-100 mt-1 drop-shadow">{subtitle}</p>}
+        <div className="relative px-8 py-12 flex items-center gap-5">
+          {avatar && (
+            <Avatar src={avatar.url} name={avatar.label} variant={avatar.variant} size="lg" className="shadow-lg" />
+          )}
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold drop-shadow-md">
+              {title || `${timeGreeting()}, ${firstName}.`}
+            </h1>
+            {subtitle && <p className="text-slate-100 mt-1 drop-shadow">{subtitle}</p>}
+          </div>
         </div>
       </div>
 

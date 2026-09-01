@@ -10,7 +10,7 @@ type Teacher = {
   subjects: string | null;
   position: string;
   approved: boolean;
-  user: { name: string; email: string; interests: { id: string; name: string }[] };
+  user: { name: string; email: string; avatarUrl: string | null; interests: { id: string; name: string }[] };
   school: { id: string; name: string; slug: string } | null;
   courseEnrollments: {
     id: string;
@@ -92,6 +92,7 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
       <DashboardHero
         name={userName}
         subtitle={`${teacher.position} at ${teacher.school.name}`}
+        avatar={{ url: teacher.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />
 

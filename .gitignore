@@ -12,6 +12,10 @@
 /prisma/dev.db
 /prisma/dev.db-journal
 
+# user-uploaded content (school logos, profile photos) — never committed;
+# see src/lib/uploads.ts
+/public/uploads/
+
 # env files
 .env
 .env*.local

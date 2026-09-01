@@ -32,6 +32,12 @@ From `.env.example` — the complete, real list; nothing else is read anywhere i
 | `SEED_ADMIN_EMAIL` | Platform Admin account created by `db:seed` | `admin@megaedu.local` |
 | `SEED_ADMIN_PASSWORD` | Same | `ChangeMe123!` — **must be changed** before seeding a real environment |
 
+## File uploads — School Logos & Profile Photos ✅ (dev/traditional server) / ⚠️ (serverless)
+
+School logos and user profile photos (`src/lib/uploads.ts`) are saved to the local filesystem, under `public/uploads/` (gitignored — never committed), and served by Next.js's normal static file handling. `School.logoUrl` and `User.avatarUrl` just store the resulting root-relative URL.
+
+**This storage implementation requires persistent filesystem storage and is appropriate for the current development/traditional server deployment model. Before deployment to typical serverless infrastructure, uploads should be migrated behind an object-storage adapter** (e.g. S3-compatible) — a serverless/edge host's filesystem is typically ephemeral or read-only, so an uploaded file could vanish on the next cold start or fail to write at all. The schema doesn't need to change for that migration (`logoUrl`/`avatarUrl` stay a plain URL string either way) — only `src/lib/uploads.ts`'s save/delete functions would need to swap their implementation.
+
 ## Production deployment 🔭
 
 **Nothing has been deployed.** No hosting platform, no CI/CD pipeline, no Dockerfile, no `next.config.js` production overrides beyond Next.js defaults exist in this repository. This is genuinely unstarted work, not an oversight in documentation.

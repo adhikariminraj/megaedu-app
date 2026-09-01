@@ -141,6 +141,7 @@ export default async function AttendancePage({
         return {
           studentId: r.studentId,
           studentName: r.student.user.name,
+          avatarUrl: r.student.user.avatarUrl,
           sectionName: r.section?.name ?? null,
           attendanceId: existing?.id ?? null,
           status: existing?.status ?? null,
