@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { Playfair_Display, Libre_Baskerville } from "next/font/google";
+import { Josefin_Sans, Libre_Baskerville } from "next/font/google";
 
-const playfairDisplay = Playfair_Display({
+const josefinSans = Josefin_Sans({
   subsets: ["latin"],
-  weight: "700",
+  weight: "400",
   display: "swap",
 });
 const libreBaskerville = Libre_Baskerville({
@@ -29,7 +29,10 @@ export default function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
     >
       <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60 via-slate-900/50 to-slate-900/70" />
       <div className="relative max-w-6xl mx-auto px-6 py-24 text-center">
-        <h1 className={`${playfairDisplay.className} text-4xl md:text-5xl font-bold mb-4 drop-shadow-md`}>
+        <h1
+          className={`${josefinSans.className} font-normal text-4xl md:text-5xl tracking-wide mb-4`}
+          style={{ textShadow: "0 2px 14px rgba(0,0,0,0.35), 0 0 2px rgba(255,255,255,0.3)" }}
+        >
           One network for Every School, Teacher, Student,
           Parent and Education Approach.
         </h1>
@@ -38,7 +41,10 @@ export default function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
           organizations — giving every school a digital identity and access to
           training, resources and opportunities.
         </p>
-        <p className="text-sm text-slate-200 mb-8">
+        <p
+          className="inline-block text-sm font-medium text-slate-800 bg-green-50/90 rounded-lg px-5 py-2.5 mb-8"
+          style={{ textShadow: "0 0 3px rgba(255,255,255,0.6), 0 0 1px rgba(255,255,255,0.5)" }}
+        >
           A growing network of verified schools, educators and learners — connected under one identity.
         </p>
 
@@ -52,9 +58,15 @@ export default function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
           </span>
         ) : (
           <>
-            <p className="text-sm font-semibold uppercase tracking-wide text-white/80 mb-3">
-              I am a...
-            </p>
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <span className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-white/40" />
+              <p
+                className={`${libreBaskerville.className} text-xl sm:text-2xl italic tracking-wide bg-gradient-to-r from-mega-gold via-amber-200 to-mega-green bg-clip-text text-transparent`}
+              >
+                I am a&hellip;
+              </p>
+              <span className="h-px w-8 sm:w-12 bg-gradient-to-l from-transparent to-white/40" />
+            </div>
             <div className="flex items-center justify-center gap-3 flex-wrap max-w-2xl mx-auto">
               {ROLE_ENTRIES.map((r) => (
                 <Link
