@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ProfilePhotoManager from "@/components/ProfilePhotoManager";
+import ProfileAddressManager from "@/components/ProfileAddressManager";
+import { AddressFormValue } from "@/components/AddressForm";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +37,25 @@ export default async function ProfilePage() {
       teacherProfile: { include: { school: true } },
       studentProfile: { include: { school: true } },
       administeredSchools: { include: { school: true }, take: 1 },
+      addresses: { where: { label: { in: ["CURRENT", "PERMANENT"] } } },
     },
   });
   if (!user) redirect("/login");
+  const userAddresses = user.addresses;
+
+  function toAddressValue(a: (typeof userAddresses)[number] | undefined): AddressFormValue | null {
+    if (!a) return null;
+    return {
+      provinceId: a.provinceId,
+      districtId: a.districtId,
+      localLevelId: a.localLevelId,
+      wardNumber: a.wardNumber,
+      streetAddress: a.streetAddress || "",
+      houseNumber: a.houseNumber || "",
+    };
+  }
+  const currentAddress = toAddressValue(user.addresses.find((a) => a.label === "CURRENT"));
+  const permanentAddress = toAddressValue(user.addresses.find((a) => a.label === "PERMANENT"));
 
   const schoolName =
     user.teacherProfile?.school?.name ||
@@ -86,6 +104,16 @@ export default async function ProfilePage() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="mt-6">
+        <h2 className="text-lg font-semibold text-slate-800 mb-1">Addresses</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Your Current and Permanent address, using Nepal&apos;s Province / District / Local Level
+          / Ward structure. Your school administration can also view and correct these as part of
+          your official record.
+        </p>
+        <ProfileAddressManager current={currentAddress} permanent={permanentAddress} />
       </div>
     </div>
   );

@@ -5,6 +5,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
 import Avatar from "@/components/Avatar";
+import PersonAddressManager from "@/components/PersonAddressManager";
+import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
 
@@ -38,7 +40,7 @@ export default async function StudentProfilePage({ params }: { params: { student
   const student = await prisma.student.findUnique({
     where: { id: params.studentId },
     include: {
-      user: true,
+      user: { include: { addresses: { where: { label: { in: ["CURRENT", "PERMANENT"] } } } } },
       school: true,
       gradeHistory: {
         include: { schoolGrade: true, section: true, academicSession: true },
@@ -55,6 +57,22 @@ export default async function StudentProfilePage({ params }: { params: { student
     prisma.teacher.findFirst({ where: { userId, schoolId: student.schoolId, approved: true } }),
   ]);
   if (!schoolAdmin && !teacher) redirect("/dashboard");
+  const isAdmin = !!schoolAdmin;
+  const studentAddresses = student.user.addresses;
+
+  function toAddressValue(a: (typeof studentAddresses)[number] | undefined): AddressFormValue | null {
+    if (!a) return null;
+    return {
+      provinceId: a.provinceId,
+      districtId: a.districtId,
+      localLevelId: a.localLevelId,
+      wardNumber: a.wardNumber,
+      streetAddress: a.streetAddress || "",
+      houseNumber: a.houseNumber || "",
+    };
+  }
+  const currentAddress = toAddressValue(studentAddresses.find((a) => a.label === "CURRENT"));
+  const permanentAddress = toAddressValue(studentAddresses.find((a) => a.label === "PERMANENT"));
 
   const [progress, meetings, assessment] = await Promise.all([
     fetchAcademicProgress(student.id, "STAFF"),
@@ -92,6 +110,21 @@ export default async function StudentProfilePage({ params }: { params: { student
         <Link href="/dashboard/meetings" className="text-mega-blue font-medium">
           Manage meetings →
         </Link>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="font-semibold text-slate-800 mb-1">Official Address on Record</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          {isAdmin
+            ? "Part of this student's official school record. Corrections here update the same address the student maintains from their own My Profile."
+            : "Read-only — only a School Admin can correct a student's address on record."}
+        </p>
+        <PersonAddressManager
+          patchUrl={`/api/schools/${student.schoolId}/students/${student.id}/address`}
+          current={currentAddress}
+          permanent={permanentAddress}
+          readOnly={!isAdmin}
+        />
       </div>
 
       <AcademicProgressPanel

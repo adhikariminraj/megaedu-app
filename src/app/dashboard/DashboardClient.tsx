@@ -7,7 +7,8 @@ import OpportunityPoster from "@/components/OpportunityPoster";
 import AccountantGrantForm from "@/components/AccountantGrantForm";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import SchoolLogoManager from "@/components/SchoolLogoManager";
-import AddressForm, { AddressFormValue, EMPTY_ADDRESS } from "@/components/AddressForm";
+import AddressCard from "@/components/AddressCard";
+import { AddressFormValue } from "@/components/AddressForm";
 
 type School = {
   id: string;
@@ -79,21 +80,16 @@ export default function DashboardClient({
     gradesOffered: school.gradesOffered || "",
   });
   const officialAddress = school.addresses[0];
-  const [address, setAddress] = useState<AddressFormValue>(
-    officialAddress
-      ? {
-          provinceId: officialAddress.provinceId,
-          districtId: officialAddress.districtId,
-          localLevelId: officialAddress.localLevelId,
-          wardNumber: officialAddress.wardNumber,
-          streetAddress: officialAddress.streetAddress || "",
-          houseNumber: officialAddress.houseNumber || "",
-        }
-      : EMPTY_ADDRESS
-  );
-  const [savingAddress, setSavingAddress] = useState(false);
-  const [addressError, setAddressError] = useState<string | null>(null);
-  const [addressSaved, setAddressSaved] = useState(false);
+  const officialAddressValue: AddressFormValue | null = officialAddress
+    ? {
+        provinceId: officialAddress.provinceId,
+        districtId: officialAddress.districtId,
+        localLevelId: officialAddress.localLevelId,
+        wardNumber: officialAddress.wardNumber,
+        streetAddress: officialAddress.streetAddress || "",
+        houseNumber: officialAddress.houseNumber || "",
+      }
+    : null;
   const [newProgram, setNewProgram] = useState({ name: "", description: "" });
   const [newNews, setNewNews] = useState({ title: "", body: "" });
   const [error, setError] = useState<string | null>(null);
@@ -220,23 +216,16 @@ export default function DashboardClient({
     router.refresh();
   }
 
-  async function saveAddress() {
-    setSavingAddress(true);
-    setAddressError(null);
-    setAddressSaved(false);
+  async function saveOfficialAddress(value: AddressFormValue): Promise<string | null> {
     const res = await fetch(`/api/schools/${school.id}/address`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(address),
+      body: JSON.stringify(value),
     });
     const data = await res.json().catch(() => ({}));
-    setSavingAddress(false);
-    if (!res.ok) {
-      setAddressError(data.error || "Something went wrong.");
-      return;
-    }
-    setAddressSaved(true);
+    if (!res.ok) return data.error || "Something went wrong.";
     router.refresh();
+    return null;
   }
 
   async function addProgram() {
@@ -500,25 +489,13 @@ export default function DashboardClient({
             {saving ? "Saving..." : "Save Profile"}
           </button>
 
-          <div className="border border-slate-200 rounded-xl p-5 mt-6">
-            <h3 className="font-semibold text-slate-800 mb-1">Official School Address</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              The school&apos;s structured, official address on record — Province, District,
-              Local Level, and Ward. The Location field above stays as a free-text summary; this
-              is the authoritative, verifiable version of it.
-            </p>
-            <AddressForm value={address} onChange={setAddress} disabled={savingAddress} />
-            {addressError && <p className="text-xs text-mega-red mt-3">{addressError}</p>}
-            {addressSaved && !addressError && (
-              <p className="text-xs text-mega-green mt-3">Official address saved.</p>
-            )}
-            <button
-              onClick={saveAddress}
-              disabled={savingAddress}
-              className="mt-4 bg-mega-navy text-white font-semibold px-6 py-2.5 rounded-full hover:bg-mega-blue transition disabled:opacity-50"
-            >
-              {savingAddress ? "Saving..." : "Save Official Address"}
-            </button>
+          <div className="mt-6">
+            <AddressCard
+              title="Official School Address"
+              description="The school's structured, official address on record — Province, District, Local Level, and Ward. The Location field above stays as a free-text summary; this is the authoritative, verifiable version of it."
+              initialValue={officialAddressValue}
+              onSave={saveOfficialAddress}
+            />
           </div>
         </div>
       )}
@@ -687,33 +664,37 @@ export default function DashboardClient({
             </p>
           ) : (
             school.teachers.map((t) => (
-              <div
-                key={t.id}
-                className="border border-slate-200 rounded-lg p-4 flex items-center justify-between"
-              >
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-slate-800">{t.user.name}</p>
-                    <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">
-                      {t.position}
-                    </span>
+              <div key={t.id} className="border border-slate-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-slate-800">{t.user.name}</p>
+                      <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">
+                        {t.position}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      {t.user.email}
+                      {t.subjects ? ` · ${t.subjects}` : ""}
+                    </p>
                   </div>
-                  <p className="text-sm text-slate-500">
-                    {t.user.email}
-                    {t.subjects ? ` · ${t.subjects}` : ""}
-                  </p>
+                  {t.approved ? (
+                    <span className="text-xs font-semibold bg-green-100 text-green-700 rounded-full px-3 py-1">
+                      Approved
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => approveTeacher(t.id)}
+                      className="bg-mega-green text-white text-sm font-semibold px-4 py-1.5 rounded-full hover:brightness-95 transition"
+                    >
+                      Approve
+                    </button>
+                  )}
                 </div>
-                {t.approved ? (
-                  <span className="text-xs font-semibold bg-green-100 text-green-700 rounded-full px-3 py-1">
-                    Approved
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => approveTeacher(t.id)}
-                    className="bg-mega-green text-white text-sm font-semibold px-4 py-1.5 rounded-full hover:brightness-95 transition"
-                  >
-                    Approve
-                  </button>
+                {t.approved && (
+                  <Link href={`/dashboard/teachers/${t.id}`} className="text-xs text-mega-blue font-medium">
+                    View Profile →
+                  </Link>
                 )}
               </div>
             ))
