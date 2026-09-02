@@ -1,0 +1,5702 @@
+{
+  "_source": "Adapted from sagautam5/local-states-nepal (MIT License, https://github.com/sagautam5/local-states-nepal), cross-checked against the official structure published by the Ministry of Federal Affairs and General Administration (MoFAGA): 7 Provinces, 77 Districts, 753 Local Levels (6 Metropolitan City, 11 Sub-Metropolitan City, 276 Municipality, 460 Rural Municipality), 6,743 Wards total, ward counts ranging 5-33 per local level.",
+  "_generatedAt": "2026-09-02",
+  "_note": "Vendored, version-controlled snapshot. Nepal local-level restructuring is a rare, deliberate political event (last major one: 2017) - update this file manually and re-run npm run db:seed if it ever happens; do not wire this to a live third-party API.",
+  "provinces": [
+    {
+      "code": "P1",
+      "name": "Koshi Province",
+      "order": 1
+    },
+    {
+      "code": "P2",
+      "name": "Madhesh Province",
+      "order": 2
+    },
+    {
+      "code": "P3",
+      "name": "Bagmati",
+      "order": 3
+    },
+    {
+      "code": "P4",
+      "name": "Gandaki",
+      "order": 4
+    },
+    {
+      "code": "P5",
+      "name": "Lumbini",
+      "order": 5
+    },
+    {
+      "code": "P6",
+      "name": "Karnali",
+      "order": 6
+    },
+    {
+      "code": "P7",
+      "name": "Sudur Paschimanchal",
+      "order": 7
+    }
+  ],
+  "districts": [
+    {
+      "code": "D01",
+      "name": "Bhojpur",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D02",
+      "name": "Dhankuta",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D03",
+      "name": "Ilam",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D04",
+      "name": "Jhapa",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D05",
+      "name": "Khotang",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D06",
+      "name": "Morang",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D07",
+      "name": "Okhaldhunga",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D08",
+      "name": "Pachthar",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D09",
+      "name": "Sankhuwasabha",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D10",
+      "name": "Solukhumbu",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D11",
+      "name": "Sunsari",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D12",
+      "name": "Taplejung",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D13",
+      "name": "Terhathum",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D14",
+      "name": "Udayapur",
+      "provinceCode": "P1"
+    },
+    {
+      "code": "D15",
+      "name": "Parsa",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D16",
+      "name": "Bara",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D17",
+      "name": "Rautahat",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D18",
+      "name": "Sarlahi",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D19",
+      "name": "Siraha",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D20",
+      "name": "Dhanusha",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D21",
+      "name": "Saptari",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D22",
+      "name": "Mahottari",
+      "provinceCode": "P2"
+    },
+    {
+      "code": "D23",
+      "name": "Bhaktapur",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D24",
+      "name": "Chitwan",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D25",
+      "name": "Dhading",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D26",
+      "name": "Dolakha",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D27",
+      "name": "Kathmandu",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D28",
+      "name": "Kavrepalanchok",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D29",
+      "name": "Lalitpur",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D30",
+      "name": "Makwanpur",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D31",
+      "name": "Nuwakot",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D32",
+      "name": "Ramechap",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D33",
+      "name": "Rasuwa",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D34",
+      "name": "Sindhuli",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D35",
+      "name": "Sindhupalchok",
+      "provinceCode": "P3"
+    },
+    {
+      "code": "D36",
+      "name": "Baglung",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D37",
+      "name": "Gorkha",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D38",
+      "name": "Kaski",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D39",
+      "name": "Lamjung",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D40",
+      "name": "Manang",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D41",
+      "name": "Mustang",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D42",
+      "name": "Myagdi",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D43",
+      "name": "Nawalpur",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D44",
+      "name": "Parwat",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D45",
+      "name": "Syangja",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D46",
+      "name": "Tanahun",
+      "provinceCode": "P4"
+    },
+    {
+      "code": "D47",
+      "name": "Kapilvastu",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D48",
+      "name": "Parasi",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D49",
+      "name": "Rupandehi",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D50",
+      "name": "Arghakhanchi",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D51",
+      "name": "Gulmi",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D52",
+      "name": "Palpa",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D53",
+      "name": "Dang",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D54",
+      "name": "Pyuthan",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D55",
+      "name": "Rolpa",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D56",
+      "name": "Eastern Rukum",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D57",
+      "name": "Banke",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D58",
+      "name": "Bardiya",
+      "provinceCode": "P5"
+    },
+    {
+      "code": "D59",
+      "name": "Western Rukum",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D60",
+      "name": "Salyan",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D61",
+      "name": "Dolpa",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D62",
+      "name": "Humla",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D63",
+      "name": "Jumla",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D64",
+      "name": "Kalikot",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D65",
+      "name": "Mugu",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D66",
+      "name": "Surkhet",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D67",
+      "name": "Dailekh",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D68",
+      "name": "Jajarkot",
+      "provinceCode": "P6"
+    },
+    {
+      "code": "D69",
+      "name": "Darchula",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D70",
+      "name": "Bajhang",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D71",
+      "name": "Bajura",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D72",
+      "name": "Baitadi",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D73",
+      "name": "Doti",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D74",
+      "name": "Acham",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D75",
+      "name": "Dadeldhura",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D76",
+      "name": "Kanchanpur",
+      "provinceCode": "P7"
+    },
+    {
+      "code": "D77",
+      "name": "Kailali",
+      "provinceCode": "P7"
+    }
+  ],
+  "localLevels": [
+    {
+      "code": "L001",
+      "name": "Shadanand Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 14
+    },
+    {
+      "code": "L002",
+      "name": "Bhojpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 12
+    },
+    {
+      "code": "L003",
+      "name": "Hatuwagadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 9
+    },
+    {
+      "code": "L004",
+      "name": "Ramprasad Rai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 8
+    },
+    {
+      "code": "L005",
+      "name": "Aamchok Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 10
+    },
+    {
+      "code": "L006",
+      "name": "Tyamke Maiyum Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 9
+    },
+    {
+      "code": "L007",
+      "name": "Arun Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 7
+    },
+    {
+      "code": "L008",
+      "name": "Pauwadungma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 6
+    },
+    {
+      "code": "L009",
+      "name": "Salpasilichho Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D01",
+      "wardCount": 6
+    },
+    {
+      "code": "L010",
+      "name": "Dhankuta Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 10
+    },
+    {
+      "code": "L011",
+      "name": "Pakhribas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 10
+    },
+    {
+      "code": "L012",
+      "name": "Mahalaxmi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 9
+    },
+    {
+      "code": "L013",
+      "name": "Sangurigadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 10
+    },
+    {
+      "code": "L014",
+      "name": "Chaubise Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 8
+    },
+    {
+      "code": "L015",
+      "name": "Sahidbhumi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 7
+    },
+    {
+      "code": "L016",
+      "name": "Chhathar Jorpati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D02",
+      "wardCount": 6
+    },
+    {
+      "code": "L017",
+      "name": "Suryodaya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 14
+    },
+    {
+      "code": "L018",
+      "name": "Ilam Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 12
+    },
+    {
+      "code": "L019",
+      "name": "Deumai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 9
+    },
+    {
+      "code": "L020",
+      "name": "Maijogmai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 6
+    },
+    {
+      "code": "L021",
+      "name": "Phakphokthum Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 7
+    },
+    {
+      "code": "L022",
+      "name": "Mai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 10
+    },
+    {
+      "code": "L023",
+      "name": "Chulachuli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 6
+    },
+    {
+      "code": "L024",
+      "name": "Rong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 6
+    },
+    {
+      "code": "L025",
+      "name": "Mangsebung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 6
+    },
+    {
+      "code": "L026",
+      "name": "Sandakpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D03",
+      "wardCount": 5
+    },
+    {
+      "code": "L027",
+      "name": "Mechinagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 15
+    },
+    {
+      "code": "L028",
+      "name": "Birtamod Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 10
+    },
+    {
+      "code": "L029",
+      "name": "Damak Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 10
+    },
+    {
+      "code": "L030",
+      "name": "Bhadrapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 10
+    },
+    {
+      "code": "L031",
+      "name": "Shivasatakshi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 11
+    },
+    {
+      "code": "L032",
+      "name": "Arjundhara Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 11
+    },
+    {
+      "code": "L033",
+      "name": "Gauradaha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 9
+    },
+    {
+      "code": "L034",
+      "name": "Kankai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 9
+    },
+    {
+      "code": "L035",
+      "name": "Kamal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 7
+    },
+    {
+      "code": "L036",
+      "name": "Buddha Shanti Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 7
+    },
+    {
+      "code": "L037",
+      "name": "Kachankawal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 7
+    },
+    {
+      "code": "L038",
+      "name": "Jhapa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 7
+    },
+    {
+      "code": "L039",
+      "name": "Barhadashi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 7
+    },
+    {
+      "code": "L040",
+      "name": "Gaurigunj Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 6
+    },
+    {
+      "code": "L041",
+      "name": "Haldibari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D04",
+      "wardCount": 5
+    },
+    {
+      "code": "L042",
+      "name": "Diktel Rupakot Majhuwagadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 15
+    },
+    {
+      "code": "L043",
+      "name": "Halesi Tuwachung Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 11
+    },
+    {
+      "code": "L044",
+      "name": "Khotehang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 9
+    },
+    {
+      "code": "L045",
+      "name": "Diprung Chuichumma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 7
+    },
+    {
+      "code": "L046",
+      "name": "Aiselukharka Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 7
+    },
+    {
+      "code": "L047",
+      "name": "Jantedhunga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 6
+    },
+    {
+      "code": "L048",
+      "name": "Kepilasgadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 7
+    },
+    {
+      "code": "L049",
+      "name": "Barahpokhari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 6
+    },
+    {
+      "code": "L050",
+      "name": "Rawa Besi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 6
+    },
+    {
+      "code": "L051",
+      "name": "Sakela Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D05",
+      "wardCount": 5
+    },
+    {
+      "code": "L052",
+      "name": "Sundar Haraicha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 12
+    },
+    {
+      "code": "L053",
+      "name": "Belbari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 11
+    },
+    {
+      "code": "L054",
+      "name": "Pathari Shanischare Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 10
+    },
+    {
+      "code": "L055",
+      "name": "Ratuwamai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 10
+    },
+    {
+      "code": "L056",
+      "name": "Urlabari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 9
+    },
+    {
+      "code": "L057",
+      "name": "Rangeli Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 9
+    },
+    {
+      "code": "L058",
+      "name": "Sunawarshi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 9
+    },
+    {
+      "code": "L059",
+      "name": "Letang Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 9
+    },
+    {
+      "code": "L060",
+      "name": "Biratnagar Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D06",
+      "wardCount": 19
+    },
+    {
+      "code": "L061",
+      "name": "Jahada Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L062",
+      "name": "Budi Ganga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L063",
+      "name": "Katahari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L064",
+      "name": "Dhanpalthan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L065",
+      "name": "Kanepokhari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L066",
+      "name": "Gramthan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 7
+    },
+    {
+      "code": "L067",
+      "name": "Kerabari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 10
+    },
+    {
+      "code": "L068",
+      "name": "Miklajung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D06",
+      "wardCount": 9
+    },
+    {
+      "code": "L069",
+      "name": "Siddhicharan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 12
+    },
+    {
+      "code": "L070",
+      "name": "Khiji Demba Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 9
+    },
+    {
+      "code": "L071",
+      "name": "Chisankhugadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 8
+    },
+    {
+      "code": "L072",
+      "name": "Molung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 8
+    },
+    {
+      "code": "L073",
+      "name": "Sunkoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 10
+    },
+    {
+      "code": "L074",
+      "name": "Champadevi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 10
+    },
+    {
+      "code": "L075",
+      "name": "Manebhanjyang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 9
+    },
+    {
+      "code": "L076",
+      "name": "Likhu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D07",
+      "wardCount": 9
+    },
+    {
+      "code": "L077",
+      "name": "Phidim Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 14
+    },
+    {
+      "code": "L078",
+      "name": "Miklajung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 8
+    },
+    {
+      "code": "L079",
+      "name": "Phalgunanda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 7
+    },
+    {
+      "code": "L080",
+      "name": "Hilihang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 7
+    },
+    {
+      "code": "L081",
+      "name": "Phalelung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 8
+    },
+    {
+      "code": "L082",
+      "name": "Yangwarak Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 6
+    },
+    {
+      "code": "L083",
+      "name": "Kummayak Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 5
+    },
+    {
+      "code": "L084",
+      "name": "Tumbewa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D08",
+      "wardCount": 5
+    },
+    {
+      "code": "L085",
+      "name": "Khandbari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 11
+    },
+    {
+      "code": "L086",
+      "name": "Chainpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 11
+    },
+    {
+      "code": "L087",
+      "name": "Dharmadevi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 9
+    },
+    {
+      "code": "L088",
+      "name": "Panchkhapan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 9
+    },
+    {
+      "code": "L089",
+      "name": "Madi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 9
+    },
+    {
+      "code": "L090",
+      "name": "Makalu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 6
+    },
+    {
+      "code": "L091",
+      "name": "Silichong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 5
+    },
+    {
+      "code": "L092",
+      "name": "Sabhapokhari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 6
+    },
+    {
+      "code": "L093",
+      "name": "Chichila Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 5
+    },
+    {
+      "code": "L094",
+      "name": "BhotKhola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D09",
+      "wardCount": 5
+    },
+    {
+      "code": "L095",
+      "name": "Solu Dudhkunda Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 11
+    },
+    {
+      "code": "L096",
+      "name": "Mapya Dudhkoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 7
+    },
+    {
+      "code": "L097",
+      "name": "Necha Salyan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 5
+    },
+    {
+      "code": "L098",
+      "name": "Thulung Dudhkoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 9
+    },
+    {
+      "code": "L099",
+      "name": "Maha Kulung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 5
+    },
+    {
+      "code": "L100",
+      "name": "Sotang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 5
+    },
+    {
+      "code": "L101",
+      "name": "Khumbu PasangLhamu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 5
+    },
+    {
+      "code": "L102",
+      "name": "Likhu Pike Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D10",
+      "wardCount": 5
+    },
+    {
+      "code": "L103",
+      "name": "BarahaKshetra Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 11
+    },
+    {
+      "code": "L104",
+      "name": "Inaruwa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 10
+    },
+    {
+      "code": "L105",
+      "name": "Duhabi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 12
+    },
+    {
+      "code": "L106",
+      "name": "Ramdhuni Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 9
+    },
+    {
+      "code": "L107",
+      "name": "Itahari Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D11",
+      "wardCount": 20
+    },
+    {
+      "code": "L108",
+      "name": "Dharan Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D11",
+      "wardCount": 20
+    },
+    {
+      "code": "L109",
+      "name": "Koshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 8
+    },
+    {
+      "code": "L110",
+      "name": "Harinagar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 7
+    },
+    {
+      "code": "L111",
+      "name": "Bhokraha Narsingh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 8
+    },
+    {
+      "code": "L112",
+      "name": "Dewangunj Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 7
+    },
+    {
+      "code": "L113",
+      "name": "Gadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 6
+    },
+    {
+      "code": "L114",
+      "name": "Barju Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D11",
+      "wardCount": 6
+    },
+    {
+      "code": "L115",
+      "name": "Phungling Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 11
+    },
+    {
+      "code": "L116",
+      "name": "Sirijangha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 8
+    },
+    {
+      "code": "L117",
+      "name": "Aathrai Triveni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 5
+    },
+    {
+      "code": "L118",
+      "name": "Pathibhara Yangwarak Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 6
+    },
+    {
+      "code": "L119",
+      "name": "Meringden Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 6
+    },
+    {
+      "code": "L120",
+      "name": "Sidingwa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 7
+    },
+    {
+      "code": "L121",
+      "name": "Phaktanglung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 7
+    },
+    {
+      "code": "L122",
+      "name": "Maiwa Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 6
+    },
+    {
+      "code": "L123",
+      "name": "Mikwa Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D12",
+      "wardCount": 5
+    },
+    {
+      "code": "L124",
+      "name": "Myanglung Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 10
+    },
+    {
+      "code": "L125",
+      "name": "Laligurans Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 9
+    },
+    {
+      "code": "L126",
+      "name": "Aathrai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 7
+    },
+    {
+      "code": "L127",
+      "name": "Phedap Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 5
+    },
+    {
+      "code": "L128",
+      "name": "Chhathar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 6
+    },
+    {
+      "code": "L129",
+      "name": "Menchayayem Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D13",
+      "wardCount": 6
+    },
+    {
+      "code": "L130",
+      "name": "Triyuga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 16
+    },
+    {
+      "code": "L131",
+      "name": "Katari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 14
+    },
+    {
+      "code": "L132",
+      "name": "Chaudandigadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 10
+    },
+    {
+      "code": "L133",
+      "name": "Belaka Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 9
+    },
+    {
+      "code": "L134",
+      "name": "Udayapurgadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 8
+    },
+    {
+      "code": "L135",
+      "name": "Rautamai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 8
+    },
+    {
+      "code": "L136",
+      "name": "Tapli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 5
+    },
+    {
+      "code": "L137",
+      "name": "Limchungbung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D14",
+      "wardCount": 5
+    },
+    {
+      "code": "L138",
+      "name": "Birgunj Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D15",
+      "wardCount": 32
+    },
+    {
+      "code": "L139",
+      "name": "Bahudarmai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 9
+    },
+    {
+      "code": "L140",
+      "name": "Parsagadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 9
+    },
+    {
+      "code": "L141",
+      "name": "Pokhariya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 10
+    },
+    {
+      "code": "L142",
+      "name": "Bindabasini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L143",
+      "name": "Dhobini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L144",
+      "name": "Chhipaharmai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L145",
+      "name": "Jagarnathpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 6
+    },
+    {
+      "code": "L146",
+      "name": "Jirabhawani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L147",
+      "name": "Kalikamai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L148",
+      "name": "Pakaha Mainpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L149",
+      "name": "Paterwa Sugauli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L150",
+      "name": "Sakhuwa Prasauni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 6
+    },
+    {
+      "code": "L151",
+      "name": "Thori Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D15",
+      "wardCount": 5
+    },
+    {
+      "code": "L152",
+      "name": "Kalaiya Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D16",
+      "wardCount": 27
+    },
+    {
+      "code": "L153",
+      "name": "Jitpur Simara Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D16",
+      "wardCount": 24
+    },
+    {
+      "code": "L154",
+      "name": "Kolhabi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 11
+    },
+    {
+      "code": "L155",
+      "name": "Nijgadh Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 13
+    },
+    {
+      "code": "L156",
+      "name": "Mahagadhimai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 11
+    },
+    {
+      "code": "L157",
+      "name": "Simaraungadh Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 11
+    },
+    {
+      "code": "L158",
+      "name": "Pacharauta Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 9
+    },
+    {
+      "code": "L159",
+      "name": "Pheta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 7
+    },
+    {
+      "code": "L160",
+      "name": "Bishrampur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 5
+    },
+    {
+      "code": "L161",
+      "name": "Prasauni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 7
+    },
+    {
+      "code": "L162",
+      "name": "Adarsh Kotwal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 8
+    },
+    {
+      "code": "L163",
+      "name": "Karaiyamai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 8
+    },
+    {
+      "code": "L164",
+      "name": "Devtal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 7
+    },
+    {
+      "code": "L165",
+      "name": "Parwanipur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 5
+    },
+    {
+      "code": "L166",
+      "name": "Baragadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 6
+    },
+    {
+      "code": "L167",
+      "name": "Suwarna Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D16",
+      "wardCount": 8
+    },
+    {
+      "code": "L168",
+      "name": "Baudhimai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L169",
+      "name": "Brindaban Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L170",
+      "name": "Chandrapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 10
+    },
+    {
+      "code": "L171",
+      "name": "Dewahi Gonahi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L172",
+      "name": "Gadhimai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L173",
+      "name": "Guruda Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L174",
+      "name": "Gaur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L175",
+      "name": "Gujara Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L176",
+      "name": "Ishanath Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L177",
+      "name": "Katahariya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L178",
+      "name": "Madhav Narayan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L179",
+      "name": "Maulapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L180",
+      "name": "Paroha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L181",
+      "name": "Phatuwa Bijayapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 11
+    },
+    {
+      "code": "L182",
+      "name": "Rajdevi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L183",
+      "name": "Rajpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 9
+    },
+    {
+      "code": "L184",
+      "name": "Durga Bhagwati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 5
+    },
+    {
+      "code": "L185",
+      "name": "Yamunamai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D17",
+      "wardCount": 5
+    },
+    {
+      "code": "L186",
+      "name": "Bagmati Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 12
+    },
+    {
+      "code": "L187",
+      "name": "Balara Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 11
+    },
+    {
+      "code": "L188",
+      "name": "Barahathwa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 18
+    },
+    {
+      "code": "L189",
+      "name": "Godaita Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 12
+    },
+    {
+      "code": "L190",
+      "name": "Hariwan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 11
+    },
+    {
+      "code": "L191",
+      "name": "Haripur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 9
+    },
+    {
+      "code": "L192",
+      "name": "Haripurwa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 9
+    },
+    {
+      "code": "L193",
+      "name": "Ishowrpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 15
+    },
+    {
+      "code": "L194",
+      "name": "Kabilasi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 10
+    },
+    {
+      "code": "L195",
+      "name": "Lalbandi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 17
+    },
+    {
+      "code": "L196",
+      "name": "Malangawa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 12
+    },
+    {
+      "code": "L197",
+      "name": "Basbariya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 6
+    },
+    {
+      "code": "L198",
+      "name": "Bisnu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 8
+    },
+    {
+      "code": "L199",
+      "name": "Brahampuri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 7
+    },
+    {
+      "code": "L200",
+      "name": "Chakraghatta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 9
+    },
+    {
+      "code": "L201",
+      "name": "Chandranagar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 7
+    },
+    {
+      "code": "L202",
+      "name": "Dhankaul Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 7
+    },
+    {
+      "code": "L203",
+      "name": "Kaudena Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 7
+    },
+    {
+      "code": "L204",
+      "name": "Parsa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 6
+    },
+    {
+      "code": "L205",
+      "name": "Ramnagar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D18",
+      "wardCount": 7
+    },
+    {
+      "code": "L206",
+      "name": "Lahan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 24
+    },
+    {
+      "code": "L207",
+      "name": "Dhangadhimai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 14
+    },
+    {
+      "code": "L208",
+      "name": "Siraha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 22
+    },
+    {
+      "code": "L209",
+      "name": "Golbazar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 13
+    },
+    {
+      "code": "L210",
+      "name": "Mirchaiya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 12
+    },
+    {
+      "code": "L211",
+      "name": "Kalyanpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 12
+    },
+    {
+      "code": "L212",
+      "name": "Karjanha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 11
+    },
+    {
+      "code": "L213",
+      "name": "Sukhipur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 10
+    },
+    {
+      "code": "L214",
+      "name": "Bhagwanpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L215",
+      "name": "Aurahi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L216",
+      "name": "Bishnupur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L217",
+      "name": "Bariyarpatti Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L218",
+      "name": "Lakshmipur Patari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 6
+    },
+    {
+      "code": "L219",
+      "name": "Naraha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L220",
+      "name": "SakhuwanankarKatti Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L221",
+      "name": "Arnama Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L222",
+      "name": "Navarajpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D19",
+      "wardCount": 5
+    },
+    {
+      "code": "L223",
+      "name": "Janakpurdham Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D20",
+      "wardCount": 25
+    },
+    {
+      "code": "L224",
+      "name": "Chhireshwarnath Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 10
+    },
+    {
+      "code": "L225",
+      "name": "Ganeshman Charnath Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 11
+    },
+    {
+      "code": "L226",
+      "name": "Dhanushadham Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L227",
+      "name": "Nagarain Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L228",
+      "name": "Bideha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L229",
+      "name": "Mithila Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 11
+    },
+    {
+      "code": "L230",
+      "name": "Sahidnagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L231",
+      "name": "Sabaila Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 13
+    },
+    {
+      "code": "L232",
+      "name": "Kamala Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L233",
+      "name": "MithilaBihari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 10
+    },
+    {
+      "code": "L234",
+      "name": "Hansapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 9
+    },
+    {
+      "code": "L235",
+      "name": "Janaknandani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 6
+    },
+    {
+      "code": "L236",
+      "name": "Bateshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 5
+    },
+    {
+      "code": "L237",
+      "name": "Mukhiyapatti Musharniya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 6
+    },
+    {
+      "code": "L238",
+      "name": "Lakshminya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 7
+    },
+    {
+      "code": "L239",
+      "name": "Aaurahi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 6
+    },
+    {
+      "code": "L240",
+      "name": "Dhanauji Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D20",
+      "wardCount": 5
+    },
+    {
+      "code": "L241",
+      "name": "Bodebarsain Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 10
+    },
+    {
+      "code": "L242",
+      "name": "Dakneshwori Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 10
+    },
+    {
+      "code": "L243",
+      "name": "Hanumannagar Kankalini Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 14
+    },
+    {
+      "code": "L244",
+      "name": "Kanchanrup Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 12
+    },
+    {
+      "code": "L245",
+      "name": "Khadak Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 11
+    },
+    {
+      "code": "L246",
+      "name": "Shambhunath Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 12
+    },
+    {
+      "code": "L247",
+      "name": "Saptakoshi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 11
+    },
+    {
+      "code": "L248",
+      "name": "Surunga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 11
+    },
+    {
+      "code": "L249",
+      "name": "Rajbiraj Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 16
+    },
+    {
+      "code": "L250",
+      "name": "Agnisaira Krishnasavaran Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 6
+    },
+    {
+      "code": "L251",
+      "name": "Balan-Bihul Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 6
+    },
+    {
+      "code": "L252",
+      "name": "Rajgadh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 6
+    },
+    {
+      "code": "L253",
+      "name": "Bishnupur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 7
+    },
+    {
+      "code": "L254",
+      "name": "Chhinnamasta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 7
+    },
+    {
+      "code": "L255",
+      "name": "Mahadeva Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 6
+    },
+    {
+      "code": "L256",
+      "name": "Rupani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 6
+    },
+    {
+      "code": "L257",
+      "name": "Tilathi Koiladi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 8
+    },
+    {
+      "code": "L258",
+      "name": "Tirhut Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D21",
+      "wardCount": 5
+    },
+    {
+      "code": "L259",
+      "name": "Aaurahi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 9
+    },
+    {
+      "code": "L260",
+      "name": "Balawa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 11
+    },
+    {
+      "code": "L261",
+      "name": "Bardibas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 14
+    },
+    {
+      "code": "L262",
+      "name": "Bhangaha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 9
+    },
+    {
+      "code": "L263",
+      "name": "Gaushala Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 12
+    },
+    {
+      "code": "L264",
+      "name": "Jaleshor Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 12
+    },
+    {
+      "code": "L265",
+      "name": "Loharpatti Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 9
+    },
+    {
+      "code": "L266",
+      "name": "Manara Shiswa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 10
+    },
+    {
+      "code": "L267",
+      "name": "Matihani Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 9
+    },
+    {
+      "code": "L268",
+      "name": "Ramgopalpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 9
+    },
+    {
+      "code": "L269",
+      "name": "Ekdara Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 6
+    },
+    {
+      "code": "L270",
+      "name": "Mahottari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 6
+    },
+    {
+      "code": "L271",
+      "name": "Pipara Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 7
+    },
+    {
+      "code": "L272",
+      "name": "Samsi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 7
+    },
+    {
+      "code": "L273",
+      "name": "Sonama Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D22",
+      "wardCount": 8
+    },
+    {
+      "code": "L274",
+      "name": "Bhaktapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D23",
+      "wardCount": 10
+    },
+    {
+      "code": "L275",
+      "name": "Changunarayan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D23",
+      "wardCount": 9
+    },
+    {
+      "code": "L276",
+      "name": "Suryabinayak Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D23",
+      "wardCount": 10
+    },
+    {
+      "code": "L277",
+      "name": "Madhyapur Thimi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D23",
+      "wardCount": 9
+    },
+    {
+      "code": "L278",
+      "name": "Bharatpur Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D24",
+      "wardCount": 29
+    },
+    {
+      "code": "L279",
+      "name": "Kalika Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 11
+    },
+    {
+      "code": "L280",
+      "name": "Khairhani Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 13
+    },
+    {
+      "code": "L281",
+      "name": "Madi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 9
+    },
+    {
+      "code": "L282",
+      "name": "Ratnagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 16
+    },
+    {
+      "code": "L283",
+      "name": "Rapti Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 13
+    },
+    {
+      "code": "L284",
+      "name": "Ichchhakamana Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D24",
+      "wardCount": 7
+    },
+    {
+      "code": "L285",
+      "name": "Dhunibeshi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 9
+    },
+    {
+      "code": "L286",
+      "name": "Nilkantha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 14
+    },
+    {
+      "code": "L287",
+      "name": "Khaniyabas Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 5
+    },
+    {
+      "code": "L288",
+      "name": "Gajuri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 8
+    },
+    {
+      "code": "L289",
+      "name": "Galchhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 8
+    },
+    {
+      "code": "L290",
+      "name": "Gangajamuna Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 7
+    },
+    {
+      "code": "L291",
+      "name": "Jwalamukhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 7
+    },
+    {
+      "code": "L292",
+      "name": "Thakre Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 11
+    },
+    {
+      "code": "L293",
+      "name": "Netrawati Dabjong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 5
+    },
+    {
+      "code": "L294",
+      "name": "Benighat Rorang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 10
+    },
+    {
+      "code": "L295",
+      "name": "Rubi Valley Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 6
+    },
+    {
+      "code": "L296",
+      "name": "Siddhalek Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 7
+    },
+    {
+      "code": "L297",
+      "name": "Tripurasundari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D25",
+      "wardCount": 7
+    },
+    {
+      "code": "L298",
+      "name": "Bhimeswor Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 9
+    },
+    {
+      "code": "L299",
+      "name": "Jiri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 9
+    },
+    {
+      "code": "L300",
+      "name": "Kalinchok Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 9
+    },
+    {
+      "code": "L301",
+      "name": "Melung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 7
+    },
+    {
+      "code": "L302",
+      "name": "Bigu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 8
+    },
+    {
+      "code": "L303",
+      "name": "Gaurishankar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 9
+    },
+    {
+      "code": "L304",
+      "name": "Baiteshowr Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 8
+    },
+    {
+      "code": "L305",
+      "name": "Sailung Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 8
+    },
+    {
+      "code": "L306",
+      "name": "Tamakoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D26",
+      "wardCount": 7
+    },
+    {
+      "code": "L307",
+      "name": "Kathmandu Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D27",
+      "wardCount": 32
+    },
+    {
+      "code": "L308",
+      "name": "Gokarneshwar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 9
+    },
+    {
+      "code": "L309",
+      "name": "Kirtipur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 10
+    },
+    {
+      "code": "L310",
+      "name": "Kageshwari-Manohara Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 9
+    },
+    {
+      "code": "L311",
+      "name": "Chandragiri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 15
+    },
+    {
+      "code": "L312",
+      "name": "Tokha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 11
+    },
+    {
+      "code": "L313",
+      "name": "Tarakeshwar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 11
+    },
+    {
+      "code": "L314",
+      "name": "Dakshinkali Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 9
+    },
+    {
+      "code": "L315",
+      "name": "Nagarjun Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 10
+    },
+    {
+      "code": "L316",
+      "name": "Budhalikantha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 13
+    },
+    {
+      "code": "L317",
+      "name": "Shankharapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D27",
+      "wardCount": 9
+    },
+    {
+      "code": "L318",
+      "name": "Dhulikhel Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 12
+    },
+    {
+      "code": "L319",
+      "name": "Namobuddha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 11
+    },
+    {
+      "code": "L320",
+      "name": "Panauti Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 12
+    },
+    {
+      "code": "L321",
+      "name": "Panchkhal Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 13
+    },
+    {
+      "code": "L322",
+      "name": "Banepa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 14
+    },
+    {
+      "code": "L323",
+      "name": "Mandandeupur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 12
+    },
+    {
+      "code": "L324",
+      "name": "Khani Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 7
+    },
+    {
+      "code": "L325",
+      "name": "Chauri Deurali Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 9
+    },
+    {
+      "code": "L326",
+      "name": "Temal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 9
+    },
+    {
+      "code": "L327",
+      "name": "Bethanchok Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 6
+    },
+    {
+      "code": "L328",
+      "name": "Bhumlu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 10
+    },
+    {
+      "code": "L329",
+      "name": "Mahabharat Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 8
+    },
+    {
+      "code": "L330",
+      "name": "Roshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D28",
+      "wardCount": 12
+    },
+    {
+      "code": "L331",
+      "name": "Lalitpur Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D29",
+      "wardCount": 29
+    },
+    {
+      "code": "L332",
+      "name": "Mahalaxmi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D29",
+      "wardCount": 10
+    },
+    {
+      "code": "L333",
+      "name": "Godawari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D29",
+      "wardCount": 14
+    },
+    {
+      "code": "L334",
+      "name": "Konjyosom Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D29",
+      "wardCount": 5
+    },
+    {
+      "code": "L335",
+      "name": "Bagmati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D29",
+      "wardCount": 7
+    },
+    {
+      "code": "L336",
+      "name": "Mahankal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D29",
+      "wardCount": 6
+    },
+    {
+      "code": "L337",
+      "name": "Hetauda Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D30",
+      "wardCount": 19
+    },
+    {
+      "code": "L338",
+      "name": "Thaha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 12
+    },
+    {
+      "code": "L339",
+      "name": "Bhimphedi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 9
+    },
+    {
+      "code": "L340",
+      "name": "Makawanpurgadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 8
+    },
+    {
+      "code": "L341",
+      "name": "Manahari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 9
+    },
+    {
+      "code": "L342",
+      "name": "Raksirang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 9
+    },
+    {
+      "code": "L343",
+      "name": "Bakaiya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 12
+    },
+    {
+      "code": "L344",
+      "name": "Bagmati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 9
+    },
+    {
+      "code": "L345",
+      "name": "Kailash Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 10
+    },
+    {
+      "code": "L346",
+      "name": "Indrasarowar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D30",
+      "wardCount": 5
+    },
+    {
+      "code": "L347",
+      "name": "Bidur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 13
+    },
+    {
+      "code": "L348",
+      "name": "Belkotgadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 13
+    },
+    {
+      "code": "L349",
+      "name": "Kakani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 8
+    },
+    {
+      "code": "L350",
+      "name": "Panchakanya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 5
+    },
+    {
+      "code": "L351",
+      "name": "Likhu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 6
+    },
+    {
+      "code": "L352",
+      "name": "Dupcheshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 7
+    },
+    {
+      "code": "L353",
+      "name": "Shivapuri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 8
+    },
+    {
+      "code": "L354",
+      "name": "Tadi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 6
+    },
+    {
+      "code": "L355",
+      "name": "Suryagadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 5
+    },
+    {
+      "code": "L356",
+      "name": "Tarkeshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 6
+    },
+    {
+      "code": "L357",
+      "name": "Kispang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 5
+    },
+    {
+      "code": "L358",
+      "name": "Myagang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D31",
+      "wardCount": 6
+    },
+    {
+      "code": "L359",
+      "name": "Manthali Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 14
+    },
+    {
+      "code": "L360",
+      "name": "Ramechhap Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 9
+    },
+    {
+      "code": "L361",
+      "name": "Umakunda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 7
+    },
+    {
+      "code": "L362",
+      "name": "Khandadevi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 9
+    },
+    {
+      "code": "L363",
+      "name": "Doramba Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 7
+    },
+    {
+      "code": "L364",
+      "name": "Gokulganga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 6
+    },
+    {
+      "code": "L365",
+      "name": "LikhuTamakoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 7
+    },
+    {
+      "code": "L366",
+      "name": "Sunapati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D32",
+      "wardCount": 5
+    },
+    {
+      "code": "L367",
+      "name": "Kalika Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D33",
+      "wardCount": 5
+    },
+    {
+      "code": "L368",
+      "name": "Gosaikunda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D33",
+      "wardCount": 6
+    },
+    {
+      "code": "L369",
+      "name": "Naukunda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D33",
+      "wardCount": 6
+    },
+    {
+      "code": "L370",
+      "name": "Parbatikunda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D33",
+      "wardCount": 5
+    },
+    {
+      "code": "L371",
+      "name": "Uttargaya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D33",
+      "wardCount": 5
+    },
+    {
+      "code": "L372",
+      "name": "Kamalamai Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 14
+    },
+    {
+      "code": "L373",
+      "name": "Dudhauli Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 14
+    },
+    {
+      "code": "L374",
+      "name": "Sunkoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 7
+    },
+    {
+      "code": "L375",
+      "name": "Hariharpurgadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 8
+    },
+    {
+      "code": "L376",
+      "name": "Tinpatan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 11
+    },
+    {
+      "code": "L377",
+      "name": "Marin Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 7
+    },
+    {
+      "code": "L378",
+      "name": "Golanjor Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 7
+    },
+    {
+      "code": "L379",
+      "name": "Phikkal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 6
+    },
+    {
+      "code": "L380",
+      "name": "Ghyanglekh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D34",
+      "wardCount": 5
+    },
+    {
+      "code": "L381",
+      "name": "Chautara Sangachowkgadi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 14
+    },
+    {
+      "code": "L382",
+      "name": "Bahrabise Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 9
+    },
+    {
+      "code": "L383",
+      "name": "Melamchi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 13
+    },
+    {
+      "code": "L384",
+      "name": "Balephi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 8
+    },
+    {
+      "code": "L385",
+      "name": "Sunkoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 7
+    },
+    {
+      "code": "L386",
+      "name": "Indrawati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 12
+    },
+    {
+      "code": "L387",
+      "name": "Jugal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 7
+    },
+    {
+      "code": "L388",
+      "name": "Panchpokhari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 8
+    },
+    {
+      "code": "L389",
+      "name": "Bhotekoshi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 5
+    },
+    {
+      "code": "L390",
+      "name": "Lisankhu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 7
+    },
+    {
+      "code": "L391",
+      "name": "Helambu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 7
+    },
+    {
+      "code": "L392",
+      "name": "Tripurasundari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D35",
+      "wardCount": 6
+    },
+    {
+      "code": "L393",
+      "name": "Baglung Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 14
+    },
+    {
+      "code": "L394",
+      "name": "Dhorpatan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 9
+    },
+    {
+      "code": "L395",
+      "name": "Galkot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 11
+    },
+    {
+      "code": "L396",
+      "name": "Jaimuni Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 10
+    },
+    {
+      "code": "L397",
+      "name": "Bareng Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 5
+    },
+    {
+      "code": "L398",
+      "name": "Khathekhola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 8
+    },
+    {
+      "code": "L399",
+      "name": "Taman Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 6
+    },
+    {
+      "code": "L400",
+      "name": "Tara Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 5
+    },
+    {
+      "code": "L401",
+      "name": "Nishi Khola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 7
+    },
+    {
+      "code": "L402",
+      "name": "Badigad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D36",
+      "wardCount": 10
+    },
+    {
+      "code": "L403",
+      "name": "Gorkha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 14
+    },
+    {
+      "code": "L404",
+      "name": "Palungtar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 10
+    },
+    {
+      "code": "L405",
+      "name": "Sulikot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 8
+    },
+    {
+      "code": "L406",
+      "name": "Siranchowk Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 8
+    },
+    {
+      "code": "L407",
+      "name": "Ajirkot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 5
+    },
+    {
+      "code": "L408",
+      "name": "Chumnubri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 7
+    },
+    {
+      "code": "L409",
+      "name": "Dharche Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 7
+    },
+    {
+      "code": "L410",
+      "name": "Bhimsen Thapa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 8
+    },
+    {
+      "code": "L411",
+      "name": "Sahid Lakhan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 9
+    },
+    {
+      "code": "L412",
+      "name": "Aarughat Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 10
+    },
+    {
+      "code": "L413",
+      "name": "Gandaki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D37",
+      "wardCount": 8
+    },
+    {
+      "code": "L414",
+      "name": "Pokhara Metropolitan City",
+      "type": "METROPOLITAN_CITY",
+      "districtCode": "D38",
+      "wardCount": 33
+    },
+    {
+      "code": "L415",
+      "name": "Annapurna Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D38",
+      "wardCount": 11
+    },
+    {
+      "code": "L416",
+      "name": "Machhapuchchhre Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D38",
+      "wardCount": 9
+    },
+    {
+      "code": "L417",
+      "name": "Madi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D38",
+      "wardCount": 12
+    },
+    {
+      "code": "L418",
+      "name": "Rupa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D38",
+      "wardCount": 7
+    },
+    {
+      "code": "L419",
+      "name": "Besisahar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 11
+    },
+    {
+      "code": "L420",
+      "name": "Madhya Nepal Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 10
+    },
+    {
+      "code": "L421",
+      "name": "Rainas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 10
+    },
+    {
+      "code": "L422",
+      "name": "Sundarbazar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 11
+    },
+    {
+      "code": "L423",
+      "name": "Dordi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 9
+    },
+    {
+      "code": "L424",
+      "name": "Dudhpokhari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 6
+    },
+    {
+      "code": "L425",
+      "name": "Kwhlosothar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 9
+    },
+    {
+      "code": "L426",
+      "name": "Marsyangdi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D39",
+      "wardCount": 9
+    },
+    {
+      "code": "L427",
+      "name": "Chame Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D40",
+      "wardCount": 5
+    },
+    {
+      "code": "L428",
+      "name": "Nason Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D40",
+      "wardCount": 9
+    },
+    {
+      "code": "L429",
+      "name": "NarpaBhumi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D40",
+      "wardCount": 5
+    },
+    {
+      "code": "L430",
+      "name": "Manang Ngisyang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D40",
+      "wardCount": 9
+    },
+    {
+      "code": "L431",
+      "name": "Gharpajhong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D41",
+      "wardCount": 5
+    },
+    {
+      "code": "L432",
+      "name": "Thasang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D41",
+      "wardCount": 5
+    },
+    {
+      "code": "L433",
+      "name": "Barhagaun Muktichhetra Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D41",
+      "wardCount": 5
+    },
+    {
+      "code": "L434",
+      "name": "Lomanthang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D41",
+      "wardCount": 5
+    },
+    {
+      "code": "L435",
+      "name": "Lo-Ghekar Damodarkunda Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D41",
+      "wardCount": 5
+    },
+    {
+      "code": "L436",
+      "name": "Beni Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 10
+    },
+    {
+      "code": "L437",
+      "name": "Annapurna Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 8
+    },
+    {
+      "code": "L438",
+      "name": "Dhaulagiri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 7
+    },
+    {
+      "code": "L439",
+      "name": "Mangala Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 5
+    },
+    {
+      "code": "L440",
+      "name": "Malika Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 7
+    },
+    {
+      "code": "L441",
+      "name": "Raghuganga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D42",
+      "wardCount": 8
+    },
+    {
+      "code": "L442",
+      "name": "Kawasoti Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 17
+    },
+    {
+      "code": "L443",
+      "name": "Gaindakot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 18
+    },
+    {
+      "code": "L444",
+      "name": "Devachuli Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 17
+    },
+    {
+      "code": "L445",
+      "name": "Madhya Bindu Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 15
+    },
+    {
+      "code": "L446",
+      "name": "Baudikali Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 6
+    },
+    {
+      "code": "L447",
+      "name": "Bulingtar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 6
+    },
+    {
+      "code": "L448",
+      "name": "Binayi Tribeni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 7
+    },
+    {
+      "code": "L449",
+      "name": "Hupsekot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D43",
+      "wardCount": 6
+    },
+    {
+      "code": "L450",
+      "name": "Kushma Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 14
+    },
+    {
+      "code": "L451",
+      "name": "Phalewas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 11
+    },
+    {
+      "code": "L452",
+      "name": "Jaljala Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 9
+    },
+    {
+      "code": "L453",
+      "name": "Paiyun Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 7
+    },
+    {
+      "code": "L454",
+      "name": "Mahashila Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 6
+    },
+    {
+      "code": "L455",
+      "name": "Modi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 8
+    },
+    {
+      "code": "L456",
+      "name": "Bihadi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D44",
+      "wardCount": 6
+    },
+    {
+      "code": "L457",
+      "name": "Galyang Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 11
+    },
+    {
+      "code": "L458",
+      "name": "Chapakot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 10
+    },
+    {
+      "code": "L459",
+      "name": "Putalibazar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 14
+    },
+    {
+      "code": "L460",
+      "name": "Bheerkot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 9
+    },
+    {
+      "code": "L461",
+      "name": "Waling Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 14
+    },
+    {
+      "code": "L462",
+      "name": "Arjun Chaupari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 6
+    },
+    {
+      "code": "L463",
+      "name": "Aandhikhola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 6
+    },
+    {
+      "code": "L464",
+      "name": "Kaligandaki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 7
+    },
+    {
+      "code": "L465",
+      "name": "Phedikhola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 5
+    },
+    {
+      "code": "L466",
+      "name": "Harinas Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 7
+    },
+    {
+      "code": "L467",
+      "name": "Biruwa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D45",
+      "wardCount": 8
+    },
+    {
+      "code": "L468",
+      "name": "Bhanu Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 13
+    },
+    {
+      "code": "L469",
+      "name": "Bhimad Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 9
+    },
+    {
+      "code": "L470",
+      "name": "Byas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 14
+    },
+    {
+      "code": "L471",
+      "name": "Suklagandaki Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 12
+    },
+    {
+      "code": "L472",
+      "name": "AnbuKhaireni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 6
+    },
+    {
+      "code": "L473",
+      "name": "Devghat Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 5
+    },
+    {
+      "code": "L474",
+      "name": "Bandipur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 6
+    },
+    {
+      "code": "L475",
+      "name": "Rishing Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 8
+    },
+    {
+      "code": "L476",
+      "name": "Ghiring Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 5
+    },
+    {
+      "code": "L477",
+      "name": "Myagde Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D46",
+      "wardCount": 7
+    },
+    {
+      "code": "L478",
+      "name": "Kapilvastu Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 12
+    },
+    {
+      "code": "L479",
+      "name": "Banganga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 11
+    },
+    {
+      "code": "L480",
+      "name": "Buddhabhumi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 10
+    },
+    {
+      "code": "L481",
+      "name": "Shivaraj Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 11
+    },
+    {
+      "code": "L482",
+      "name": "Krishnanagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 12
+    },
+    {
+      "code": "L483",
+      "name": "Maharajgunj Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 11
+    },
+    {
+      "code": "L484",
+      "name": "Mayadevi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 8
+    },
+    {
+      "code": "L485",
+      "name": "Yashodhara Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 8
+    },
+    {
+      "code": "L486",
+      "name": "Suddhodan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 6
+    },
+    {
+      "code": "L487",
+      "name": "Bijaynagar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D47",
+      "wardCount": 7
+    },
+    {
+      "code": "L488",
+      "name": "Bardaghat Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 16
+    },
+    {
+      "code": "L489",
+      "name": "Ramgram Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 18
+    },
+    {
+      "code": "L490",
+      "name": "Sunwal Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 13
+    },
+    {
+      "code": "L491",
+      "name": "Susta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 5
+    },
+    {
+      "code": "L492",
+      "name": "Palhi Nandan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 6
+    },
+    {
+      "code": "L493",
+      "name": "Pratappur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 9
+    },
+    {
+      "code": "L494",
+      "name": "Sarawal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D48",
+      "wardCount": 7
+    },
+    {
+      "code": "L495",
+      "name": "Butwal Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D49",
+      "wardCount": 19
+    },
+    {
+      "code": "L496",
+      "name": "Devdaha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 12
+    },
+    {
+      "code": "L497",
+      "name": "Lumbini Sanskritik Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 13
+    },
+    {
+      "code": "L498",
+      "name": "Sainamaina Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 11
+    },
+    {
+      "code": "L499",
+      "name": "Siddharthanagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 13
+    },
+    {
+      "code": "L500",
+      "name": "Tilottama Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 17
+    },
+    {
+      "code": "L501",
+      "name": "Gaidahawa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 9
+    },
+    {
+      "code": "L502",
+      "name": "Kanchan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 5
+    },
+    {
+      "code": "L503",
+      "name": "Kotahimai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L504",
+      "name": "Marchawari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L505",
+      "name": "Mayadevi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 8
+    },
+    {
+      "code": "L506",
+      "name": "Omsatiya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 6
+    },
+    {
+      "code": "L507",
+      "name": "Rohini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L508",
+      "name": "Sammarimai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L509",
+      "name": "Siyari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L510",
+      "name": "Suddodhan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D49",
+      "wardCount": 7
+    },
+    {
+      "code": "L511",
+      "name": "Sandhikharka Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 12
+    },
+    {
+      "code": "L512",
+      "name": "Sitganga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 14
+    },
+    {
+      "code": "L513",
+      "name": "Bhumikasthan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 10
+    },
+    {
+      "code": "L514",
+      "name": "Chhatradev Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 8
+    },
+    {
+      "code": "L515",
+      "name": "Panini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 8
+    },
+    {
+      "code": "L516",
+      "name": "Malarani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D50",
+      "wardCount": 9
+    },
+    {
+      "code": "L517",
+      "name": "Resunga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 14
+    },
+    {
+      "code": "L518",
+      "name": "Musikot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 9
+    },
+    {
+      "code": "L519",
+      "name": "Rurukshetra Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 6
+    },
+    {
+      "code": "L520",
+      "name": "Chhatrakot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 6
+    },
+    {
+      "code": "L521",
+      "name": "Gulmidarbar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 7
+    },
+    {
+      "code": "L522",
+      "name": "Chandrakot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 8
+    },
+    {
+      "code": "L523",
+      "name": "Satyawati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 8
+    },
+    {
+      "code": "L524",
+      "name": "Dhurkot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 7
+    },
+    {
+      "code": "L525",
+      "name": "Kaligandaki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 7
+    },
+    {
+      "code": "L526",
+      "name": "Isma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 6
+    },
+    {
+      "code": "L527",
+      "name": "Malika Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 8
+    },
+    {
+      "code": "L528",
+      "name": "Madane Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D51",
+      "wardCount": 7
+    },
+    {
+      "code": "L529",
+      "name": "Tansen Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 14
+    },
+    {
+      "code": "L530",
+      "name": "Rampur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 10
+    },
+    {
+      "code": "L531",
+      "name": "Rainadevi Chhahara Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 8
+    },
+    {
+      "code": "L532",
+      "name": "Ripdikot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 8
+    },
+    {
+      "code": "L533",
+      "name": "Bagnaskali Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 9
+    },
+    {
+      "code": "L534",
+      "name": "Rambha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 5
+    },
+    {
+      "code": "L535",
+      "name": "Purbakhola Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 6
+    },
+    {
+      "code": "L536",
+      "name": "Nisdi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 7
+    },
+    {
+      "code": "L537",
+      "name": "Mathagadhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 8
+    },
+    {
+      "code": "L538",
+      "name": "Tinahu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D52",
+      "wardCount": 6
+    },
+    {
+      "code": "L539",
+      "name": "Ghorahi Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D53",
+      "wardCount": 19
+    },
+    {
+      "code": "L540",
+      "name": "Tulsipur Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D53",
+      "wardCount": 19
+    },
+    {
+      "code": "L541",
+      "name": "Lamahi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 9
+    },
+    {
+      "code": "L542",
+      "name": "Gadhawa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 8
+    },
+    {
+      "code": "L543",
+      "name": "Rajpur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 7
+    },
+    {
+      "code": "L544",
+      "name": "Shantinagar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 7
+    },
+    {
+      "code": "L545",
+      "name": "Rapti Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 9
+    },
+    {
+      "code": "L546",
+      "name": "Banglachuli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 8
+    },
+    {
+      "code": "L547",
+      "name": "Dangisharan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 7
+    },
+    {
+      "code": "L548",
+      "name": "Babai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D53",
+      "wardCount": 7
+    },
+    {
+      "code": "L549",
+      "name": "Sworgadwari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 9
+    },
+    {
+      "code": "L550",
+      "name": "Pyuthan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 10
+    },
+    {
+      "code": "L551",
+      "name": "Mandavi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 5
+    },
+    {
+      "code": "L552",
+      "name": "Sarumarani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 6
+    },
+    {
+      "code": "L553",
+      "name": "Ayirawati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 6
+    },
+    {
+      "code": "L554",
+      "name": "Mallarani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 5
+    },
+    {
+      "code": "L555",
+      "name": "Jhimruk Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 8
+    },
+    {
+      "code": "L556",
+      "name": "Naubahini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 8
+    },
+    {
+      "code": "L557",
+      "name": "Gaumukhi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D54",
+      "wardCount": 7
+    },
+    {
+      "code": "L558",
+      "name": "Rolpa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 10
+    },
+    {
+      "code": "L559",
+      "name": "Runtigadi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 9
+    },
+    {
+      "code": "L560",
+      "name": "Triveni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 7
+    },
+    {
+      "code": "L561",
+      "name": "Sunil Smiriti Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 8
+    },
+    {
+      "code": "L562",
+      "name": "Lungri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 7
+    },
+    {
+      "code": "L563",
+      "name": "Sunchhahari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 7
+    },
+    {
+      "code": "L564",
+      "name": "Thawang Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 5
+    },
+    {
+      "code": "L565",
+      "name": "Madi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 6
+    },
+    {
+      "code": "L566",
+      "name": "GangaDev Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 7
+    },
+    {
+      "code": "L567",
+      "name": "Pariwartan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D55",
+      "wardCount": 6
+    },
+    {
+      "code": "L568",
+      "name": "Putha Uttarganga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D56",
+      "wardCount": 14
+    },
+    {
+      "code": "L569",
+      "name": "Bhume Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D56",
+      "wardCount": 9
+    },
+    {
+      "code": "L570",
+      "name": "Sisne Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D56",
+      "wardCount": 8
+    },
+    {
+      "code": "L571",
+      "name": "Nepalgunj Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D57",
+      "wardCount": 23
+    },
+    {
+      "code": "L572",
+      "name": "Kohalpur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 15
+    },
+    {
+      "code": "L573",
+      "name": "Rapti-Sonari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 9
+    },
+    {
+      "code": "L574",
+      "name": "Narainapur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 6
+    },
+    {
+      "code": "L575",
+      "name": "Duduwa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 6
+    },
+    {
+      "code": "L576",
+      "name": "Janaki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 6
+    },
+    {
+      "code": "L577",
+      "name": "Khajura Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 8
+    },
+    {
+      "code": "L578",
+      "name": "Baijanath Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D57",
+      "wardCount": 8
+    },
+    {
+      "code": "L579",
+      "name": "Gulariya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 12
+    },
+    {
+      "code": "L580",
+      "name": "Rajapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 10
+    },
+    {
+      "code": "L581",
+      "name": "Madhuwan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 9
+    },
+    {
+      "code": "L582",
+      "name": "Thakurbaba Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 9
+    },
+    {
+      "code": "L583",
+      "name": "Basgadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 9
+    },
+    {
+      "code": "L584",
+      "name": "Barbardiya Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 11
+    },
+    {
+      "code": "L585",
+      "name": "Badhaiyatal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 9
+    },
+    {
+      "code": "L586",
+      "name": "Geruwa Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D58",
+      "wardCount": 6
+    },
+    {
+      "code": "L587",
+      "name": "Aathabiskot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 14
+    },
+    {
+      "code": "L588",
+      "name": "Musikot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 14
+    },
+    {
+      "code": "L589",
+      "name": "Chaurjahari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 14
+    },
+    {
+      "code": "L590",
+      "name": "SaniBheri Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 11
+    },
+    {
+      "code": "L591",
+      "name": "Triveni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 10
+    },
+    {
+      "code": "L592",
+      "name": "Banphikot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D59",
+      "wardCount": 10
+    },
+    {
+      "code": "L593",
+      "name": "Kumakh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 7
+    },
+    {
+      "code": "L594",
+      "name": "Kalimati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 7
+    },
+    {
+      "code": "L595",
+      "name": "Chhatreshwari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 7
+    },
+    {
+      "code": "L596",
+      "name": "Darma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 6
+    },
+    {
+      "code": "L597",
+      "name": "Kapurkot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 6
+    },
+    {
+      "code": "L598",
+      "name": "Triveni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 6
+    },
+    {
+      "code": "L599",
+      "name": "Siddha Kumakh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 5
+    },
+    {
+      "code": "L600",
+      "name": "Bagchaur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 12
+    },
+    {
+      "code": "L601",
+      "name": "Shaarda Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 15
+    },
+    {
+      "code": "L602",
+      "name": "Bangad Kupinde Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D60",
+      "wardCount": 12
+    },
+    {
+      "code": "L603",
+      "name": "Mudkechula Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 9
+    },
+    {
+      "code": "L604",
+      "name": "Kaike Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 7
+    },
+    {
+      "code": "L605",
+      "name": "She Phoksundo Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 9
+    },
+    {
+      "code": "L606",
+      "name": "Jagadulla Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 6
+    },
+    {
+      "code": "L607",
+      "name": "Dolpo Buddha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 6
+    },
+    {
+      "code": "L608",
+      "name": "Chharka Tongsong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 6
+    },
+    {
+      "code": "L609",
+      "name": "Thuli Bheri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 11
+    },
+    {
+      "code": "L610",
+      "name": "Tripurasundari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D61",
+      "wardCount": 11
+    },
+    {
+      "code": "L611",
+      "name": "Simkot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 8
+    },
+    {
+      "code": "L612",
+      "name": "Sarkegad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 8
+    },
+    {
+      "code": "L613",
+      "name": "Adanchuli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 6
+    },
+    {
+      "code": "L614",
+      "name": "Kharpunath Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 5
+    },
+    {
+      "code": "L615",
+      "name": "Tanjakot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 5
+    },
+    {
+      "code": "L616",
+      "name": "Chankheli Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 6
+    },
+    {
+      "code": "L617",
+      "name": "Namkha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D62",
+      "wardCount": 6
+    },
+    {
+      "code": "L618",
+      "name": "Tatopani Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 8
+    },
+    {
+      "code": "L619",
+      "name": "Patarasi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 7
+    },
+    {
+      "code": "L620",
+      "name": "Tila Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 9
+    },
+    {
+      "code": "L621",
+      "name": "Kanaka Sundari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 8
+    },
+    {
+      "code": "L622",
+      "name": "Sinja Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 6
+    },
+    {
+      "code": "L623",
+      "name": "Hima Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 7
+    },
+    {
+      "code": "L624",
+      "name": "Guthichaur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 5
+    },
+    {
+      "code": "L625",
+      "name": "Chandannath Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D63",
+      "wardCount": 10
+    },
+    {
+      "code": "L626",
+      "name": "Khandachakra Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 11
+    },
+    {
+      "code": "L627",
+      "name": "Raskot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 9
+    },
+    {
+      "code": "L628",
+      "name": "Tilagufa Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 11
+    },
+    {
+      "code": "L629",
+      "name": "Narharinath Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 9
+    },
+    {
+      "code": "L630",
+      "name": "Palata Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 9
+    },
+    {
+      "code": "L631",
+      "name": "Shubha Kalika Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 8
+    },
+    {
+      "code": "L632",
+      "name": "Sanni Triveni Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 9
+    },
+    {
+      "code": "L633",
+      "name": "Pachaljharana Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 9
+    },
+    {
+      "code": "L634",
+      "name": "Mahawai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D64",
+      "wardCount": 7
+    },
+    {
+      "code": "L635",
+      "name": "Khatyad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D65",
+      "wardCount": 11
+    },
+    {
+      "code": "L636",
+      "name": "Soru Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D65",
+      "wardCount": 11
+    },
+    {
+      "code": "L637",
+      "name": "Mugum Karmarong Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D65",
+      "wardCount": 9
+    },
+    {
+      "code": "L638",
+      "name": "Chhayanath Rara Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D65",
+      "wardCount": 14
+    },
+    {
+      "code": "L639",
+      "name": "Simta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 9
+    },
+    {
+      "code": "L640",
+      "name": "Barahatal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 10
+    },
+    {
+      "code": "L641",
+      "name": "Chaukune Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 10
+    },
+    {
+      "code": "L642",
+      "name": "Chingad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 6
+    },
+    {
+      "code": "L643",
+      "name": "Gurbhakot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 14
+    },
+    {
+      "code": "L644",
+      "name": "Birendranagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 16
+    },
+    {
+      "code": "L645",
+      "name": "Bheriganga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 13
+    },
+    {
+      "code": "L646",
+      "name": "Panchapuri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 11
+    },
+    {
+      "code": "L647",
+      "name": "Lekbeshi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D66",
+      "wardCount": 10
+    },
+    {
+      "code": "L648",
+      "name": "Dullu Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 13
+    },
+    {
+      "code": "L649",
+      "name": "Gurans Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 8
+    },
+    {
+      "code": "L650",
+      "name": "Bhairabi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 7
+    },
+    {
+      "code": "L651",
+      "name": "Naumule Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 8
+    },
+    {
+      "code": "L652",
+      "name": "Mahabu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 6
+    },
+    {
+      "code": "L653",
+      "name": "Thantikandh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 6
+    },
+    {
+      "code": "L654",
+      "name": "Bhagawatimai Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 7
+    },
+    {
+      "code": "L655",
+      "name": "Dungeshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 6
+    },
+    {
+      "code": "L656",
+      "name": "Aathabis Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 9
+    },
+    {
+      "code": "L657",
+      "name": "Narayan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 11
+    },
+    {
+      "code": "L658",
+      "name": "Chamunda Bindrasaini Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D67",
+      "wardCount": 9
+    },
+    {
+      "code": "L659",
+      "name": "Chhedagad Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 13
+    },
+    {
+      "code": "L660",
+      "name": "Bheri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 13
+    },
+    {
+      "code": "L661",
+      "name": "Nalgad Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 13
+    },
+    {
+      "code": "L662",
+      "name": "Junichande Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 11
+    },
+    {
+      "code": "L663",
+      "name": "Kuse Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 9
+    },
+    {
+      "code": "L664",
+      "name": "Barekot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 9
+    },
+    {
+      "code": "L665",
+      "name": "Shivalaya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D68",
+      "wardCount": 9
+    },
+    {
+      "code": "L666",
+      "name": "Mahakali Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 9
+    },
+    {
+      "code": "L667",
+      "name": "Shailyashikhar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 9
+    },
+    {
+      "code": "L668",
+      "name": "Naugad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 6
+    },
+    {
+      "code": "L669",
+      "name": "Malikarjun Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 8
+    },
+    {
+      "code": "L670",
+      "name": "Marma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 6
+    },
+    {
+      "code": "L671",
+      "name": "Lekam Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 6
+    },
+    {
+      "code": "L672",
+      "name": "Duhun Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 5
+    },
+    {
+      "code": "L673",
+      "name": "Vyans Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 6
+    },
+    {
+      "code": "L674",
+      "name": "Apihimal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D69",
+      "wardCount": 6
+    },
+    {
+      "code": "L675",
+      "name": "Jayaprithvi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 11
+    },
+    {
+      "code": "L676",
+      "name": "Bungal Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 11
+    },
+    {
+      "code": "L677",
+      "name": "Kedarsyu Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 9
+    },
+    {
+      "code": "L678",
+      "name": "Thalara Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 9
+    },
+    {
+      "code": "L679",
+      "name": "Bitthadchir Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 9
+    },
+    {
+      "code": "L680",
+      "name": "Chhabis Pathibhera Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 7
+    },
+    {
+      "code": "L681",
+      "name": "Khaptadchhanna Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 7
+    },
+    {
+      "code": "L682",
+      "name": "Masta Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 7
+    },
+    {
+      "code": "L683",
+      "name": "Durgathali Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 7
+    },
+    {
+      "code": "L684",
+      "name": "Talkot Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 7
+    },
+    {
+      "code": "L685",
+      "name": "Surma Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 5
+    },
+    {
+      "code": "L686",
+      "name": "Saipal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D70",
+      "wardCount": 5
+    },
+    {
+      "code": "L687",
+      "name": "Badimalika Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 9
+    },
+    {
+      "code": "L688",
+      "name": "Triveni Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 9
+    },
+    {
+      "code": "L689",
+      "name": "Budhiganga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 10
+    },
+    {
+      "code": "L690",
+      "name": "Budhinanda Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 10
+    },
+    {
+      "code": "L691",
+      "name": "Khaptad Chhededaha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 7
+    },
+    {
+      "code": "L692",
+      "name": "Swami Kartik Khapar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 5
+    },
+    {
+      "code": "L693",
+      "name": "Jagannath Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 6
+    },
+    {
+      "code": "L694",
+      "name": "Himali Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 7
+    },
+    {
+      "code": "L695",
+      "name": "Gaumul Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D71",
+      "wardCount": 6
+    },
+    {
+      "code": "L696",
+      "name": "Dashrathchanda Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 11
+    },
+    {
+      "code": "L697",
+      "name": "Patan Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 10
+    },
+    {
+      "code": "L698",
+      "name": "Melauli Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 9
+    },
+    {
+      "code": "L699",
+      "name": "Purchaudi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 10
+    },
+    {
+      "code": "L700",
+      "name": "Dogdakedar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 8
+    },
+    {
+      "code": "L701",
+      "name": "Dilashaini Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 7
+    },
+    {
+      "code": "L702",
+      "name": "Sigas Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 9
+    },
+    {
+      "code": "L703",
+      "name": "Pancheshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 6
+    },
+    {
+      "code": "L704",
+      "name": "Surnaya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 8
+    },
+    {
+      "code": "L705",
+      "name": "Shivanath Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D72",
+      "wardCount": 6
+    },
+    {
+      "code": "L706",
+      "name": "Dipayal Silgadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 9
+    },
+    {
+      "code": "L707",
+      "name": "Shikhar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 11
+    },
+    {
+      "code": "L708",
+      "name": "Aadarsha Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 7
+    },
+    {
+      "code": "L709",
+      "name": "Purbichauki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 7
+    },
+    {
+      "code": "L710",
+      "name": "K.I.Singh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 7
+    },
+    {
+      "code": "L711",
+      "name": "Jorayal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 6
+    },
+    {
+      "code": "L712",
+      "name": "Sayal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 6
+    },
+    {
+      "code": "L713",
+      "name": "Bogatan-Phudsil Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 7
+    },
+    {
+      "code": "L714",
+      "name": "Badikedar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D73",
+      "wardCount": 5
+    },
+    {
+      "code": "L715",
+      "name": "Ramaroshan Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 7
+    },
+    {
+      "code": "L716",
+      "name": "Chaurpati Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 7
+    },
+    {
+      "code": "L717",
+      "name": "Turmakhand Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 8
+    },
+    {
+      "code": "L718",
+      "name": "Mellekh Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 8
+    },
+    {
+      "code": "L719",
+      "name": "Dhakari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 8
+    },
+    {
+      "code": "L720",
+      "name": "Bannigadi Jayagad Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 6
+    },
+    {
+      "code": "L721",
+      "name": "Mangalsen Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 14
+    },
+    {
+      "code": "L722",
+      "name": "Kamalbazar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 10
+    },
+    {
+      "code": "L723",
+      "name": "Sanfebagar Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 14
+    },
+    {
+      "code": "L724",
+      "name": "Panchadewal Binayak Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D74",
+      "wardCount": 9
+    },
+    {
+      "code": "L725",
+      "name": "Navadurga Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 5
+    },
+    {
+      "code": "L726",
+      "name": "Aalitaal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 8
+    },
+    {
+      "code": "L727",
+      "name": "Ganyapadhura Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 5
+    },
+    {
+      "code": "L728",
+      "name": "Bhageshwar Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 5
+    },
+    {
+      "code": "L729",
+      "name": "Ajaymeru Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 6
+    },
+    {
+      "code": "L730",
+      "name": "Amargadhi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 11
+    },
+    {
+      "code": "L731",
+      "name": "Parshuram Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D75",
+      "wardCount": 12
+    },
+    {
+      "code": "L732",
+      "name": "Bhimdatta Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 19
+    },
+    {
+      "code": "L733",
+      "name": "Punarbas Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 11
+    },
+    {
+      "code": "L734",
+      "name": "Bedkot Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 10
+    },
+    {
+      "code": "L735",
+      "name": "Mahakali Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 10
+    },
+    {
+      "code": "L736",
+      "name": "Shuklaphanta Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 12
+    },
+    {
+      "code": "L737",
+      "name": "Belauri Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 10
+    },
+    {
+      "code": "L738",
+      "name": "Krishnapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 9
+    },
+    {
+      "code": "L739",
+      "name": "Laljhadi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 6
+    },
+    {
+      "code": "L740",
+      "name": "Beldandi Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D76",
+      "wardCount": 5
+    },
+    {
+      "code": "L741",
+      "name": "Janaki Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 9
+    },
+    {
+      "code": "L742",
+      "name": "Kailari Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 9
+    },
+    {
+      "code": "L743",
+      "name": "Joshipur Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 7
+    },
+    {
+      "code": "L744",
+      "name": "Bardagoriya Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 6
+    },
+    {
+      "code": "L745",
+      "name": "Mohanyal Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 7
+    },
+    {
+      "code": "L746",
+      "name": "Chure Rural Municipality",
+      "type": "RURAL_MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 6
+    },
+    {
+      "code": "L747",
+      "name": "Tikapur Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 9
+    },
+    {
+      "code": "L748",
+      "name": "Ghodaghodi Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 12
+    },
+    {
+      "code": "L749",
+      "name": "Lamkichuha Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 10
+    },
+    {
+      "code": "L750",
+      "name": "Bhajni Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 9
+    },
+    {
+      "code": "L751",
+      "name": "Godawari Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 12
+    },
+    {
+      "code": "L752",
+      "name": "Gauriganga Municipality",
+      "type": "MUNICIPALITY",
+      "districtCode": "D77",
+      "wardCount": 11
+    },
+    {
+      "code": "L753",
+      "name": "Dhangadhi Sub-Metropolitan City",
+      "type": "SUB_METROPOLITAN_CITY",
+      "districtCode": "D77",
+      "wardCount": 19
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import nepalGeography from "./data/nepal-geography.json";
 
 const prisma = new PrismaClient();
 
@@ -287,6 +288,47 @@ async function main() {
     });
   }
   console.log(`Seeded ${gradeReferences.length} grade references (PP1-PP3, Y1-Y10).`);
+
+  // Nepal administrative geography (Phase A) — Province -> District ->
+  // Local Level, vendored from prisma/data/nepal-geography.json (see
+  // that file's _source/_note fields for provenance and the update
+  // policy). Fixed, seeded reference data — never edited from the
+  // application UI, same role GradeReference plays above. Upserted by
+  // `code` so re-running this script is always safe.
+  for (const p of nepalGeography.provinces) {
+    await prisma.province.upsert({
+      where: { code: p.code },
+      update: { name: p.name, order: p.order },
+      create: p,
+    });
+  }
+  const provinces = await prisma.province.findMany({ select: { id: true, code: true } });
+  const provinceIdByCode = new Map(provinces.map((p) => [p.code, p.id]));
+
+  for (const d of nepalGeography.districts) {
+    const provinceId = provinceIdByCode.get(d.provinceCode);
+    if (!provinceId) throw new Error(`Seed data error: district ${d.code} references unknown province ${d.provinceCode}`);
+    await prisma.district.upsert({
+      where: { code: d.code },
+      update: { name: d.name, provinceId },
+      create: { code: d.code, name: d.name, provinceId },
+    });
+  }
+  const districts = await prisma.district.findMany({ select: { id: true, code: true } });
+  const districtIdByCode = new Map(districts.map((d) => [d.code, d.id]));
+
+  for (const l of nepalGeography.localLevels) {
+    const districtId = districtIdByCode.get(l.districtCode);
+    if (!districtId) throw new Error(`Seed data error: local level ${l.code} references unknown district ${l.districtCode}`);
+    await prisma.localLevel.upsert({
+      where: { code: l.code },
+      update: { name: l.name, type: l.type, wardCount: l.wardCount, districtId },
+      create: { code: l.code, name: l.name, type: l.type, wardCount: l.wardCount, districtId },
+    });
+  }
+  console.log(
+    `Seeded Nepal geography: ${nepalGeography.provinces.length} provinces, ${nepalGeography.districts.length} districts, ${nepalGeography.localLevels.length} local levels.`
+  );
 }
 
 main()

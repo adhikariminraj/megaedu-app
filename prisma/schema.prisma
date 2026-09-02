@@ -51,6 +51,9 @@ model User {
   gradeDecisionsMade     GradeHistory[]      @relation("GradeHistoryDecidedBy")
   gradeHistoryAuditsMade GradeHistoryAudit[] @relation("GradeHistoryAuditChangedBy")
 
+  addresses        Address[]
+  addressesUpdated Address[] @relation("AddressUpdatedBy")
+
   attendancesMarked        Attendance[]      @relation("AttendanceMarkedBy")
   attendanceAuditsChanged  AttendanceAudit[] @relation("AttendanceAuditChangedBy")
   teachingUnitsCreated     TeachingUnit[]    @relation("TeachingUnitCreatedBy")
@@ -125,6 +128,13 @@ model School {
   assessmentFrameworks           AssessmentFramework[]
   gradingScales                  GradingScale[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
+
+  // Structured address (label "OFFICIAL") — see Address below. The
+  // legacy free-text location/district fields above stay in place
+  // alongside this; they're never dropped in the same pass a school
+  // adopts the structured form, matching Student.gradeLevel's existing
+  // "no single safe moment to migrate everyone at once" precedent.
+  addresses Address[]
 }
 
 model SchoolAdmin {
@@ -1438,6 +1448,110 @@ model Payment {
   provider       String?
   providerRef    String?
   createdAt      DateTime      @default(now())
+}
+
+// ============================================================
+// NEPAL GEOGRAPHY REFERENCE & STRUCTURED ADDRESSES — Phase A
+// Province/District/LocalLevel are fixed, seeded reference data —
+// vendored from prisma/data/nepal-geography.json and loaded by
+// prisma/seed.ts, the same "fixed and seeded once, schools/users only
+// ever select from it" role GradeReference already plays for grades.
+// Never editable from the application UI.
+// ============================================================
+
+model Province {
+  id    String @id @default(cuid())
+  code  String @unique
+  name  String
+  order Int    @unique
+
+  districts District[]
+  addresses Address[]
+}
+
+model District {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  provinceId String
+  province   Province @relation(fields: [provinceId], references: [id])
+
+  localLevels LocalLevel[]
+  addresses   Address[]
+
+  @@index([provinceId])
+}
+
+// type: "METROPOLITAN_CITY" | "SUB_METROPOLITAN_CITY" | "MUNICIPALITY" |
+// "RURAL_MUNICIPALITY" — plain String, not a Prisma enum, matching this
+// schema's existing SQLite-driven convention (see UserRole.role above).
+model LocalLevel {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  name       String
+  type       String
+  wardCount  Int
+  districtId String
+  district   District @relation(fields: [districtId], references: [id])
+
+  addresses Address[]
+
+  @@index([districtId])
+}
+
+// One reusable, structured address shared by every kind of address this
+// app needs: personal Current/Permanent (userId), School Official
+// (schoolId), and — from Phase C — Family/Emergency Contact addresses.
+// Exactly one owner FK is set per row, the same nullable-owner-FK idiom
+// already used by Event/Program/Resource above (schoolId?/
+// organizationId? side by side) — not a new pattern.
+//
+// wardNumber is a plain bounded Int, validated at the application layer
+// against the chosen LocalLevel.wardCount (1..wardCount), mirroring
+// AcademicSession's existing "app-level, not DB-level" constraint idiom.
+// A dedicated Ward row per number (6,743 of them nationwide) would add
+// no query or integrity value a bounds check doesn't already give.
+model Address {
+  id String @id @default(cuid())
+
+  // "CURRENT" | "PERMANENT" | "OFFICIAL"
+  label String
+
+  provinceId   String
+  province     Province   @relation(fields: [provinceId], references: [id])
+  districtId   String
+  district     District   @relation(fields: [districtId], references: [id])
+  localLevelId String
+  localLevel   LocalLevel @relation(fields: [localLevelId], references: [id])
+  wardNumber   Int
+
+  streetAddress String?
+  houseNumber   String?
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  // Accountability: both a self-service user and, separately, an
+  // authorized School Admin correcting a school-record address can
+  // write this row — this records who last did so without standing up
+  // a full audit-log system for it.
+  updatedByUserId String?
+  updatedBy       User?   @relation("AddressUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // SQLite treats NULL as distinct in a unique index, so these only
+  // constrain rows where that owner column is actually set — a School
+  // (schoolId set, userId null) and a User (userId set, schoolId null)
+  // never collide with each other here.
+  @@unique([userId, label])
+  @@unique([schoolId, label])
+  @@index([provinceId])
+  @@index([districtId])
+  @@index([localLevelId])
 }
 
 // ============================================================

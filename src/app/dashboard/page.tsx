@@ -118,6 +118,10 @@ export default async function DashboardPage() {
             teachers: { include: { user: true }, orderBy: { createdAt: "desc" } },
             students: { include: { user: true }, orderBy: { createdAt: "desc" } },
             accountants: { include: { user: true } },
+            addresses: {
+              where: { label: "OFFICIAL" },
+              include: { province: true, district: true, localLevel: true },
+            },
           },
         },
       },
