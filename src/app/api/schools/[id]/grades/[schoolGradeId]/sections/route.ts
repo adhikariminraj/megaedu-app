@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { normalizeSectionName } from "@/lib/sections";
 
 /**
  * Bulk-creates one or more Sections under a SchoolGrade — "A, B, C" in
@@ -23,7 +24,7 @@ export async function POST(
   }
 
   const { names } = (await req.json()) as { names?: string[] };
-  const cleanNames = [...new Set((names || []).map((n) => n.trim()).filter(Boolean))];
+  const cleanNames = [...new Set((names || []).map((n) => normalizeSectionName(n)).filter(Boolean))];
   if (cleanNames.length === 0) {
     return NextResponse.json({ error: "Enter at least one section name." }, { status: 400 });
   }

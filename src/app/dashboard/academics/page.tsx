@@ -26,7 +26,10 @@ export default async function AcademicsPage() {
       where: { schoolId },
       include: {
         gradeReference: true,
-        sections: { where: { isActive: true }, orderBy: { name: "asc" } },
+        // Both active and inactive sections — inactive ones stay visible
+        // (de-emphasized) with a Reactivate action, so deactivating one
+        // is never a UI dead-end even though it's fully reversible.
+        sections: { orderBy: { name: "asc" } },
       },
       orderBy: { gradeReference: { order: "asc" } },
     }),
@@ -109,7 +112,7 @@ export default async function AcademicsPage() {
       grades={schoolGrades.map((g) => ({
         id: g.id,
         displayName: g.displayName,
-        sections: g.sections.map((s) => ({ id: s.id, name: s.name })),
+        sections: g.sections.map((s) => ({ id: s.id, name: s.name, isActive: s.isActive })),
         offeredSubjects: gradeSubjectsByGrade[g.id] || [],
         assignments: assignmentsByGrade[g.id] || [],
         classTeachers: classTeachersByGrade[g.id] || [],

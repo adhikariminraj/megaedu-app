@@ -22,10 +22,11 @@ type ClassTeacher = {
   sectionId: string | null;
   sectionName: string | null;
 };
+type SectionRow = { id: string; name: string; isActive: boolean };
 type Grade = {
   id: string;
   displayName: string;
-  sections: { id: string; name: string }[];
+  sections: SectionRow[];
   offeredSubjects: OfferedSubject[];
   assignments: Assignment[];
   classTeachers: ClassTeacher[];
@@ -58,6 +59,8 @@ export default function AcademicStructureClient({
   >({});
   const [classTeacherPick, setClassTeacherPick] = useState<Record<string, { teacherId: string; sectionId: string }>>({});
   const [newSectionNames, setNewSectionNames] = useState<Record<string, string>>({});
+  const [sectionRenaming, setSectionRenaming] = useState<Record<string, string>>({});
+  const [confirmDeactivateSectionId, setConfirmDeactivateSectionId] = useState<string | null>(null);
 
   async function call(url: string, options: RequestInit) {
     setError(null);
@@ -199,6 +202,34 @@ export default function AcademicStructureClient({
     if (result) setNewSectionNames((p) => ({ ...p, [gradeId]: "" }));
   }
 
+  async function renameSection(sectionId: string) {
+    const name = sectionRenaming[sectionId];
+    if (!name?.trim()) return;
+    const result = await call(`/api/schools/${schoolId}/sections/${sectionId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    // Clear the key entirely (not just to "") so the input falls back to
+    // the freshly-saved s.name via `??` instead of showing blank — "" is
+    // not nullish, so it would otherwise win over the real value.
+    if (result) {
+      setSectionRenaming((r) => {
+        const { [sectionId]: _, ...rest } = r;
+        return rest;
+      });
+    }
+  }
+
+  async function toggleSectionActive(section: SectionRow) {
+    await call(`/api/schools/${schoolId}/sections/${section.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isActive: !section.isActive }),
+    });
+    setConfirmDeactivateSectionId(null);
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <p className="text-sm text-slate-400 mb-1">{schoolName}</p>
@@ -300,6 +331,11 @@ export default function AcademicStructureClient({
                 (s) => !g.offeredSubjects.some((o) => o.subjectId === s.id)
               );
               const pick = assignPick[g.id] || { teacherId: "", subjectId: "", sectionId: "" };
+              // Deactivated sections stay visible in the management list
+              // below, but are excluded from every "pick a section to
+              // assign someone to" dropdown — deactivating one is
+              // specifically meant to stop new assignments against it.
+              const activeSections = g.sections.filter((s) => s.isActive);
 
               return (
                 <div key={g.id} className="border border-slate-200 rounded-xl p-4">
@@ -321,26 +357,87 @@ export default function AcademicStructureClient({
                         <p className="text-xs text-slate-400 mb-2">
                           Needed before a teacher can be assigned to an individual section rather
                           than the whole grade. No fixed maximum — add as many as this grade uses.
+                          Deactivating a section stops it being offered for new assignments or
+                          placements — every student, teacher assignment, attendance record, and
+                          evaluation already linked to it is preserved untouched, and it can be
+                          reactivated at any time.
                         </p>
                         {g.sections.length === 0 ? (
                           <p className="text-slate-400 text-xs mb-2">None yet — only "All sections" is available until you add some.</p>
                         ) : (
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            {g.sections.map((s) => (
-                              <span
-                                key={s.id}
-                                className="text-xs bg-blue-50 text-mega-navy rounded-full px-3 py-1"
-                              >
-                                Section {s.name}
-                              </span>
-                            ))}
+                          <div className="space-y-1.5 mb-2">
+                            {g.sections.map((s) => {
+                              const confirming = confirmDeactivateSectionId === s.id;
+                              return (
+                                <div
+                                  key={s.id}
+                                  className={`flex items-center gap-2 border rounded-lg px-3 py-2 ${
+                                    s.isActive ? "border-slate-100" : "border-slate-100 bg-slate-50"
+                                  }`}
+                                >
+                                  <span className="text-xs font-medium text-slate-400 shrink-0">Section</span>
+                                  <input
+                                    value={sectionRenaming[s.id] ?? s.name}
+                                    onChange={(e) =>
+                                      setSectionRenaming((r) => ({ ...r, [s.id]: e.target.value }))
+                                    }
+                                    className={`flex-1 min-w-0 text-sm border border-slate-200 rounded px-2 py-1 ${
+                                      s.isActive ? "" : "text-slate-400"
+                                    }`}
+                                  />
+                                  {sectionRenaming[s.id] !== undefined && sectionRenaming[s.id] !== s.name && (
+                                    <button
+                                      onClick={() => renameSection(s.id)}
+                                      className="text-xs font-semibold text-mega-navy shrink-0"
+                                    >
+                                      Save
+                                    </button>
+                                  )}
+                                  <span
+                                    className={`text-xs font-semibold px-2 py-1 rounded-full shrink-0 ${
+                                      s.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                                    }`}
+                                  >
+                                    {s.isActive ? "Active" : "Inactive"}
+                                  </span>
+                                  {confirming ? (
+                                    <span className="flex items-center gap-2 shrink-0">
+                                      <span className="text-xs text-mega-red">Deactivate?</span>
+                                      <button
+                                        onClick={() => toggleSectionActive(s)}
+                                        className="text-xs font-semibold text-mega-red hover:text-red-700"
+                                      >
+                                        Confirm
+                                      </button>
+                                      <button
+                                        onClick={() => setConfirmDeactivateSectionId(null)}
+                                        className="text-xs text-slate-400 hover:text-slate-600"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      onClick={() =>
+                                        s.isActive
+                                          ? setConfirmDeactivateSectionId(s.id)
+                                          : toggleSectionActive(s)
+                                      }
+                                      className="text-xs font-semibold text-slate-500 hover:text-slate-800 shrink-0"
+                                    >
+                                      {s.isActive ? "Deactivate" : "Reactivate"}
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                         <div className="flex gap-2">
                           <input
                             value={newSectionNames[g.id] || ""}
                             onChange={(e) => setNewSectionNames((p) => ({ ...p, [g.id]: e.target.value }))}
-                            placeholder="e.g. A, B, C"
+                            placeholder="Label only, e.g. A, B, C — not &quot;Section C&quot;"
                             className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5"
                           />
                           <button
@@ -416,7 +513,7 @@ export default function AcademicStructureClient({
                             className="text-sm border border-slate-200 rounded-lg px-2 py-1.5"
                           >
                             <option value="">Whole grade (Grade Coordinator)</option>
-                            {g.sections.map((s) => (
+                            {activeSections.map((s) => (
                               <option key={s.id} value={s.id}>
                                 Section {s.name} (Class Teacher)
                               </option>
@@ -561,7 +658,7 @@ export default function AcademicStructureClient({
                               className="text-sm border border-slate-200 rounded-lg px-2 py-1.5"
                             >
                               <option value="">All sections</option>
-                              {g.sections.map((s) => (
+                              {activeSections.map((s) => (
                                 <option key={s.id} value={s.id}>
                                   Section {s.name}
                                 </option>

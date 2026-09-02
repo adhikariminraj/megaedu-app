@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { normalizeSectionName } from "@/lib/sections";
 
 /**
  * Renames and/or activates/deactivates a Section. There is deliberately
@@ -10,6 +11,10 @@ import { requireSchoolAdmin } from "@/lib/authorize";
  * deactivated (isActive: false), which stops it from being offered for
  * new placements/reassignments without touching any existing
  * GradeHistory row that already points at it.
+ *
+ * A renamed name is passed through normalizeSectionName() — the stored
+ * convention is always the bare label ("A", "C"), never a "Section "
+ * prefix — same as the create route.
  */
 export async function PATCH(
   req: NextRequest,
@@ -29,9 +34,9 @@ export async function PATCH(
   const body = (await req.json()) as { name?: string; isActive?: boolean };
   const data: { name?: string; isActive?: boolean } = {};
   if (typeof body.name === "string") {
-    const trimmed = body.name.trim();
-    if (!trimmed) return NextResponse.json({ error: "Section name can't be empty." }, { status: 400 });
-    data.name = trimmed;
+    const normalized = normalizeSectionName(body.name);
+    if (!normalized) return NextResponse.json({ error: "Section name can't be empty." }, { status: 400 });
+    data.name = normalized;
   }
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
 
