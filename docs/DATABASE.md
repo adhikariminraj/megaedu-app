@@ -155,9 +155,9 @@ Additive on top of Phase 2/the Section system — no existing model's columns ch
 Seven new models, additive on top of Phase 2/3A — no existing model's columns changed, only new relation-array fields. See [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for the full behavioral write-up; this section covers structure only.
 
 ### `ClassTeacherAssignment`
-**Purpose**: a designated Grade Class Teacher (`sectionId: null`) or Section Teacher (`sectionId` set) — special day-to-day responsibility, distinct from subject-teaching. **Currently used**: yes.
+**Purpose**: a designated Grade Coordinator (`sectionId: null`) or Class Teacher (`sectionId` set) — special day-to-day responsibility, distinct from subject-teaching. **Currently used**: yes.
 **Key fields**: `id, teacherId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), createdAt`.
-**Constraints**: `@@unique([schoolGradeId, sectionId, academicSessionId])` — uniqueness is on the *slot* (at most one Class/Section Teacher per grade-or-section, per session), not the teacher; the same teacher may hold multiple slots across different grades/sections. **Unlike `TeacherAcademicAssignment`, grade-wide and section-specific rows may coexist for the same grade** — no overlap rule.
+**Constraints**: `@@unique([schoolGradeId, sectionId, academicSessionId])` — uniqueness is on the *slot* (at most one Grade Coordinator/Class Teacher per grade-or-section, per session), not the teacher; the same teacher may hold multiple slots across different grades/sections. **Unlike `TeacherAcademicAssignment`, grade-wide and section-specific rows may coexist for the same grade** — no overlap rule.
 **Delete behavior**: cascades from `Teacher`/`AcademicSession`/`SchoolGrade`; a real `DELETE` route exists — not audited, current-state operational data.
 **Notes**: ⚠️ the `@@unique` above reliably catches a duplicate *section-specific* slot but, on its own, does **not** catch a second *grade-wide* row for the same grade/session (`NULL ≠ NULL` in a unique index, same caveat as `TeacherAcademicAssignment`'s overlap rule) — this was found via a live duplicate-creation test during Phase 3B and fixed with an explicit app-level pre-check inside the create route's transaction, re-verified in both a single-request and an in-batch scenario.
 
@@ -210,7 +210,7 @@ Seven new models, additive on top of Phase 2/3A — no existing model's columns 
 Two new models, additive on top of Phase 2/3A/3B — no existing model's columns changed, only new relation-array fields. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for the full behavioral write-up; this section covers structure only.
 
 ### `StudentEvaluation`
-**Purpose**: a teacher's narrative, qualitative evaluation of one student, for one session — General (`gradeSubjectId: null`, Class/Section Teacher) or Subject (`gradeSubjectId` set, Subject Teacher). **Currently used**: yes.
+**Purpose**: a teacher's narrative, qualitative evaluation of one student, for one session — General (`gradeSubjectId: null`, Grade Coordinator/Class Teacher) or Subject (`gradeSubjectId` set, Subject Teacher). **Currently used**: yes.
 **Key fields**: `id, studentId (FK), teacherId (FK), academicSessionId (FK), schoolGradeId (FK), sectionId? (FK), gradeSubjectId? (FK), remarks, visibleToParent (default false), sharedWithParentAt?, visibleToStudent (default false), sharedWithStudentAt?, createdByUserId (FK), createdAt, updatedAt`.
 **Constraints**: `@@unique([studentId, teacherId, academicSessionId, gradeSubjectId])` — reliably catches an exact duplicate subject-specific slot; does **not**, by itself, catch a second general (`gradeSubjectId: null`) evaluation from the same teacher/student/session (the familiar `NULL ≠ NULL` unique-index gap already seen with `TeacherAcademicAssignment`/`ClassTeacherAssignment`) — the create route pre-checks this case explicitly.
 **Delete behavior**: cascades from `Student`; no delete route — remarks are edited in place via `updateEvaluationRemarks()`, never deleted and recreated.

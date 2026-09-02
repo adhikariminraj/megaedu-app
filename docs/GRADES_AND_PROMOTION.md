@@ -2,7 +2,7 @@
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
 > Last verified: 2026-08-31 (Class Overview — Teachers, Sections, and Ranking), against the current codebase.
-> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for Phase 3B's Class/Section Teachers, Attendance, Teaching Units, and Unit Tests, [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) for the ranking calculation the Class Overview reuses, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions, and the `CURRENT_ROSTER_STATUSES` rule).
+> See [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) for the session side, [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) for Phase 3A's Subjects & Teacher Academic Assignment (built on top of the grade/section structure documented here), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) for Phase 3B's Grade Coordinators/Class Teachers, Attendance, Teaching Units, and Unit Tests, [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) for the ranking calculation the Class Overview reuses, and [PRODUCT_RULES.md](PRODUCT_RULES.md) for the underlying design principles (snapshot fields, never-guess matching, audited decisions, and the `CURRENT_ROSTER_STATUSES` rule).
 
 ## Why this exists ✅
 

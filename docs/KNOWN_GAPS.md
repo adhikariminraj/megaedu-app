@@ -73,7 +73,7 @@ Deliberate, not a bug (see [PRODUCT_RULES.md](PRODUCT_RULES.md)) — a new sessi
 ### A `TeachingUnit`/`TeachingPlan` set must be reconfigured from scratch every session 🔭
 Same deliberate non-carry-forward pattern as `GradeSubject` above — a new session starts with zero units/plans, nothing copied from the prior session. No "copy from last session" convenience action exists.
 
-### No teaching hierarchy (primary/assistant/substitute teacher) for either academic or Class/Section Teacher assignments 🔭
+### No teaching hierarchy (primary/assistant/substitute teacher) for either academic or Grade Coordinator/Class Teacher assignments 🔭
 Explicitly out of scope, confirmed twice — once for `TeacherAcademicAssignment` in Phase 3A, again for `ClassTeacherAssignment` in Phase 3B ("Do not introduce teacher hierarchy... yet").
 
 ### No retest concept for Unit/Chapter Tests 🔭

@@ -57,22 +57,22 @@ Every account created by `seed-demo.ts` shares one password: **`MegaDemo123!`**.
 | School Admin | `demo.school@megaedu.local` | Bootstrap account (unchanged) |
 | Student | `demo.student@megaedu.local` | Bootstrap account — Class 9, Section D; already decided `REPEATED` for *next* session, but shows "Regular" on Class Overview since their own arrival into Class 9 wasn't a repeat (two different, both-correct demonstrations of the same feature) |
 | Parent | `demo.parent@megaedu.local` | Bootstrap account, linked to Demo Student |
-| Class Teacher (Class 9, whole grade) | `demo.teacher@megaedu.local` | Bootstrap account |
-| Section Teacher (9A), Math (9A/9B), Science (9E) | `demo2.teacher@megaedu.local` ("Bimla") | Pre-existing test account, recreated here for self-sufficiency |
-| Mathematics (9C/9D), Section Teacher (9C), also teaches Class 6 | `suresh.sharma.math@megaedu.local` |  |
+| Grade Coordinator (Class 9) | `demo.teacher@megaedu.local` | Bootstrap account |
+| Class Teacher (9A), Math (9A/9B), Science (9E) | `demo2.teacher@megaedu.local` ("Bimla") | Pre-existing test account, recreated here for self-sufficiency |
+| Mathematics (9C/9D), Class Teacher (9C), also teaches Class 6 | `suresh.sharma.math@megaedu.local` |  |
 | English (grade-wide, Class 9 & 6) | `anita.gurung.eng@megaedu.local` |  |
 | Nepali (grade-wide, Class 9) | `ramesh.thapa.nep@megaedu.local` |  |
 | Social Studies (grade-wide, Class 9) | `sita.rai.soc@megaedu.local` |  |
 | Science (grade-wide, Class 9) | `prakash.kc.sci@megaedu.local` |  |
 | IT/Computer (grade-wide, Class 9) | `bishnu.adhikari.comp@megaedu.local` |  |
-| Class Teacher (Class 6, whole grade), Science | `maya.lama.c6@megaedu.local` |  |
+| Grade Coordinator (Class 6), Science | `maya.lama.c6@megaedu.local` |  |
 
 ### Himalayan Secondary School — stable, fixed-email accounts
 
 | Role | Email | Notes |
 |---|---|---|
 | School Admin | `admin.himalayan@megaedu.local` |  |
-| Class Teacher (Class 8, whole grade), Math & Science | `kiran.basnet.him@megaedu.local` |  |
+| Grade Coordinator (Class 8), Math & Science | `kiran.basnet.him@megaedu.local` |  |
 | English (grade-wide) | `sunita.karki.him@megaedu.local` |  |
 
 ### Students and parents (auto-generated)

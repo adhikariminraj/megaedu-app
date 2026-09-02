@@ -172,8 +172,8 @@ export default function AcademicStructureClient({
     if (result?.created === 0) {
       setError(
         pick.sectionId
-          ? "That section already has a Section Teacher — remove the existing one first."
-          : "This grade already has a Grade Class Teacher — remove the existing one first."
+          ? "That section already has a Class Teacher — remove the existing one first."
+          : "This grade already has a Grade Coordinator — remove the existing one first."
       );
     }
     setClassTeacherPick((p) => ({ ...p, [gradeId]: { teacherId: "", sectionId: "" } }));
@@ -354,11 +354,13 @@ export default function AcademicStructureClient({
 
                       <div>
                         <p className="text-xs font-semibold text-slate-500 mb-2">
-                          Class &amp; Section Teachers
+                          Grade Coordinators &amp; Class Teachers
                         </p>
                         <p className="text-xs text-slate-400 mb-2">
-                          A Grade Class Teacher covers every section; a Section Teacher covers only
-                          their own section. Both may coexist for the same grade.
+                          A Grade Coordinator covers every section; a Class Teacher covers only
+                          their own section. Both are responsibilities, not separate teacher types —
+                          the same teacher may hold either alongside their subject teaching
+                          assignments, and both may coexist for the same grade.
                         </p>
                         {g.classTeachers.length === 0 ? (
                           <p className="text-slate-400 text-xs mb-2">None assigned yet.</p>
@@ -372,7 +374,7 @@ export default function AcademicStructureClient({
                                 <span>
                                   {c.teacherName} —{" "}
                                   <span className="text-slate-400">
-                                    {c.sectionName ? `Section Teacher — Section ${c.sectionName}` : "Grade Class Teacher"}
+                                    {c.sectionName ? `Class Teacher — Section ${c.sectionName}` : "Grade Coordinator"}
                                   </span>
                                 </span>
                                 <button
@@ -413,10 +415,10 @@ export default function AcademicStructureClient({
                             }
                             className="text-sm border border-slate-200 rounded-lg px-2 py-1.5"
                           >
-                            <option value="">Whole grade (Grade Class Teacher)</option>
+                            <option value="">Whole grade (Grade Coordinator)</option>
                             {g.sections.map((s) => (
                               <option key={s.id} value={s.id}>
-                                Section {s.name} (Section Teacher)
+                                Section {s.name} (Class Teacher)
                               </option>
                             ))}
                           </select>

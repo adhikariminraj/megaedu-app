@@ -206,7 +206,7 @@ Ranking uses a student's GPA when at least one of their own published subjects r
 
 **What is this?** A daily record of whether each student was present, absent, late, or excused — one record per student, per day.
 
-**Who can use it?** A School Administrator, or a teacher assigned as that grade/section's Class or Section Teacher.
+**Who can use it?** A School Administrator, or a teacher assigned as that grade/section's Grade Coordinator or Class Teacher.
 
 **How to use it:** From the Attendance page, pick a date, pick the grade (and section, if applicable), and mark each student. If you need to fix a mistake, correcting an already-marked day keeps a record of exactly what changed and when — corrections are never silent.
 
@@ -214,7 +214,7 @@ Ranking uses a student's GPA when at least one of their own published subjects r
 
 ### Student evaluations
 
-**What is this?** A teacher's written comments about a student — either a general comment (from their Class/Section Teacher) or a subject-specific comment (from a Subject Teacher).
+**What is this?** A teacher's written comments about a student — either a general comment (from their Grade Coordinator/Class Teacher) or a subject-specific comment (from a Subject Teacher).
 
 **Who can use it?** School Administrator, or the relevant teacher.
 
@@ -399,7 +399,7 @@ Your dashboard is the control center for everything above — school profile, st
 
 ### Teacher
 
-Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, or entering assessment marks. If you're a Class or Section Teacher, you'll also see that responsibility called out separately.
+Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
 
 ### Student
 

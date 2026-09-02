@@ -168,13 +168,13 @@ export async function requireTeacherAssignment(
 
 /**
  * Returns the userId if the current session belongs to an approved
- * Teacher at schoolId who holds a ClassTeacherAssignment (Grade Class
- * Teacher or Section Teacher — see PRODUCT_RULES.md) matching the
- * given scope, otherwise null. Same three-way sectionId semantics as
- * requireTeacherAssignment() above, via the same sectionScopeWhere()
- * helper — a Grade Class Teacher (sectionId: null on their row)
- * satisfies a check for any section under that grade; a Section
- * Teacher satisfies only their exact section.
+ * Teacher at schoolId who holds a ClassTeacherAssignment (the Grade
+ * Coordinator or Class Teacher responsibility — see PRODUCT_RULES.md)
+ * matching the given scope, otherwise null. Same three-way sectionId
+ * semantics as requireTeacherAssignment() above, via the same
+ * sectionScopeWhere() helper — a Grade Coordinator (sectionId: null on
+ * their row) satisfies a check for any section under that grade; a
+ * Class Teacher satisfies only their exact section.
  *
  * Deliberately teacher-only — does not fold in a School Admin bypass;
  * callers compose both checks inline, same pattern as every other

@@ -63,7 +63,7 @@ Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for 
 
 The original implementation treated `null` and *omitted* identically (both are falsy in JS), which never mattered while nothing called it, but would have wrongly authorized a section-specific-only teacher to manage a grade-wide unit once Phase 3B started depending on it. Verified independently against real assignment data (six scenarios, including the specific `null`-requires-grade-wide case) *before* any Teaching Unit/Test route was built on top of it.
 
-`requireClassTeacher()`, new in Phase 3B, checks a `ClassTeacherAssignment` (Grade Class Teacher / Section Teacher) with the identical three-way `sectionId` semantics, via the same `sectionScopeWhere()` helper:
+`requireClassTeacher()`, new in Phase 3B, checks a `ClassTeacherAssignment` (Grade Coordinator / Class Teacher) with the identical three-way `sectionId` semantics, via the same `sectionScopeWhere()` helper:
 
 ```ts
 requireClassTeacher(
@@ -72,7 +72,7 @@ requireClassTeacher(
 ): Promise<string | null>
 ```
 
-Both gate Phase 3B's operational routes: `requireTeacherAssignment()` for Teaching Units, Teaching Plans, and Unit/Chapter Tests (scoped to the unit/plan/test's own grade/section/subject); `requireClassTeacher()` for Attendance (scoped to the grade/section being marked — passing `sectionId: null` when marking the whole grade correctly requires a Grade Class Teacher, not just any Section Teacher). Verified live through a real logged-in Section Teacher account: marking their own section succeeded, marking a different section or the whole grade unscoped both returned `403`.
+Both gate Phase 3B's operational routes: `requireTeacherAssignment()` for Teaching Units, Teaching Plans, and Unit/Chapter Tests (scoped to the unit/plan/test's own grade/section/subject); `requireClassTeacher()` for Attendance (scoped to the grade/section being marked — passing `sectionId: null` when marking the whole grade correctly requires a Grade Coordinator, not just any Class Teacher). Verified live through a real logged-in Class Teacher account: marking their own section succeeded, marking a different section or the whole grade unscoped both returned `403`.
 
 Both are deliberately teacher-only, no School-Admin bypass baked in; a caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`, and every Phase 3B write route does the same (`requireSchoolAdmin(...) || requireClassTeacher(...)` / `requireTeacherAssignment(...)`). See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md), and [PRODUCT_RULES.md](PRODUCT_RULES.md).
 

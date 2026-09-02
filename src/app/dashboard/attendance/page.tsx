@@ -89,7 +89,7 @@ export default async function AttendancePage({
         <p className="text-slate-500 text-sm">
           {isAdmin
             ? "No grades configured yet."
-            : "You aren't assigned as a Class or Section Teacher for any grade this session."}
+            : "You aren't assigned as a Grade Coordinator or Class Teacher for any grade this session."}
         </p>
       </div>
     );

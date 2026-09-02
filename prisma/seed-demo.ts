@@ -348,13 +348,16 @@ async function main() {
     if (existing) return existing;
     return prisma.classTeacherAssignment.create({ data: { teacherId, schoolGradeId, sectionId: null, academicSessionId: activeSession.id } });
   }
-  // Demo Teacher: Class 9 whole-grade Class Teacher (existing).
+  // Demo Teacher: Class 9 Grade Coordinator (existing).
   await ensureCTA(demoTeacher.id, class9.id, null);
-  // Bimla: Section Teacher, 9A (existing).
+  // Bimla: Class Teacher, 9A (existing) — combined with her subject
+  // teaching assignments above, demonstrating one Teacher holding both
+  // Subject Teaching Assignments and a Class Teacher responsibility.
   await ensureCTA(bimla.id, class9.id, sectionsC9["A"].id);
-  // Suresh: Section Teacher, 9C (new — shows grade-wide + section-specific coexisting).
+  // Suresh: Class Teacher, 9C (new — shows Grade Coordinator + Class
+  // Teacher coexisting for the same grade, on different teachers).
   await ensureCTA(suresh.teacher.id, class9.id, sectionsC9["C"].id);
-  // Maya: Class 6 whole-grade Class Teacher.
+  // Maya: Class 6 Grade Coordinator.
   await ensureCTA(maya.teacher.id, class6.id, null);
 
   // ---------------------------------------------------------------------

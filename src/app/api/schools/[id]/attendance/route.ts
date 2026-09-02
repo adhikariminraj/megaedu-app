@@ -17,10 +17,10 @@ type AttendanceRecordInput = { studentId: string; status: string; remarks?: stri
  *
  * `sectionId` in the request body is the TARGET of this marking pass —
  * omit it (or pass null) to mark across the whole grade (requires a
- * Grade Class Teacher, not just a Section Teacher — see
+ * Grade Coordinator, not just a Class Teacher — see
  * requireClassTeacher()'s three-way section semantics); pass a real
- * section id to mark just that section's roster (a Grade Class Teacher
- * or that section's own Section Teacher may both do this).
+ * section id to mark just that section's roster (a Grade Coordinator
+ * or that section's own Class Teacher may both do this).
  *
  * Each record's actual schoolGradeId/sectionId snapshot on the
  * Attendance row is taken from the STUDENT's own current GradeHistory

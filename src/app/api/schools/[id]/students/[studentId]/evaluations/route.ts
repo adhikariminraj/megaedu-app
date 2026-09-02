@@ -11,7 +11,7 @@ import {
 /**
  * Creates a StudentEvaluation for the student's current placement in
  * the active academic session — General Student Evaluation
- * (gradeSubjectId omitted, authored by a Grade Class/Section Teacher)
+ * (gradeSubjectId omitted, authored by a Grade Coordinator/Class Teacher)
  * or Subject Evaluation (gradeSubjectId set, authored by that subject's
  * Teacher). "General" vs "Subject" is derived entirely from whether
  * gradeSubjectId is set — there is no separate type field.

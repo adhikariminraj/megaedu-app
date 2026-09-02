@@ -152,11 +152,11 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
       {teacher.approved && teacher.classTeacherAssignments.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-800 mb-1">
-            Your Class &amp; Section Teacher Responsibilities
+            Your Grade Coordinator &amp; Class Teacher Responsibilities
           </h2>
           <p className="text-xs text-slate-400 mb-4">
-            You're the designated Class or Section Teacher for these — you can take and correct
-            attendance for their students.
+            You're the designated Grade Coordinator or Class Teacher for these — you can take and
+            correct attendance for their students.
           </p>
           <div className="space-y-2">
             {teacher.classTeacherAssignments.map((c) => (
@@ -166,7 +166,7 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
               >
                 {c.schoolGrade.displayName} —{" "}
                 <span className="text-slate-400">
-                  {c.section ? `Section Teacher — Section ${c.section.name}` : "Grade Class Teacher"}
+                  {c.section ? `Class Teacher — Section ${c.section.name}` : "Grade Coordinator"}
                 </span>
                 <div className="flex gap-4 mt-1">
                   <Link

@@ -543,20 +543,25 @@ model TeacherAcademicAssignment {
 // Nothing in this block changes any existing model's columns.
 // ============================================================
 
-// A designated Class Teacher (sectionId: null, whole grade) or Section
-// Teacher (sectionId: set) — special day-to-day responsibility over the
-// students in a class/section, e.g. taking attendance. Deliberately a
-// separate model from TeacherAcademicAssignment (subject-teaching) —
-// different concern, different constraint shape. Unlike
-// TeacherAcademicAssignment, grade-wide and section-specific rows are
-// allowed to coexist for the SAME grade (e.g. a grade-wide Class
-// Teacher plus per-section Section Teachers) — no overlap rule here.
-// Uniqueness is on the SLOT, not the teacher: at most one Class/Section
-// Teacher per class-or-section per session, while the same teacher can
-// hold multiple such slots across different grades/sections. Session-
-// scoped, never carried forward (same as TeacherGradeAssignment/
-// TeacherAcademicAssignment). Not audited, real DELETE route — current-
-// state operational data, not a permanent decision.
+// A Grade Coordinator (sectionId: null, whole grade) or Class Teacher
+// (sectionId: set) responsibility — day-to-day accountability for the
+// students in a class/section, e.g. taking attendance. These are
+// responsibilities a Teacher holds, not separate teacher types — the
+// same person may simultaneously hold subject teaching assignments
+// (TeacherAcademicAssignment) plus either or both of these; no
+// teaching hierarchy or elevated authority over other teachers is
+// implied. Deliberately a separate model from TeacherAcademicAssignment
+// (subject-teaching) — different concern, different constraint shape.
+// Unlike TeacherAcademicAssignment, grade-wide and section-specific
+// rows are allowed to coexist for the SAME grade (e.g. a Grade
+// Coordinator plus per-section Class Teachers) — no overlap rule here.
+// Uniqueness is on the SLOT, not the teacher: at most one Grade
+// Coordinator/Class Teacher per class-or-section per session, while the
+// same teacher can hold multiple such slots across different
+// grades/sections. Session-scoped, never carried forward (same as
+// TeacherGradeAssignment/TeacherAcademicAssignment). Not audited, real
+// DELETE route — current-state operational data, not a permanent
+// decision.
 model ClassTeacherAssignment {
   id                String          @id @default(cuid())
   teacherId         String
@@ -774,7 +779,7 @@ model StudentEvaluation {
   schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
   sectionId         String?
   section           Section?        @relation(fields: [sectionId], references: [id])
-  // null = general/pastoral evaluation (Grade Class Teacher or Section
+  // null = general/pastoral evaluation (Grade Coordinator or Class
   // Teacher, via requireClassTeacher); set = subject-specific evaluation
   // (Subject Teacher, via requireTeacherAssignment). The UI derives its
   // "General Student Evaluation" vs "Subject Evaluation" label from

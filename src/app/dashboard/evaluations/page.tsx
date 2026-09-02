@@ -14,8 +14,8 @@ type GradeOption = {
 };
 
 /**
- * General Student Evaluation — the Grade Class Teacher / Section
- * Teacher counterpart to /dashboard/attendance, same grade/section
+ * General Student Evaluation — the Grade Coordinator / Class Teacher
+ * counterpart to /dashboard/attendance, same grade/section
  * picker pattern. "General" here means gradeSubjectId: null on
  * StudentEvaluation — a subject-specific evaluation instead lives on
  * /dashboard/academics/[gradeSubjectId], where subject-teaching already
@@ -96,7 +96,7 @@ export default async function EvaluationsPage({
         <p className="text-slate-500 text-sm">
           {isAdmin
             ? "No grades configured yet."
-            : "You aren't assigned as a Class or Section Teacher for any grade this session."}
+            : "You aren't assigned as a Grade Coordinator or Class Teacher for any grade this session."}
         </p>
       </div>
     );
@@ -121,7 +121,7 @@ export default async function EvaluationsPage({
   });
 
   // For a School Admin creating an evaluation "on behalf of" a teacher —
-  // only Class/Section Teachers actually eligible for this exact scope.
+  // only Grade Coordinators/Class Teachers actually eligible for this exact scope.
   const classTeachers = isAdmin
     ? await prisma.classTeacherAssignment.findMany({
         where: {

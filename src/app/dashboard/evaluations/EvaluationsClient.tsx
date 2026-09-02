@@ -118,7 +118,7 @@ export default function EvaluationsClient({
     <div className="max-w-2xl mx-auto px-6 py-12">
       <h1 className="text-2xl font-bold text-slate-800 mb-1">General Student Evaluation</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Overall development remarks from the Grade Class Teacher or Section Teacher — separate from any
+        Overall development remarks from the Grade Coordinator or Class Teacher — separate from any
         subject-specific evaluation, which lives on that subject's own page.
       </p>
 

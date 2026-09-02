@@ -7,13 +7,16 @@ type AssignmentInput = { teacherId: string; schoolGradeId: string; sectionId?: s
 
 /**
  * Bulk-creates ClassTeacherAssignment rows for one session — a Grade
- * Class Teacher (sectionId: null) or Section Teacher (sectionId: set).
- * Unlike teacher-academic-assignments, grade-wide and section-specific
- * rows are allowed to coexist for the same grade (e.g. a grade-wide
- * coordinator plus per-section Section Teachers) — no overlap check.
+ * Coordinator (sectionId: null) or Class Teacher (sectionId: set).
+ * These are responsibilities held by a Teacher, not separate teacher
+ * types — the same person may simultaneously hold subject teaching
+ * assignments plus either or both of these. Unlike
+ * teacher-academic-assignments, grade-wide and section-specific rows
+ * are allowed to coexist for the same grade (e.g. a Grade Coordinator
+ * plus per-section Class Teachers) — no overlap check.
  * Uniqueness is on the SLOT (grade-or-section, per session), not the
- * teacher — at most one Class/Section Teacher per slot; a request for
- * an already-filled slot is silently skipped (the admin must remove
+ * teacher — at most one Grade Coordinator/Class Teacher per slot; a
+ * request for an already-filled slot is silently skipped (the admin must remove
  * the existing assignment first, via the DELETE route, to replace it).
  *
  * @@unique([schoolGradeId, sectionId, academicSessionId]) reliably
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   };
   if (!academicSessionId || !assignments?.length) {
     return NextResponse.json(
-      { error: "Select at least one Class/Section Teacher assignment." },
+      { error: "Select at least one Grade Coordinator/Class Teacher assignment." },
       { status: 400 }
     );
   }
@@ -96,7 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         created++;
       } catch (err) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // this slot (grade or section, this session) already has a Class/Section Teacher
+          skipped++; // this slot (grade or section, this session) already has a Grade Coordinator/Class Teacher
           continue;
         }
         throw err;

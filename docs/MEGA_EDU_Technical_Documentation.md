@@ -309,7 +309,7 @@ A recurring, deliberate architectural decision: for any write that must be atomi
 - **`TeacherAcademicAssignment`** — teacher → session → grade → optional section → subject; a real `DELETE` route exists (current-state, not historical).
 
 ### School Academic Operations (Phase 3B)
-- **`ClassTeacherAssignment`** — Grade Class Teacher (`sectionId: null`) or Section Teacher; grade-wide and section-specific may coexist (unlike `TeacherAcademicAssignment`).
+- **`ClassTeacherAssignment`** — Grade Coordinator (`sectionId: null`) or Class Teacher; grade-wide and section-specific may coexist (unlike `TeacherAcademicAssignment`).
 - **`Attendance`**/**`AttendanceAudit`** — one row per student per calendar day; audited corrections. See [§14](#14-attendance-system).
 - **`TeachingPlan`**/**`TeachingUnit`** — a declared planned-total (separate model, not inferred from unit count) and the actual curriculum units with a teaching-progress status.
 - **`UnitTest`**/**`UnitTestResult`** — pre-created roster pattern. See [§17](#17-unit-tests).
@@ -410,7 +410,7 @@ PLATFORM_ADMIN → SCHOOL_ADMIN → TEACHER → STUDENT → PARENT → ORGANIZAT
 |---|---|---|
 | **PLATFORM_ADMIN** | Command-center dashboard (real counts, no invented metrics); verifies schools/organizations; can view any certificate. ⚠️ Can only be granted via `seed.ts` or direct DB access — no in-app route. | Seeded fixture only |
 | **SCHOOL_ADMIN** | Full school management: profile, staff/student approval, Phase 2 (sessions/grades/sections/promotion), Phase 3A (subjects/teacher assignments), Phase 3B (attendance/units/tests), Phase 3C (evaluations/meetings), Phase 3D (assessment config/results), direct Student/Teacher creation. | Self-registers as first admin |
-| **TEACHER** | Skill-crediting; course enrollment; within assignment scope — teaching plans/units/tests, evaluations, attendance (if also a Class/Section Teacher), assessment marks entry/publish. | School Admin (skipped if created via `+ Add Teacher`) |
+| **TEACHER** | Skill-crediting; course enrollment; within assignment scope — teaching plans/units/tests, evaluations, attendance (if also a Grade Coordinator/Class Teacher), assessment marks entry/publish. | School Admin (skipped if created via `+ Add Teacher`) |
 | **STUDENT** | Read-only: Teaching Progress, Test Results, Recent Attendance, shared Evaluations, published Assessment Results, Report Card, course enrollment/certificates. | School Admin (skipped if created via `+ Add Student`) |
 | **PARENT** | Read-only, per linked child: the same progress views as Student, plus Parent-Teacher Meetings (Student never sees these). | N/A (self-links children) |
 | **ORGANIZATION_ADMIN** | Course authoring/publishing, opportunities, accountant management. ⚠️ `Organization.verified` is never checked before publishing or enrollment. | Platform Admin (`verified` flag) |
@@ -510,7 +510,7 @@ Three distinct assignment models, each with a different overlap policy:
 |---|---|---|---|
 | `TeacherGradeAssignment` | teacher → grade → session | N/A (no subject/section) | No |
 | `TeacherAcademicAssignment` | teacher → grade → optional section → subject → session | **Exclusive**: a teacher may not hold both a grade-wide and section-specific row for the same subject/grade/session | No |
-| `ClassTeacherAssignment` | teacher → grade → optional section → session (Grade Class Teacher / Section Teacher) | **Coexisting**: grade-wide and section-specific rows may both exist for the same grade | No |
+| `ClassTeacherAssignment` | teacher → grade → optional section → session (Grade Coordinator / Class Teacher) | **Coexisting**: grade-wide and section-specific rows may both exist for the same grade | No |
 
 `TeacherAcademicAssignment.gradeSubjectId` is a direct FK to the matching `GradeSubject` row — it is schema-impossible to assign a teacher to a subject the grade doesn't actually offer that session. Multiple different teachers may freely overlap on the same subject/grade/section (no teaching hierarchy exists or is planned).
 
@@ -524,7 +524,7 @@ Three distinct assignment models, each with a different overlap policy:
 
 `Attendance` — one row per student **per calendar day**, never subject-based, `@@unique([studentId, date])` (global, not per-session). `date` is always derived from an explicit client-sent `"YYYY-MM-DD"` string, never the server's own clock, so the value represents the school's intended calendar day regardless of server timezone.
 
-**Marking**: `POST /api/schools/[id]/attendance`, `requireSchoolAdmin` OR `requireClassTeacher` scoped to `sectionId` (omitted = whole grade, requires a Grade Class Teacher). A student whose actual placement doesn't match the marking pass's target grade/section is silently skipped; an already-marked student for that date is skipped, not an error.
+**Marking**: `POST /api/schools/[id]/attendance`, `requireSchoolAdmin` OR `requireClassTeacher` scoped to `sectionId` (omitted = whole grade, requires a Grade Coordinator). A student whose actual placement doesn't match the marking pass's target grade/section is silently skipped; an already-marked student for that date is skipped, not an error.
 
 **Corrections** go only through `correctAttendance()` (`src/lib/attendance.ts`), which updates the row **and** inserts an `AttendanceAudit` row capturing `previousStatus`/`newStatus`/`previousRemarks`/`newRemarks` together — every time, even a remarks-only edit records status unchanged, and vice versa.
 
@@ -538,7 +538,7 @@ Three distinct assignment models, each with a different overlap policy:
 
 `StudentEvaluation` — a teacher's narrative, qualitative remark about a student, for one session. **General vs. Subject is not a type field — it is entirely the presence or absence of `gradeSubjectId`**:
 
-- `gradeSubjectId: null` — **General Student Evaluation**, authored by a Grade Class Teacher / Section Teacher (`requireClassTeacher()`), on `/dashboard/evaluations`.
+- `gradeSubjectId: null` — **General Student Evaluation**, authored by a Grade Coordinator / Class Teacher (`requireClassTeacher()`), on `/dashboard/evaluations`.
 - `gradeSubjectId: <id>` — **Subject Evaluation**, authored by a Subject Teacher (`requireTeacherAssignment()`), on `/dashboard/academics/[gradeSubjectId]`.
 
 A School Admin may create either **on behalf of a named teacher** — the named `teacherId` is independently validated (`teacherHoldsSubjectAssignment()`/`teacherHoldsClassAssignment()`), never simply trusted because the caller is an admin.
@@ -635,7 +635,7 @@ Unlike `UnitTestResult`'s eager pre-creation, `AssessmentComponentResult` rows a
 ```
 
 - **Publication is subject-level** (`AssessmentResultPublication`, keyed by `gradeSubjectId` + `studentId`), **never per-component** — a Parent/Student can never see a partially-published subject.
-- **Who can publish**: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})` — the identical composition already used for `StudentEvaluation` sharing. Being a Class Teacher or Section Teacher alone does not provide special authority to enter, correct, or publish assessment results — assessment authority requires the appropriate matching `TeacherAcademicAssignment` for the subject.
+- **Who can publish**: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})` — the identical composition already used for `StudentEvaluation` sharing. Being a Grade Coordinator or Class Teacher alone does not provide special authority to enter, correct, or publish assessment results — assessment authority requires the appropriate matching `TeacherAcademicAssignment` for the subject.
 - **Completeness is computed server-side**, not trusted from the client: `POST .../subjects/[gradeSubjectId]/publish` silently skips (never errors) any student with a still-`PENDING` non-`DESCRIPTIVE` component.
 - **A correction to an already-`PUBLISHED` result stays published and is audited** (`AssessmentComponentResultAudit`) — it is **never reverted to `DRAFT`**, matching the identical `StudentEvaluation` precedent.
 
@@ -1078,7 +1078,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) | Sessions, rollover, the one-ACTIVE-per-school rule |
 | [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) | Grades, sections, promotion, Class Overview |
 | [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) | Subjects, `GradeSubject`, `TeacherAcademicAssignment` (Phase 3A) |
-| [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) | Class/Section Teachers, Attendance, Teaching Units, Unit Tests (Phase 3B) |
+| [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) | Grade Coordinators/Class Teachers, Attendance, Teaching Units, Unit Tests (Phase 3B) |
 | [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) | Evaluations, Parent-Teacher Meetings (Phase 3C) |
 | [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) | Framework/grading-scale configuration, the guided wizard (Phase 3D-1) |
 | [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) | Marks entry, publishing, calculation engine, Report Card (Phase 3D-2/3/4) |
