@@ -18,12 +18,15 @@ export async function POST(
   const school = await prisma.school.findUnique({ where: { id: params.id }, select: { name: true } });
 
   await prisma.teacher.update({ where: { id: params.teacherId }, data: { approved: true } });
-  await notify(
-    teacher.userId,
-    "STAFF_APPROVED",
-    `You're approved at ${school?.name || "your school"}!`,
-    "Your account is now active — you have full access to your school dashboard."
-  );
+  // Nothing to notify if this teacher has no linked MEGA account yet.
+  if (teacher.userId) {
+    await notify(
+      teacher.userId,
+      "STAFF_APPROVED",
+      `You're approved at ${school?.name || "your school"}!`,
+      "Your account is now active — you have full access to your school dashboard."
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

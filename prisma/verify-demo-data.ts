@@ -80,7 +80,7 @@ async function main() {
     const { subjects, gpa } = await fetchAssessmentResults(r.studentId, "STUDENT");
     if (subjects.length === 0) continue;
     const score = typeof gpa === "number" ? gpa : computeUnweightedAveragePercentage(subjects);
-    if (typeof score === "number") scored.push({ name: r.student.user.name, score });
+    if (typeof score === "number") scored.push({ name: r.student.fullName, score });
     for (const subj of subjects) if (typeof subj.subjectTotal.percentage === "number") rawPercentages.push(subj.subjectTotal.percentage);
   }
   check("All 34 students have at least one published subject", scored.length === 34);

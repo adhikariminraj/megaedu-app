@@ -108,6 +108,7 @@ async function main() {
     update: {},
     create: {
       userId: teacherUser.id,
+      fullName: "Demo Teacher",
       schoolId: demoSchool.id,
       subjects: "Mathematics",
       approved: true,
@@ -132,6 +133,7 @@ async function main() {
     update: {},
     create: {
       userId: studentUser.id,
+      fullName: "Demo Student",
       schoolId: demoSchool.id,
       gradeLevel: "Grade 9",
       approved: true,

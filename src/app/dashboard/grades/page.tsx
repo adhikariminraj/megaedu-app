@@ -86,7 +86,7 @@ export default async function GradesIndexPage() {
               pending={pending.map((p) => ({
                 gradeHistoryId: p.id,
                 studentId: p.studentId,
-                studentName: p.student.user.name,
+                studentName: p.student.fullName,
                 fromGrade: p.schoolGrade.displayName,
                 fromSessionName: p.academicSession.name,
                 schoolGradeId: p.schoolGradeId,

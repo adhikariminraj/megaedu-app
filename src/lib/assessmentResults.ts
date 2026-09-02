@@ -354,7 +354,7 @@ export async function fetchAssessmentResults(
 }
 
 export type ReportCard = {
-  student: { id: string; name: string; email: string };
+  student: { id: string; name: string; email: string | null };
   school: { name: string } | null;
   academicSession: { name: string } | null;
   grade: { displayName: string; sectionName: string | null } | null;
@@ -382,6 +382,10 @@ export async function buildReportCard(
     include: { user: true, school: true },
   });
   if (!student) return null;
+  // Report Card name is the institutional record — Student.fullName —
+  // not the account holder's personal MEGA display name, and must work
+  // even for a Student with no linked account. Email has no
+  // institutional equivalent; it's simply absent without an account.
 
   const placement = await prisma.gradeHistory.findFirst({
     where: { studentId, academicSession: { status: "ACTIVE" } },
@@ -394,7 +398,7 @@ export async function buildReportCard(
   ]);
 
   return {
-    student: { id: student.id, name: student.user.name, email: student.user.email },
+    student: { id: student.id, name: student.fullName, email: student.user?.email ?? null },
     school: student.school ? { name: student.school.name } : null,
     academicSession: placement ? { name: placement.academicSession.name } : null,
     grade: placement ? { displayName: placement.schoolGrade.displayName, sectionName: placement.section?.name ?? null } : null,

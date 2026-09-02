@@ -168,18 +168,18 @@ export default async function EvaluationsPage({
       schoolId={schoolId}
       isAdmin={isAdmin}
       myTeacherId={myTeacherId}
-      classTeacherOptions={classTeachers.map((c) => ({ id: c.teacherId, name: c.teacher.user.name }))}
+      classTeacherOptions={classTeachers.map((c) => ({ id: c.teacherId, name: c.teacher.fullName }))}
       gradeOptions={gradeOptions}
       selectedGradeId={selectedGradeId}
       selectedSectionId={selectedSectionId}
       roster={roster.map((r) => ({
         studentId: r.studentId,
-        studentName: r.student.user.name,
+        studentName: r.student.fullName,
         sectionName: r.section?.name ?? null,
         evaluations: (evaluationsByStudent.get(r.studentId) ?? []).map((ev) => ({
           id: ev.id,
           teacherId: ev.teacherId,
-          teacherName: ev.teacher.user.name,
+          teacherName: ev.teacher.fullName,
           remarks: ev.remarks,
           visibleToParent: ev.visibleToParent,
           visibleToStudent: ev.visibleToStudent,
@@ -187,7 +187,7 @@ export default async function EvaluationsPage({
         meetings: (meetingsByStudent.get(r.studentId) ?? []).map((m) => ({
           id: m.id,
           teacherId: m.teacherId,
-          teacherName: m.teacher.user.name,
+          teacherName: m.teacher.fullName,
           scheduledAt: m.scheduledAt.toISOString(),
           location: m.location,
           onlineUrl: m.onlineUrl,

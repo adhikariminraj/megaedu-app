@@ -33,18 +33,18 @@ export default async function NewSessionPage() {
       schoolName={schoolAdmin.school.name}
       priorSessionName={priorSession.name}
       carryForward={carryForward.map((r) => ({
-        studentName: r.student.user.name,
+        studentName: r.student.fullName,
         fromGrade: r.schoolGrade.displayName,
         toGrade: r.outcomeGrade!.displayName,
         decision: r.status,
       }))}
       leftOrTransferred={leftOrTransferred.map((r) => ({
-        studentName: r.student.user.name,
+        studentName: r.student.fullName,
         fromGrade: r.schoolGrade.displayName,
         decision: r.status,
       }))}
       pending={pending.map((r) => ({
-        studentName: r.student.user.name,
+        studentName: r.student.fullName,
         fromGrade: r.schoolGrade.displayName,
       }))}
     />

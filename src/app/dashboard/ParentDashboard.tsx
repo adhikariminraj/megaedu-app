@@ -14,9 +14,9 @@ type Parent = {
   user: { avatarUrl: string | null };
   children: {
     student: {
+      fullName: string;
       gradeLevel: string | null;
       approved: boolean;
-      user: { name: string };
       school: { name: string } | null;
     };
     progress: {
@@ -34,7 +34,7 @@ type Parent = {
 };
 
 export default function ParentDashboard({ parent, userName }: { parent: Parent; userName: string }) {
-  const childNames = parent.children.map((c) => c.student.user.name.split(" ")[0]).join(", ");
+  const childNames = parent.children.map((c) => c.student.fullName.split(" ")[0]).join(", ");
 
   const heroCards: HeroCard[] = [
     {
@@ -76,7 +76,7 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
           <div className="space-y-4 mb-8">
             {parent.children.map((c, i) => (
               <div key={i} className="border border-slate-200 rounded-xl p-5">
-                <p className="font-medium text-slate-800">{c.student.user.name}</p>
+                <p className="font-medium text-slate-800">{c.student.fullName}</p>
                 <p className="text-sm text-slate-500">
                   {c.student.school?.name || "No school linked yet"}
                   {c.student.gradeLevel ? ` · ${c.student.gradeLevel}` : ""}

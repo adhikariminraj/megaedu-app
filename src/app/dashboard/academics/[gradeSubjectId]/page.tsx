@@ -160,14 +160,14 @@ export default async function GradeSubjectUnitsPage({
       canEdit={selectedSectionId ? editableSectionIds.has(selectedSectionId) : canEditGradeWide}
       isAdmin={isAdmin}
       myTeacherId={myTeacherId}
-      subjectTeacherOptions={subjectTeacherOptions.map((t) => ({ id: t.teacherId, name: t.teacher.user.name }))}
+      subjectTeacherOptions={subjectTeacherOptions.map((t) => ({ id: t.teacherId, name: t.teacher.fullName }))}
       evaluationRoster={roster.map((r) => ({
         studentId: r.studentId,
-        studentName: r.student.user.name,
+        studentName: r.student.fullName,
         evaluations: (evaluationsByStudent.get(r.studentId) ?? []).map((ev) => ({
           id: ev.id,
           teacherId: ev.teacherId,
-          teacherName: ev.teacher.user.name,
+          teacherName: ev.teacher.fullName,
           remarks: ev.remarks,
           visibleToParent: ev.visibleToParent,
           visibleToStudent: ev.visibleToStudent,
@@ -175,7 +175,7 @@ export default async function GradeSubjectUnitsPage({
         meetings: (meetingsByStudent.get(r.studentId) ?? []).map((m) => ({
           id: m.id,
           teacherId: m.teacherId,
-          teacherName: m.teacher.user.name,
+          teacherName: m.teacher.fullName,
           scheduledAt: m.scheduledAt.toISOString(),
           location: m.location,
           onlineUrl: m.onlineUrl,
@@ -196,7 +196,7 @@ export default async function GradeSubjectUnitsPage({
           maxMarks: t.maxMarks,
           results: t.results.map((r) => ({
             studentId: r.studentId,
-            studentName: r.student.user.name,
+            studentName: r.student.fullName,
             status: r.status,
             marksObtained: r.marksObtained,
             remarks: r.remarks,

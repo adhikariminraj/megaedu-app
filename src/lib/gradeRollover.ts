@@ -12,11 +12,11 @@ export async function classifySessionForRollover(schoolId: string, sessionId: st
   const rows = await prisma.gradeHistory.findMany({
     where: { academicSessionId: sessionId, student: { schoolId, approved: true } },
     include: {
-      student: { include: { user: true } },
+      student: true,
       schoolGrade: { include: { gradeReference: true } },
       outcomeGrade: { include: { gradeReference: true } },
     },
-    orderBy: { student: { user: { name: "asc" } } },
+    orderBy: { student: { fullName: "asc" } },
   });
 
   return {
@@ -48,7 +48,7 @@ export async function findPendingStudents(schoolId: string, activeSessionId: str
     where: { studentId: { in: students.map((s) => s.id) } },
     include: {
       academicSession: true,
-      student: { include: { user: true } },
+      student: true,
       schoolGrade: { include: { gradeReference: true } },
     },
     orderBy: { academicSession: { startDate: "desc" } },

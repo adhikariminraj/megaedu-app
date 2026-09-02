@@ -19,6 +19,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!teacher || teacher.schoolId !== params.id) {
     return NextResponse.json({ error: "Teacher not found." }, { status: 404 });
   }
+  // See the identical guard in the Student address route — Address is
+  // still keyed on the linked User (Phase A/B design); reconciling that
+  // with User-less institutional records is deliberately deferred.
+  if (!teacher.userId) {
+    return NextResponse.json(
+      { error: "This teacher has no linked MEGA account yet — an address cannot be set until one is linked." },
+      { status: 400 }
+    );
+  }
 
   const body = await req.json();
   const label = typeof body.label === "string" ? body.label : "";

@@ -189,8 +189,8 @@ export default async function GradeRosterPage({
         return {
           gradeHistoryId: r.id,
           studentId: r.studentId,
-          studentName: r.student.user.name,
-          avatarUrl: r.student.user.avatarUrl,
+          studentName: r.student.fullName,
+          avatarUrl: r.student.user?.avatarUrl ?? null,
           sectionId: r.sectionId,
           sectionName: r.section?.name ?? null,
           rollNo: rollNoByGradeHistoryId.get(r.id)!,
@@ -207,7 +207,7 @@ export default async function GradeRosterPage({
       sections={gradeSections.map((s) => ({ id: s.id, name: s.name }))}
       teacherAssignments={teacherAssignments.map((a) => ({
         id: a.id,
-        teacherName: a.teacher.user.name,
+        teacherName: a.teacher.fullName,
         subjectName: a.subject.name,
         sectionName: a.section?.name ?? null,
       }))}

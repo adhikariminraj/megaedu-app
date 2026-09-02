@@ -80,7 +80,7 @@ export default async function SetupPage() {
   const unplacedStudents = students.filter((s) => !placedStudentIds.has(s.id));
   const suggestions = unplacedStudents.map((s) => ({
     studentId: s.id,
-    name: s.user.name,
+    name: s.fullName,
     gradeLevel: s.gradeLevel,
     suggestedCode: matchLegacyGradeText(s.gradeLevel),
   }));
@@ -107,12 +107,12 @@ export default async function SetupPage() {
             }
           : null
       }
-      teachers={teachers.map((t) => ({ id: t.id, name: t.user.name, email: t.user.email }))}
+      teachers={teachers.map((t) => ({ id: t.id, name: t.fullName, email: t.user?.email ?? null }))}
       teacherAssignments={teacherAssignments.map((a) => ({
         id: a.id,
         teacherId: a.teacherId,
         schoolGradeId: a.schoolGradeId,
-        teacherName: a.teacher.user.name,
+        teacherName: a.teacher.fullName,
         gradeDisplayName: a.schoolGrade.displayName,
       }))}
       totalApprovedStudents={students.length}
@@ -127,7 +127,7 @@ export default async function SetupPage() {
       placedStudents={gradeHistories.map((g) => ({
         gradeHistoryId: g.id,
         studentId: g.studentId,
-        studentName: g.student.user.name,
+        studentName: g.student.fullName,
         schoolGradeId: g.schoolGradeId,
         gradeDisplayName: g.schoolGrade.displayName,
         sectionId: g.sectionId,

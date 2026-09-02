@@ -62,7 +62,7 @@ export default async function StudentProfilePage({ params }: { params: { student
   ]);
   if (!schoolAdmin && !teacher) redirect("/dashboard");
   const isAdmin = !!schoolAdmin;
-  const studentAddresses = student.user.addresses;
+  const studentAddresses = student.user?.addresses ?? [];
 
   function toAddressValue(a: (typeof studentAddresses)[number] | undefined): AddressFormValue | null {
     if (!a) return null;
@@ -114,10 +114,10 @@ export default async function StudentProfilePage({ params }: { params: { student
     <div className="max-w-2xl mx-auto px-6 py-12">
       <p className="text-sm text-slate-400 mb-1">{student.school?.name}</p>
       <div className="flex items-center gap-3 mb-1">
-        <Avatar src={student.user.avatarUrl} name={student.user.name} size="lg" />
-        <h1 className="text-2xl font-bold text-slate-800">{student.user.name}</h1>
+        <Avatar src={student.user?.avatarUrl ?? null} name={student.fullName} size="lg" />
+        <h1 className="text-2xl font-bold text-slate-800">{student.fullName}</h1>
       </div>
-      <p className="text-sm text-slate-500 mb-1">{student.user.email}</p>
+      {student.user?.email && <p className="text-sm text-slate-500 mb-1">{student.user.email}</p>}
       <p className="text-sm text-slate-500 mb-6">
         {placement
           ? `${placement.schoolGrade.displayName}${placement.section ? ` — Section ${placement.section.name}` : ""} · ${placement.academicSession.name}`

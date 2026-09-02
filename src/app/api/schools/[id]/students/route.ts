@@ -109,7 +109,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: { name, email: normalizedEmail, passwordHash, roles: { create: [{ role: "STUDENT" }] } },
     });
     const student = await tx.student.create({
-      data: { userId: user.id, schoolId: params.id, approved: true },
+      data: { userId: user.id, fullName: name, schoolId: params.id, approved: true },
     });
     if (validGradeId && academicSessionId) {
       await tx.gradeHistory.create({

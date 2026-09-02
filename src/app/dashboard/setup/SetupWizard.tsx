@@ -17,7 +17,7 @@ type AcademicSession = {
   endDate: string | Date;
   status: string;
 };
-type Teacher = { id: string; name: string; email: string };
+type Teacher = { id: string; name: string; email: string | null };
 type TeacherAssignment = {
   id: string;
   teacherId: string;

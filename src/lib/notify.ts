@@ -27,7 +27,12 @@ export async function notifySchoolCommunity(schoolId: string, title: string, bod
     prisma.teacher.findMany({ where: { schoolId, approved: true }, select: { userId: true } }),
     prisma.student.findMany({ where: { schoolId, approved: true }, select: { userId: true } }),
   ]);
-  const userIds = [...teachers.map((t) => t.userId), ...students.map((s) => s.userId)];
+  // Only reaches people who actually have a MEGA account to be notified
+  // on — a User-less institutional Student/Teacher has nowhere for a
+  // notification to go, so they're silently skipped here, not an error.
+  const userIds = [...teachers.map((t) => t.userId), ...students.map((s) => s.userId)].filter(
+    (id): id is string => id !== null
+  );
   await Promise.all(
     userIds.map((userId) => notify(userId, "SCHOOL_ANNOUNCEMENT", title, body))
   );

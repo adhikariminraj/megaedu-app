@@ -255,7 +255,7 @@ async function main() {
     const t = await prisma.teacher.upsert({
       where: { userId: u.id },
       update: {},
-      create: { userId: u.id, schoolId: sunrise.id, approved: true, position, subjects: subjectsLabel },
+      create: { userId: u.id, fullName: name, schoolId: sunrise.id, approved: true, position, subjects: subjectsLabel },
     });
     return { user: u, teacher: t };
   }
@@ -483,7 +483,7 @@ async function main() {
     const s = await prisma.student.upsert({
       where: { userId: u.id },
       update: {},
-      create: { userId: u.id, schoolId: sunrise.id, approved: true },
+      create: { userId: u.id, fullName: n.full, schoolId: sunrise.id, approved: true },
     });
     return { user: u, student: s, gender };
   }
@@ -1283,13 +1283,13 @@ async function main() {
   const kiran = await prisma.teacher.upsert({
     where: { userId: kiranUser.id },
     update: {},
-    create: { userId: kiranUser.id, schoolId: himalayan.id, approved: true, position: "Mathematics & Science Teacher" },
+    create: { userId: kiranUser.id, fullName: "Kiran Basnet", schoolId: himalayan.id, approved: true, position: "Mathematics & Science Teacher" },
   });
   const sunitaUser = await upsertUser("sunita.karki.him@megaedu.local", "Sunita Karki", "TEACHER");
   const sunita = await prisma.teacher.upsert({
     where: { userId: sunitaUser.id },
     update: {},
-    create: { userId: sunitaUser.id, schoolId: himalayan.id, approved: true, position: "English Teacher" },
+    create: { userId: sunitaUser.id, fullName: "Sunita Karki", schoolId: himalayan.id, approved: true, position: "English Teacher" },
   });
 
   await prisma.teacherGradeAssignment.upsert({
@@ -1339,7 +1339,7 @@ async function main() {
       const n = personName(gender);
       const email = emailFor(n.first, n.last);
       const u = await upsertUser(email, n.full, "STUDENT");
-      const st = await prisma.student.upsert({ where: { userId: u.id }, update: {}, create: { userId: u.id, schoolId: himalayan.id, approved: true } });
+      const st = await prisma.student.upsert({ where: { userId: u.id }, update: {}, create: { userId: u.id, fullName: n.full, schoolId: himalayan.id, approved: true } });
       himStudents.push({ user: u, student: st, gender, ability: { math: 0.5, science: 0.5 } });
       await prisma.gradeHistory.upsert({
         where: { studentId_academicSessionId: { studentId: st.id, academicSessionId: himalayanSession.id } },

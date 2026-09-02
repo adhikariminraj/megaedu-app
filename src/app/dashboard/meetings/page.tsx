@@ -72,15 +72,14 @@ export default async function MeetingsPage({
   const evaluationsByStudent = new Map<string, { id: string; teacherName: string; remarks: string }[]>();
   for (const ev of evaluations) {
     const list = evaluationsByStudent.get(ev.studentId) ?? [];
-    list.push({ id: ev.id, teacherName: ev.teacher.user.name, remarks: ev.remarks });
+    list.push({ id: ev.id, teacherName: ev.teacher.fullName, remarks: ev.remarks });
     evaluationsByStudent.set(ev.studentId, list);
   }
 
   const teacherOptions = isAdmin
     ? await prisma.teacher.findMany({
         where: { schoolId, approved: true },
-        include: { user: true },
-        orderBy: { user: { name: "asc" } },
+        orderBy: { fullName: "asc" },
       })
     : [];
 
@@ -89,16 +88,16 @@ export default async function MeetingsPage({
       schoolId={schoolId}
       isAdmin={isAdmin}
       myTeacherId={myTeacherId}
-      teacherOptions={teacherOptions.map((t) => ({ id: t.id, name: t.user.name }))}
+      teacherOptions={teacherOptions.map((t) => ({ id: t.id, name: t.fullName }))}
       selectedTeacherId={teacherFilter}
       selectedStatus={statusFilter}
       selectedWhen={whenFilter}
       meetings={meetings.map((m) => ({
         id: m.id,
         teacherId: m.teacherId,
-        teacherName: m.teacher.user.name,
+        teacherName: m.teacher.fullName,
         studentId: m.studentId,
-        studentName: m.student.user.name,
+        studentName: m.student.fullName,
         subjectName: m.gradeSubject?.subject.name ?? null,
         scheduledAt: m.scheduledAt.toISOString(),
         location: m.location,

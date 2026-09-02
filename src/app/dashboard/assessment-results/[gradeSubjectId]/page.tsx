@@ -117,7 +117,7 @@ export default async function AssessmentResultsEntryPage({ params }: { params: {
       }}
       students={roster.map((r) => ({
         studentId: r.studentId,
-        name: r.student.user.name,
+        name: r.student.fullName,
         publicationStatus: publicationByStudentId.get(r.studentId) ?? "DRAFT",
       }))}
       results={results.map((r) => ({

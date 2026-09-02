@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     });
 
     await tx.student.create({
-      data: { userId: user.id, schoolId, gradeLevel, approved: false },
+      data: { userId: user.id, fullName: name, schoolId, gradeLevel, approved: false },
     });
   });
 

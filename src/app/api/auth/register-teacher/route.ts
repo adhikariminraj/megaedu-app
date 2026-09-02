@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     });
 
     await tx.teacher.create({
-      data: { userId: user.id, schoolId, subjects, position, approved: false },
+      data: { userId: user.id, fullName: name, schoolId, subjects, position, approved: false },
     });
   });
 

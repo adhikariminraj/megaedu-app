@@ -25,6 +25,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!student || student.schoolId !== params.id) {
     return NextResponse.json({ error: "Student not found." }, { status: 404 });
   }
+  // Address is still keyed on the linked User (Phase A/B design) — a
+  // Student with no MEGA account has nowhere for this route to write an
+  // address yet. Not expected to happen today (nothing creates a
+  // User-less Student in this phase), but the type is honestly
+  // nullable now, so this is a real guard, not defensive noise.
+  // Reconciling Address ownership with User-less institutional records
+  // is deliberately deferred — see the Phase 4 audit.
+  if (!student.userId) {
+    return NextResponse.json(
+      { error: "This student has no linked MEGA account yet — an address cannot be set until one is linked." },
+      { status: 400 }
+    );
+  }
 
   const body = await req.json();
   const label = typeof body.label === "string" ? body.label : "";

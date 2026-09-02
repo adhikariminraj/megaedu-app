@@ -206,7 +206,10 @@ export default async function DashboardPage() {
         },
       },
     });
-    if (teacher) return <TeacherDashboard teacher={teacher} userName={userName} />;
+    // Non-null assertion is safe here: this Teacher was looked up BY the
+    // logged-in session's own userId — see the identical StudentDashboard
+    // case above.
+    if (teacher) return <TeacherDashboard teacher={{ ...teacher, user: teacher.user! }} userName={userName} />;
   }
 
   if (roles?.includes("STUDENT")) {
@@ -232,7 +235,11 @@ export default async function DashboardPage() {
       }
       return (
         <StudentDashboard
-          student={student}
+          // Non-null assertion is safe here: this Student was looked up
+          // BY the logged-in session's own userId, so it is guaranteed
+          // to have a linked User (itself) — a User-less Student could
+          // never reach this branch in the first place.
+          student={{ ...student, user: student.user! }}
           userName={userName}
           attendance={progress.attendance}
           teachingProgress={progress.teachingProgress}

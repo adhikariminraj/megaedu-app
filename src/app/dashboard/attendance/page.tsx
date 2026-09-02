@@ -140,8 +140,8 @@ export default async function AttendancePage({
         const existing = attendanceByStudent.get(r.studentId);
         return {
           studentId: r.studentId,
-          studentName: r.student.user.name,
-          avatarUrl: r.student.user.avatarUrl,
+          studentName: r.student.fullName,
+          avatarUrl: r.student.user?.avatarUrl ?? null,
           sectionName: r.section?.name ?? null,
           attendanceId: existing?.id ?? null,
           status: existing?.status ?? null,

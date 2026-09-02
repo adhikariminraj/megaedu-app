@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: { name, email: normalizedEmail, passwordHash, roles: { create: [{ role: "TEACHER" }] } },
     });
     return tx.teacher.create({
-      data: { userId: user.id, schoolId: params.id, position, subjects, approved: true },
+      data: { userId: user.id, fullName: name, schoolId: params.id, position, subjects, approved: true },
     });
   });
 

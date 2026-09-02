@@ -185,8 +185,14 @@ model NewsPost {
 // ============================================================
 model Teacher {
   id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Official institutional name — the source of truth for every
+  // institutional display (rosters, attendance, evaluations, report
+  // cards, etc). Independent of User.name (the account holder's
+  // personal MEGA ID display preference): backfilled from it once at
+  // migration time, never auto-synced afterward in either direction.
+  fullName  String
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   schoolId  String?
   school    School?  @relation(fields: [schoolId], references: [id])
   bio       String?
@@ -217,8 +223,14 @@ model Teacher {
 
 model Student {
   id         String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Official institutional name — the source of truth for every
+  // institutional display (rosters, attendance, evaluations, report
+  // cards, etc). Independent of User.name (the account holder's
+  // personal MEGA ID display preference): backfilled from it once at
+  // migration time, never auto-synced afterward in either direction.
+  fullName   String
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   schoolId   String?
   school     School?  @relation(fields: [schoolId], references: [id])
   // Legacy free-text grade. Left in place deliberately — becomes a

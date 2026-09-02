@@ -83,7 +83,7 @@ export default async function AcademicsPage() {
       (assignmentsByGrade[a.schoolGradeId] ||= []).push({
         id: a.id,
         teacherId: a.teacherId,
-        teacherName: a.teacher.user.name,
+        teacherName: a.teacher.fullName,
         subjectId: a.subjectId,
         subjectName: a.subject.name,
         sectionId: a.sectionId,
@@ -96,7 +96,7 @@ export default async function AcademicsPage() {
       (classTeachersByGrade[c.schoolGradeId] ||= []).push({
         id: c.id,
         teacherId: c.teacherId,
-        teacherName: c.teacher.user.name,
+        teacherName: c.teacher.fullName,
         sectionId: c.sectionId,
         sectionName: c.section?.name ?? null,
       });
@@ -117,7 +117,7 @@ export default async function AcademicsPage() {
         assignments: assignmentsByGrade[g.id] || [],
         classTeachers: classTeachersByGrade[g.id] || [],
       }))}
-      teachers={teachers.map((t) => ({ id: t.id, name: t.user.name }))}
+      teachers={teachers.map((t) => ({ id: t.id, name: t.fullName }))}
     />
   );
 }

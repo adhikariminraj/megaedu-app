@@ -108,7 +108,7 @@ export async function fetchAcademicProgress(
     })),
     evaluations: evaluations.map((ev) => ({
       id: ev.id,
-      teacherName: ev.teacher.user.name,
+      teacherName: ev.teacher.fullName,
       subjectName: ev.gradeSubject?.subject.name ?? null,
       remarks: ev.remarks,
       createdAt: ev.createdAt.toISOString().slice(0, 10),
@@ -159,7 +159,7 @@ export async function fetchMeetingsForStudent(
   });
   return meetings.map((m) => ({
     id: m.id,
-    teacherName: m.teacher.user.name,
+    teacherName: m.teacher.fullName,
     subjectName: m.gradeSubject?.subject.name ?? null,
     scheduledAt: m.scheduledAt.toISOString(),
     location: m.location,

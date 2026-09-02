@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
     // there's nothing to attach it to until they actually create their
     // School or Organization from the dashboard.
     if (role === "TEACHER") {
-      await tx.teacher.create({ data: { userId: user.id, approved: false } });
+      await tx.teacher.create({ data: { userId: user.id, fullName: name, approved: false } });
     } else if (role === "STUDENT") {
-      await tx.student.create({ data: { userId: user.id, approved: false } });
+      await tx.student.create({ data: { userId: user.id, fullName: name, approved: false } });
     } else if (role === "PARENT") {
       await tx.parent.create({ data: { userId: user.id } });
     }

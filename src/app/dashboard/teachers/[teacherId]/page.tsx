@@ -46,7 +46,7 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
   ]);
   if (!schoolAdmin && !viewerTeacher) redirect("/dashboard");
   const isAdmin = !!schoolAdmin;
-  const teacherAddresses = teacher.user.addresses;
+  const teacherAddresses = teacher.user?.addresses ?? [];
 
   function toAddressValue(a: (typeof teacherAddresses)[number] | undefined): AddressFormValue | null {
     if (!a) return null;
@@ -91,10 +91,10 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
     <div className="max-w-2xl mx-auto px-6 py-12">
       <p className="text-sm text-slate-400 mb-1">{teacher.school?.name}</p>
       <div className="flex items-center gap-3 mb-1">
-        <Avatar src={teacher.user.avatarUrl} name={teacher.user.name} size="lg" />
-        <h1 className="text-2xl font-bold text-slate-800">{teacher.user.name}</h1>
+        <Avatar src={teacher.user?.avatarUrl ?? null} name={teacher.fullName} size="lg" />
+        <h1 className="text-2xl font-bold text-slate-800">{teacher.fullName}</h1>
       </div>
-      <p className="text-sm text-slate-500 mb-1">{teacher.user.email}</p>
+      {teacher.user?.email && <p className="text-sm text-slate-500 mb-1">{teacher.user.email}</p>}
       <p className="text-sm text-slate-500 mb-6">
         {teacher.position}
         {teacher.subjects ? ` · ${teacher.subjects}` : ""}

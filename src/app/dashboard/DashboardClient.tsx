@@ -30,13 +30,15 @@ type School = {
     approved: boolean;
     subjects: string | null;
     position: string;
-    user: { name: string; email: string };
+    fullName: string;
+    user: { email: string } | null;
   }[];
   students: {
     id: string;
     approved: boolean;
     gradeLevel: string | null;
-    user: { name: string; email: string };
+    fullName: string;
+    user: { email: string } | null;
     placement: {
       gradeHistoryId: string;
       schoolGradeId: string;
@@ -668,13 +670,13 @@ export default function DashboardClient({
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-800">{t.user.name}</p>
+                      <p className="font-medium text-slate-800">{t.fullName}</p>
                       <span className="text-xs bg-slate-100 text-slate-600 rounded-full px-2 py-0.5">
                         {t.position}
                       </span>
                     </div>
                     <p className="text-sm text-slate-500">
-                      {t.user.email}
+                      {t.user?.email}
                       {t.subjects ? ` · ${t.subjects}` : ""}
                     </p>
                   </div>
@@ -806,9 +808,9 @@ export default function DashboardClient({
               <div key={s.id} className="border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-slate-800">{s.user.name}</p>
+                    <p className="font-medium text-slate-800">{s.fullName}</p>
                     <p className="text-sm text-slate-500">
-                      {s.user.email}
+                      {s.user?.email}
                       {s.placement
                         ? ` · ${s.placement.gradeDisplayName}${s.placement.sectionName ? ` — Section ${s.placement.sectionName}` : ""}`
                         : s.gradeLevel

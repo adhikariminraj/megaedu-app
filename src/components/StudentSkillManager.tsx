@@ -7,7 +7,7 @@ type Skill = { id: string; name: string; addedBy: { name: string } };
 type StudentWithSkills = {
   id: string;
   gradeLevel: string | null;
-  user: { name: string };
+  fullName: string;
   skills: Skill[];
 };
 
@@ -63,7 +63,7 @@ export default function StudentSkillManager({ schoolId }: { schoolId: string }) 
             className="w-full text-left flex items-center justify-between"
           >
             <div>
-              <p className="font-medium text-slate-800">{s.user.name}</p>
+              <p className="font-medium text-slate-800">{s.fullName}</p>
               <p className="text-xs text-slate-400">
                 {s.gradeLevel || "No grade set"} · {s.skills.length} skill{s.skills.length !== 1 ? "s" : ""}
               </p>
