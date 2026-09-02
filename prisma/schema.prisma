@@ -206,6 +206,12 @@ model Teacher {
   studentEvaluations      StudentEvaluation[]
   parentTeacherMeetings   ParentTeacherMeeting[]
 
+  // Administrative Family & Emergency Contact records — see
+  // FamilyContact below. Same structural separation from portal access
+  // as Student.familyContacts: never implies or grants MEGA ID/Teacher
+  // permissions.
+  familyContacts FamilyContact[]
+
   @@index([schoolId])
 }
 
@@ -1582,16 +1588,23 @@ model FamilyContact {
   id String @id @default(cuid())
 
   fullName          String
-  // "FATHER" | "MOTHER" | "GUARDIAN" | "GRANDFATHER" | "GRANDMOTHER" |
-  // "BROTHER" | "SISTER" | "UNCLE" | "AUNT" | "OTHER" — plain String,
-  // not a Prisma enum, matching this schema's existing SQLite-driven
-  // convention (see UserRole.role above).
+  // Student context: "FATHER" | "MOTHER" | "GUARDIAN" | "GRANDFATHER" |
+  // "GRANDMOTHER" | "BROTHER" | "SISTER" | "UNCLE" | "AUNT" | "OTHER".
+  // Teacher context: "SPOUSE" | "FATHER" | "MOTHER" | "BROTHER" |
+  // "SISTER" | "SON" | "DAUGHTER" | "OTHER_CLOSE_RELATIVE" | "OTHER".
+  // Plain String, not a Prisma enum, matching this schema's existing
+  // SQLite-driven convention (see UserRole.role above) — the allowed
+  // set is enforced per-context in src/lib/familyContact.ts, not here.
   relationship      String
   // Set only when relationship == "OTHER".
   relationshipOther String?
   mobileNumber      String?
 
   isPrimaryContact   Boolean @default(false)
+  // Student-only concept. Always false for a Teacher-owned contact —
+  // never exposed by the Teacher-facing API validation or UI. Kept on
+  // this shared model rather than forking a second table over one
+  // field (see PRODUCT_RULES.md / Phase D architecture note).
   isGuardian         Boolean @default(false)
   isEmergencyContact Boolean @default(false)
 
@@ -1600,8 +1613,14 @@ model FamilyContact {
   linkedUserId String?
   linkedUser   User?   @relation("FamilyContactLinkedUser", fields: [linkedUserId], references: [id])
 
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // Exactly one of studentId/teacherId is set per row — the same
+  // nullable-owner-FK idiom already used by Address above (userId /
+  // schoolId / familyContactId) and Event (schoolId / organizationId).
+  // Enforced at the application layer, not the database.
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   // Soft-deactivate only, matching Section/Subject — never hard-deleted
   // once real family/emergency information has been recorded.
@@ -1613,6 +1632,7 @@ model FamilyContact {
   updatedAt DateTime @updatedAt
 
   @@index([studentId])
+  @@index([teacherId])
 }
 
 // ============================================================

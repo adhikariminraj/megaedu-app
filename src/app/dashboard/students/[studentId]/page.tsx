@@ -6,7 +6,10 @@ import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
 import Avatar from "@/components/Avatar";
 import PersonAddressManager from "@/components/PersonAddressManager";
-import FamilyContactsManager, { FamilyContactData } from "@/components/FamilyContactsManager";
+import FamilyContactsManager, {
+  FamilyContactData,
+  STUDENT_RELATIONSHIP_OPTIONS,
+} from "@/components/FamilyContactsManager";
 import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
@@ -163,6 +166,8 @@ export default async function StudentProfilePage({ params }: { params: { student
           <FamilyContactsManager
             baseUrl={`/api/schools/${student.schoolId}/students/${student.id}/contacts`}
             contacts={familyContacts}
+            relationshipOptions={STUDENT_RELATIONSHIP_OPTIONS}
+            showGuardianFlag
           />
         </div>
       )}

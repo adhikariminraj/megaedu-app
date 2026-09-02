@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
-import { validateFamilyContactInput, isFamilyContactError } from "@/lib/familyContact";
+import {
+  validateFamilyContactInput,
+  isFamilyContactError,
+  clearOtherPrimaryContacts,
+  STUDENT_CONTACT_RELATIONSHIPS,
+} from "@/lib/familyContact";
 
 /**
  * Creates a Family & Emergency Contact administrative record for a
@@ -18,7 +23,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     return NextResponse.json({ error: "Student not found." }, { status: 404 });
   }
 
-  const validated = validateFamilyContactInput(await req.json());
+  const validated = validateFamilyContactInput(await req.json(), {
+    allowedRelationships: STUDENT_CONTACT_RELATIONSHIPS,
+  });
   if (isFamilyContactError(validated)) {
     return NextResponse.json({ error: validated.error }, { status: 400 });
   }
@@ -29,10 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
     // inactive one) keeps that invariant unconditional, so a later
     // reactivation can never silently create a second primary.
     if (validated.isPrimaryContact) {
-      await tx.familyContact.updateMany({
-        where: { studentId: params.studentId, isPrimaryContact: true },
-        data: { isPrimaryContact: false },
-      });
+      await clearOtherPrimaryContacts(tx, { studentId: params.studentId });
     }
     return tx.familyContact.create({
       data: { ...validated, studentId: params.studentId },

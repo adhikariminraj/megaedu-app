@@ -5,6 +5,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Avatar from "@/components/Avatar";
 import PersonAddressManager from "@/components/PersonAddressManager";
+import FamilyContactsManager, {
+  FamilyContactData,
+  TEACHER_RELATIONSHIP_OPTIONS,
+} from "@/components/FamilyContactsManager";
 import { AddressFormValue } from "@/components/AddressForm";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +62,31 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
   const currentAddress = toAddressValue(teacherAddresses.find((a) => a.label === "CURRENT"));
   const permanentAddress = toAddressValue(teacherAddresses.find((a) => a.label === "PERMANENT"));
 
+  // Family & Emergency Contacts are administrative records visible to
+  // School Admin only — not visible to the Teacher themselves (My
+  // Profile is untouched) or to any other Teacher viewing this page.
+  // Not fetched at all unless isAdmin, same as the Student page.
+  let familyContacts: FamilyContactData[] = [];
+  if (isAdmin) {
+    const contacts = await prisma.familyContact.findMany({
+      where: { teacherId: teacher.id },
+      include: { addresses: { where: { label: "CURRENT" } } },
+      orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
+    });
+    familyContacts = contacts.map((c) => ({
+      id: c.id,
+      fullName: c.fullName,
+      relationship: c.relationship,
+      relationshipOther: c.relationshipOther,
+      mobileNumber: c.mobileNumber,
+      isPrimaryContact: c.isPrimaryContact,
+      isGuardian: c.isGuardian,
+      isEmergencyContact: c.isEmergencyContact,
+      isActive: c.isActive,
+      address: toAddressValue(c.addresses[0]),
+    }));
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <p className="text-sm text-slate-400 mb-1">{teacher.school?.name}</p>
@@ -98,6 +127,23 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
           readOnly={!isAdmin}
         />
       </div>
+
+      {isAdmin && (
+        <div className="mt-8">
+          <h3 className="font-semibold text-slate-800 mb-1">Family &amp; Emergency Contacts</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Administrative records for this teacher's official school file — visible to School Admin
+            only. A contact here is entirely separate from MEGA ID / portal access; linking one to an
+            existing account is never automatic.
+          </p>
+          <FamilyContactsManager
+            baseUrl={`/api/schools/${teacher.schoolId}/teachers/${teacher.id}/contacts`}
+            contacts={familyContacts}
+            relationshipOptions={TEACHER_RELATIONSHIP_OPTIONS}
+            showGuardianFlag={false}
+          />
+        </div>
+      )}
     </div>
   );
 }

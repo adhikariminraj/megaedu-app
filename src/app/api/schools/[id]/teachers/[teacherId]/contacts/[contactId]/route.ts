@@ -5,27 +5,26 @@ import {
   validateFamilyContactInput,
   isFamilyContactError,
   clearOtherPrimaryContacts,
-  STUDENT_CONTACT_RELATIONSHIPS,
+  TEACHER_CONTACT_RELATIONSHIPS,
 } from "@/lib/familyContact";
 
 /**
- * Edits a Family Contact's core fields, and/or toggles isActive. There
- * is deliberately no DELETE route — matching Section/Subject, a Family
- * Contact is never removable once created, only deactivated, so a
- * mistaken entry stays correctable/reversible rather than destructive.
+ * Edits a Teacher Family Contact's core fields, and/or toggles
+ * isActive — mirrors the Student contacts [contactId] route exactly.
+ * No DELETE route, matching Section/Subject/Student-contact precedent.
  */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; studentId: string; contactId: string } }
+  { params }: { params: { id: string; teacherId: string; contactId: string } }
 ) {
   const adminUserId = await requireSchoolAdmin(params.id);
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const contact = await prisma.familyContact.findUnique({
     where: { id: params.contactId },
-    include: { student: true },
+    include: { teacher: true },
   });
-  if (!contact || contact.studentId !== params.studentId || contact.student?.schoolId !== params.id) {
+  if (!contact || contact.teacherId !== params.teacherId || contact.teacher?.schoolId !== params.id) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
 
@@ -42,10 +41,9 @@ export async function PATCH(
         relationshipOther: body.relationshipOther ?? contact.relationshipOther,
         mobileNumber: body.mobileNumber ?? contact.mobileNumber,
         isPrimaryContact: body.isPrimaryContact ?? contact.isPrimaryContact,
-        isGuardian: body.isGuardian ?? contact.isGuardian,
         isEmergencyContact: body.isEmergencyContact ?? contact.isEmergencyContact,
       },
-      { allowedRelationships: STUDENT_CONTACT_RELATIONSHIPS }
+      { allowedRelationships: TEACHER_CONTACT_RELATIONSHIPS, allowGuardianFlag: false }
     );
     if (isFamilyContactError(validated)) {
       return NextResponse.json({ error: validated.error }, { status: 400 });
@@ -53,7 +51,6 @@ export async function PATCH(
     Object.assign(data, validated);
   } else {
     if (typeof body.isPrimaryContact === "boolean") data.isPrimaryContact = body.isPrimaryContact;
-    if (typeof body.isGuardian === "boolean") data.isGuardian = body.isGuardian;
     if (typeof body.isEmergencyContact === "boolean") data.isEmergencyContact = body.isEmergencyContact;
   }
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
@@ -64,7 +61,7 @@ export async function PATCH(
 
   const updated = await prisma.$transaction(async (tx) => {
     if (data.isPrimaryContact === true) {
-      await clearOtherPrimaryContacts(tx, { studentId: params.studentId }, params.contactId);
+      await clearOtherPrimaryContacts(tx, { teacherId: params.teacherId }, params.contactId);
     }
     return tx.familyContact.update({ where: { id: params.contactId }, data });
   });

@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import AddressCard from "@/components/AddressCard";
 import { AddressFormValue } from "@/components/AddressForm";
 
-const RELATIONSHIP_OPTIONS = [
+export type RelationshipOption = { value: string; label: string };
+
+export const STUDENT_RELATIONSHIP_OPTIONS: RelationshipOption[] = [
   { value: "FATHER", label: "Father" },
   { value: "MOTHER", label: "Mother" },
   { value: "GUARDIAN", label: "Guardian" },
@@ -16,12 +18,19 @@ const RELATIONSHIP_OPTIONS = [
   { value: "UNCLE", label: "Uncle" },
   { value: "AUNT", label: "Aunt" },
   { value: "OTHER", label: "Other" },
-] as const;
+];
 
-function relationshipLabel(relationship: string, relationshipOther: string | null) {
-  if (relationship === "OTHER") return relationshipOther || "Other";
-  return RELATIONSHIP_OPTIONS.find((r) => r.value === relationship)?.label || relationship;
-}
+export const TEACHER_RELATIONSHIP_OPTIONS: RelationshipOption[] = [
+  { value: "SPOUSE", label: "Spouse" },
+  { value: "FATHER", label: "Father" },
+  { value: "MOTHER", label: "Mother" },
+  { value: "BROTHER", label: "Brother" },
+  { value: "SISTER", label: "Sister" },
+  { value: "SON", label: "Son" },
+  { value: "DAUGHTER", label: "Daughter" },
+  { value: "OTHER_CLOSE_RELATIVE", label: "Other Close Relative" },
+  { value: "OTHER", label: "Other" },
+];
 
 export type FamilyContactData = {
   id: string;
@@ -46,15 +55,17 @@ type ContactFormState = {
   isEmergencyContact: boolean;
 };
 
-const BLANK_FORM: ContactFormState = {
-  fullName: "",
-  relationship: "FATHER",
-  relationshipOther: "",
-  mobileNumber: "",
-  isPrimaryContact: false,
-  isGuardian: false,
-  isEmergencyContact: false,
-};
+function blankForm(defaultRelationship: string): ContactFormState {
+  return {
+    fullName: "",
+    relationship: defaultRelationship,
+    relationshipOther: "",
+    mobileNumber: "",
+    isPrimaryContact: false,
+    isGuardian: false,
+    isEmergencyContact: false,
+  };
+}
 
 function toFormState(c: FamilyContactData): ContactFormState {
   return {
@@ -69,11 +80,20 @@ function toFormState(c: FamilyContactData): ContactFormState {
 }
 
 /**
- * School Admin's Family & Emergency Contacts editor for one Student —
- * administrative records only, deliberately unrelated to
- * Parent/ParentStudent/MEGA ID (see the FamilyContact model comment in
- * schema.prisma). Only one contact may hold Primary Contact at a time;
- * the server enforces this, this UI just reflects the result.
+ * School Admin's Family & Emergency Contacts editor — shared by Student
+ * and Teacher records (administrative only, deliberately unrelated to
+ * Parent/ParentStudent/MEGA ID or Teacher portal access — see the
+ * FamilyContact model comment in schema.prisma). Only one contact per
+ * owner may hold Primary Contact at a time; the server enforces this
+ * (clearOtherPrimaryContacts in src/lib/familyContact.ts), this UI just
+ * reflects the result.
+ *
+ * `relationshipOptions` and `showGuardianFlag` are what make this one
+ * component serve both owner types instead of forking a near-identical
+ * copy — Guardian is a Student-only concept, so the Teacher call site
+ * passes `showGuardianFlag={false}` and the checkbox/badge never
+ * render (the server independently enforces this too — see
+ * validateFamilyContactInput's allowGuardianFlag).
  *
  * Follows the exact inline-edit / two-step-confirm-deactivate pattern
  * already established for Sections (AcademicStructureClient.tsx) —
@@ -82,20 +102,29 @@ function toFormState(c: FamilyContactData): ContactFormState {
 export default function FamilyContactsManager({
   baseUrl,
   contacts,
+  relationshipOptions,
+  showGuardianFlag,
 }: {
   baseUrl: string;
   contacts: FamilyContactData[];
+  relationshipOptions: RelationshipOption[];
+  showGuardianFlag: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newContact, setNewContact] = useState<ContactFormState>(BLANK_FORM);
+  const [newContact, setNewContact] = useState<ContactFormState>(blankForm(relationshipOptions[0].value));
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<ContactFormState>(BLANK_FORM);
+  const [editDraft, setEditDraft] = useState<ContactFormState>(blankForm(relationshipOptions[0].value));
   const [saving, setSaving] = useState(false);
   const [confirmDeactivateId, setConfirmDeactivateId] = useState<string | null>(null);
   const [expandedAddressId, setExpandedAddressId] = useState<string | null>(null);
+
+  function relationshipLabel(relationship: string, relationshipOther: string | null) {
+    if (relationship === "OTHER") return relationshipOther || "Other";
+    return relationshipOptions.find((r) => r.value === relationship)?.label || relationship;
+  }
 
   async function call(url: string, options: RequestInit) {
     setError(null);
@@ -122,7 +151,7 @@ export default function FamilyContactsManager({
     });
     setAdding(false);
     if (result) {
-      setNewContact(BLANK_FORM);
+      setNewContact(blankForm(relationshipOptions[0].value));
       setShowAddForm(false);
     }
   }
@@ -174,7 +203,7 @@ export default function FamilyContactsManager({
             onChange={(e) => setForm({ ...form, relationship: e.target.value })}
             className="text-sm border border-slate-200 rounded-lg px-3 py-2"
           >
-            {RELATIONSHIP_OPTIONS.map((r) => (
+            {relationshipOptions.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
               </option>
@@ -198,14 +227,16 @@ export default function FamilyContactsManager({
             />
             Primary Contact
           </label>
-          <label className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              checked={form.isGuardian}
-              onChange={(e) => setForm({ ...form, isGuardian: e.target.checked })}
-            />
-            Guardian
-          </label>
+          {showGuardianFlag && (
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={form.isGuardian}
+                onChange={(e) => setForm({ ...form, isGuardian: e.target.checked })}
+              />
+              Guardian
+            </label>
+          )}
           <label className="flex items-center gap-1.5">
             <input
               type="checkbox"
@@ -276,7 +307,7 @@ export default function FamilyContactsManager({
                     Primary Contact
                   </span>
                 )}
-                {c.isGuardian && (
+                {showGuardianFlag && c.isGuardian && (
                   <span className="text-xs font-semibold bg-green-50 text-mega-green rounded-full px-2 py-0.5">
                     Guardian
                   </span>
@@ -385,7 +416,7 @@ export default function FamilyContactsManager({
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setNewContact(BLANK_FORM);
+                setNewContact(blankForm(relationshipOptions[0].value));
               }}
               className="text-xs text-slate-500"
             >
