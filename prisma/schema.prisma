@@ -54,6 +54,12 @@ model User {
   addresses        Address[]
   addressesUpdated Address[] @relation("AddressUpdatedBy")
 
+  // Reverse side of FamilyContact.linkedUserId — see that model's
+  // comment. Always empty in practice today (no code sets the field);
+  // the relation exists so Prisma's schema is valid, not because any
+  // route reads or writes it.
+  familyContactLinks FamilyContact[] @relation("FamilyContactLinkedUser")
+
   attendancesMarked        Attendance[]      @relation("AttendanceMarkedBy")
   attendanceAuditsChanged  AttendanceAudit[] @relation("AttendanceAuditChangedBy")
   teachingUnitsCreated     TeachingUnit[]    @relation("TeachingUnitCreatedBy")
@@ -236,6 +242,13 @@ model Student {
   parentTeacherMeetings        ParentTeacherMeeting[]
   assessmentComponentResults   AssessmentComponentResult[]
   assessmentResultPublications AssessmentResultPublication[]
+
+  // Administrative Family & Emergency Contact records — see
+  // FamilyContact below. Structurally unrelated to `parents` (
+  // ParentStudent) above: a contact here never implies or grants a MEGA
+  // ID / portal account / Parent role, and a Parent account never
+  // implies a FamilyContact record exists.
+  familyContacts FamilyContact[]
 
   @@index([schoolId])
 }
@@ -1528,10 +1541,12 @@ model Address {
   streetAddress String?
   houseNumber   String?
 
-  userId   String?
-  user     User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  schoolId String?
-  school   School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schoolId        String?
+  school          School?        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  familyContactId String?
+  familyContact   FamilyContact? @relation(fields: [familyContactId], references: [id], onDelete: Cascade)
 
   // Accountability: both a self-service user and, separately, an
   // authorized School Admin correcting a school-record address can
@@ -1549,9 +1564,55 @@ model Address {
   // never collide with each other here.
   @@unique([userId, label])
   @@unique([schoolId, label])
+  @@unique([familyContactId, label])
   @@index([provinceId])
   @@index([districtId])
   @@index([localLevelId])
+}
+
+// ============================================================
+// FAMILY & EMERGENCY CONTACTS — Phase C
+// Administrative records only, managed by School Admin, structurally
+// separate from Parent/ParentStudent/MEGA ID access. A FamilyContact
+// NEVER implies a portal account, and linking one to a User (below) is
+// never automatic — no code path in this app sets linkedUserId; it
+// exists only for a future, deliberate linking feature.
+// ============================================================
+model FamilyContact {
+  id String @id @default(cuid())
+
+  fullName          String
+  // "FATHER" | "MOTHER" | "GUARDIAN" | "GRANDFATHER" | "GRANDMOTHER" |
+  // "BROTHER" | "SISTER" | "UNCLE" | "AUNT" | "OTHER" — plain String,
+  // not a Prisma enum, matching this schema's existing SQLite-driven
+  // convention (see UserRole.role above).
+  relationship      String
+  // Set only when relationship == "OTHER".
+  relationshipOther String?
+  mobileNumber      String?
+
+  isPrimaryContact   Boolean @default(false)
+  isGuardian         Boolean @default(false)
+  isEmergencyContact Boolean @default(false)
+
+  // Deliberately nullable with no auto-population path — see the
+  // section comment above.
+  linkedUserId String?
+  linkedUser   User?   @relation("FamilyContactLinkedUser", fields: [linkedUserId], references: [id])
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Soft-deactivate only, matching Section/Subject — never hard-deleted
+  // once real family/emergency information has been recorded.
+  isActive Boolean @default(true)
+
+  addresses Address[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
 }
 
 // ============================================================

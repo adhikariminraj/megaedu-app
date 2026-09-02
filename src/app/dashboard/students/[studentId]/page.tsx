@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
 import Avatar from "@/components/Avatar";
 import PersonAddressManager from "@/components/PersonAddressManager";
+import FamilyContactsManager, { FamilyContactData } from "@/components/FamilyContactsManager";
 import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
@@ -74,6 +75,30 @@ export default async function StudentProfilePage({ params }: { params: { student
   const currentAddress = toAddressValue(studentAddresses.find((a) => a.label === "CURRENT"));
   const permanentAddress = toAddressValue(studentAddresses.find((a) => a.label === "PERMANENT"));
 
+  // Family & Emergency Contacts are administrative records visible to
+  // School Admin only — not fetched at all for a Teacher viewer, so the
+  // data never reaches a render path that isn't authorized to see it.
+  let familyContacts: FamilyContactData[] = [];
+  if (isAdmin) {
+    const contacts = await prisma.familyContact.findMany({
+      where: { studentId: student.id },
+      include: { addresses: { where: { label: "CURRENT" } } },
+      orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
+    });
+    familyContacts = contacts.map((c) => ({
+      id: c.id,
+      fullName: c.fullName,
+      relationship: c.relationship,
+      relationshipOther: c.relationshipOther,
+      mobileNumber: c.mobileNumber,
+      isPrimaryContact: c.isPrimaryContact,
+      isGuardian: c.isGuardian,
+      isEmergencyContact: c.isEmergencyContact,
+      isActive: c.isActive,
+      address: toAddressValue(c.addresses[0]),
+    }));
+  }
+
   const [progress, meetings, assessment] = await Promise.all([
     fetchAcademicProgress(student.id, "STAFF"),
     fetchMeetingsForStudent(student.id, "STAFF"),
@@ -126,6 +151,21 @@ export default async function StudentProfilePage({ params }: { params: { student
           readOnly={!isAdmin}
         />
       </div>
+
+      {isAdmin && (
+        <div className="mb-8">
+          <h3 className="font-semibold text-slate-800 mb-1">Family &amp; Emergency Contacts</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Administrative records for this student's official school file — visible to School Admin
+            only. A contact here is entirely separate from MEGA ID / Parent portal access; linking
+            one to an existing account is never automatic.
+          </p>
+          <FamilyContactsManager
+            baseUrl={`/api/schools/${student.schoolId}/students/${student.id}/contacts`}
+            contacts={familyContacts}
+          />
+        </div>
+      )}
 
       <AcademicProgressPanel
         attendance={progress.attendance}
