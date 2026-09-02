@@ -48,15 +48,7 @@ export default function HomeHero({ isLoggedIn }: { isLoggedIn: boolean }) {
           A growing network of verified schools, educators and learners — connected under one identity.
         </p>
 
-        {isLoggedIn ? (
-          <span
-            title="You already have a MEGA ID"
-            aria-disabled="true"
-            className="inline-block bg-mega-navy/40 text-white/70 font-semibold px-8 py-3 rounded-full shadow-lg cursor-not-allowed select-none"
-          >
-            You already have a MEGA ID
-          </span>
-        ) : (
+        {!isLoggedIn && (
           <>
             <div className="flex items-center justify-center gap-4 mb-4">
               <span className="h-px w-8 sm:w-12 bg-gradient-to-r from-transparent to-white/40" />
