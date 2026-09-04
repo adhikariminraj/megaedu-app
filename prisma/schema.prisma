@@ -141,6 +141,12 @@ model School {
   // adopts the structured form, matching Student.gradeLevel's existing
   // "no single safe moment to migrate everyone at once" precedent.
   addresses Address[]
+
+  // Institutional affiliation history — see TeacherSchoolAffiliation /
+  // StudentSchoolAffiliation below. Phase 1 schema foundation only:
+  // nothing reads or writes these yet.
+  teacherAffiliations TeacherSchoolAffiliation[]
+  studentAffiliations StudentSchoolAffiliation[]
 }
 
 model SchoolAdmin {
@@ -218,6 +224,12 @@ model Teacher {
   // permissions.
   familyContacts FamilyContact[]
 
+  // Institutional relationship/history — see TeacherSchoolAffiliation
+  // below. Phase 1 schema foundation only: schoolId/approved/position/
+  // subjects above remain the live, unchanged, transitional source of
+  // truth for now; nothing reads or writes this relation yet.
+  schoolAffiliations TeacherSchoolAffiliation[]
+
   @@index([schoolId])
 }
 
@@ -268,6 +280,12 @@ model Student {
   // implies a FamilyContact record exists.
   familyContacts FamilyContact[]
 
+  // Institutional relationship/history — see StudentSchoolAffiliation
+  // below. Phase 1 schema foundation only: schoolId/approved above
+  // remain the live, unchanged, transitional source of truth for now;
+  // nothing reads or writes this relation yet.
+  schoolAffiliations StudentSchoolAffiliation[]
+
   @@index([schoolId])
 }
 
@@ -287,6 +305,133 @@ model ParentStudent {
   student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([parentId, studentId])
+}
+
+// ============================================================
+// INSTITUTIONAL AFFILIATION — Phase 1 (schema foundation only)
+//
+// Teacher/Student are stable, permanent role identities (one per
+// person, ever). A TeacherSchoolAffiliation / StudentSchoolAffiliation
+// row represents one relationship-period between that identity and one
+// School — the piece the identity itself cannot represent, since
+// Teacher.schoolId / Student.schoolId is a single field that can only
+// ever hold one current value.
+//
+// This is intentionally the SAME shape already proven in this schema
+// for SchoolAdmin/OrganizationAdmin (a join row per relationship,
+// keyed by both sides), extended here with a lifecycle and dates,
+// applied to Teacher/Student.
+//
+// Phase 1 is additive only: these two tables are created empty, and
+// nothing anywhere reads or writes them yet. Teacher.schoolId /
+// Teacher.approved / Teacher.position / Teacher.subjects and
+// Student.schoolId / Student.approved remain completely unchanged and
+// are still the live, working source of truth for every existing
+// route and page. They become transitional bridge fields only once a
+// later phase starts populating and reading these new tables.
+//
+// Intended future lifecycle (NOT implemented in Phase 1):
+//   JOIN     — creates a new affiliation row. Must never end an
+//              existing affiliation at a different school — a person
+//              may be genuinely ACTIVE at more than one school at
+//              once (e.g. a part-time teacher).
+//   LEAVE    — ends the specific existing affiliation
+//              (status -> "ENDED", endDate set). Every other
+//              affiliation for that person, at any school, is
+//              untouched.
+//   TRANSFER — conceptually LEAVE (old school) + JOIN (new school),
+//              composed as one user-facing action from the same two
+//              primitives above.
+//   REJOIN   — creates a NEW row for a school the person was
+//              previously affiliated with. The old, already-"ENDED"
+//              row for that same school is never reopened, mutated,
+//              or merged into — two (or more) independent rows for
+//              the same (person, school) pair, at different times, is
+//              the expected, correct shape.
+//
+// "At most one ACTIVE/PENDING row per (person, school) pair" is a
+// future application-layer rule, not a database constraint here —
+// same "app-level, not DB-level" idiom already used by AcademicSession
+// above for its own single-ACTIVE-per-school rule, and for the same
+// reason (SQLite can't express a partial unique index). Deliberately
+// NOT implemented in Phase 1.
+// ============================================================
+
+// One Teacher's relationship-period with one School. Position and
+// subjects are legacy/informal, descriptive-only fields carried over
+// from Teacher.position/Teacher.subjects — they must never become an
+// authorization or academic source of truth. TeacherAcademicAssignment
+// remains the sole authoritative record for actual subject/grade
+// teaching assignments and assignment-based authorization; nothing
+// here changes or duplicates that.
+model TeacherSchoolAffiliation {
+  id        String  @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School  @relation(fields: [schoolId], references: [id])
+
+  // Nullable — never backfilled from Teacher.createdAt, a migration
+  // date, or any other synthetic value. A real historical join date is
+  // frequently simply not known; guessing one would manufacture false
+  // institutional history. Use startDateSource to record why this is
+  // null rather than inventing a value.
+  startDate       DateTime?
+  // "RECORDED" — a real date is known (entered going forward, or a
+  //   verified value supplied on a migrated row).
+  // "UNKNOWN_MIGRATED" — this row originated from a historical
+  //   migration with no reliable start date available; startDate is
+  //   deliberately null.
+  // Plain String, not a Prisma enum, matching this schema's existing
+  // SQLite-driven convention (see UserRole.role above). Defaults to
+  // "RECORDED" because that's the expected value for any row created
+  // through the ordinary (future) join flow — only a backfill script
+  // should ever explicitly set "UNKNOWN_MIGRATED".
+  startDateSource String    @default("RECORDED")
+  // Null = still ongoing (current or pending).
+  endDate         DateTime?
+  // "PENDING" | "ACTIVE" | "ENDED" — plain String, same convention as
+  // GradeHistory.status above.
+  status          String    @default("PENDING")
+
+  // Legacy/informal — see the model-level doc comment above.
+  position String  @default("Teacher")
+  subjects String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId])
+  @@index([schoolId])
+  @@index([teacherId, schoolId])
+}
+
+// One Student's relationship-period with one School — same shape and
+// same rules as TeacherSchoolAffiliation above, minus the
+// Teacher-specific position/subjects fields. Whether a Student may
+// ever hold more than one simultaneously ACTIVE affiliation is
+// deliberately left undecided here — this schema does not assume
+// either answer; if a one-school-only rule is ever wanted, it belongs
+// as a future application-layer check (e.g. inside a Student JOIN
+// route), not as a change to this table.
+model StudentSchoolAffiliation {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schoolId  String
+  school    School  @relation(fields: [schoolId], references: [id])
+
+  startDate       DateTime?
+  startDateSource String    @default("RECORDED")
+  endDate         DateTime?
+  status          String    @default("PENDING")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([schoolId])
+  @@index([studentId, schoolId])
 }
 
 // ============================================================
