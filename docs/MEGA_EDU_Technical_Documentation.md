@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture), against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-06 (Homework, Phase 1 — added on top of Phase 4D), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -27,6 +27,7 @@
 15. [Evaluations](#15-evaluations)
 16. [Parent–Teacher Meetings](#16-parentteacher-meetings)
 17. [Unit Tests](#17-unit-tests)
+    - [17a. Homework — Phase 1](#17a-homework--phase-1)
 18. [Assessment Framework System](#18-assessment-framework-system)
 19. [Assessment Results & Publishing Workflow](#19-assessment-results--publishing-workflow)
 20. [Grading & GPA Calculations](#20-grading--gpa-calculations)
@@ -55,7 +56,7 @@
 
 This document is a single technical reference for MEGA.EDU, consolidating the detailed, individually-verified documents already maintained under `/docs` (each covering one subsystem in depth) into one narrative a new developer, system administrator, or maintainer can read top to bottom. It does not replace those documents — it cross-references them throughout, and the reader is expected to follow those links for full implementation detail (exact request/response shapes, full verification evidence, field-by-field schema notes). This document is the map; the individual `/docs` files are the territory.
 
-Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard**, **Class Overview** enhancements, and the **School Logos & User Profile Photos** identity system. Nothing here is invented, and nothing planned is described as available today — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
+Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard**, **Class Overview** enhancements, the **School Logos & User Profile Photos** identity system, and, most recently, **Homework, Phase 1** ([§17a](#17a-homework--phase-1)). Nothing here is invented, and nothing planned is described as available today — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
 
 ---
 
@@ -319,6 +320,9 @@ A recurring, deliberate architectural decision: for any write that must be atomi
 - **`StudentEvaluation`**/**`StudentEvaluationAudit`** — General vs. Subject via one nullable field; audit-on-share. See [§15](#15-evaluations).
 - **`ParentTeacherMeeting`** — periodic and occasional through one model. See [§16](#16-parentteacher-meetings).
 
+### Homework (Phase 1)
+- **`Homework`** — one teacher-authored item per grade (or one section)/subject/session; no per-student fan-out, `teacherId → Teacher` (not `createdByUserId → User`). See [§17a](#17a-homework--phase-1).
+
 ### Assessment Framework Foundation (Phase 3D-1)
 - **`AssessmentFramework`**, **`AssessmentPeriod`**, **`AssessmentComponent`**, **`GradingScale`**, **`GradingScaleBand`**, **`AssessmentFrameworkAssignment`**. See [§18](#18-assessment-framework-system).
 
@@ -375,7 +379,7 @@ Every write route that needs "does this session have permission to act on this s
 | `requirePlatformAdmin()` | Session + `roles.includes("PLATFORM_ADMIN")` | `/admin/*`, `/api/admin/*` |
 | `requireSchoolFinance(schoolId)` | Session + (`SchoolAdmin` **or** `SchoolAccountant`) | Finance-only surfaces |
 | `requireOrgFinance(organizationId)` | Session + (`OrganizationAdmin` **or** `OrganizationAccountant`) | Finance-only surfaces |
-| `requireTeacherAssignment(schoolId, scope)` | A Teacher with an ACTIVE `TeacherSchoolAffiliation` at the requested school + a matching `TeacherAcademicAssignment` | Teaching Plans/Units/Tests, Subject Evaluations, Assessment Results marks entry/publish |
+| `requireTeacherAssignment(schoolId, scope)` | A Teacher with an ACTIVE `TeacherSchoolAffiliation` at the requested school + a matching `TeacherAcademicAssignment` | Teaching Plans/Units/Tests, Subject Evaluations, Assessment Results marks entry/publish, Homework creation/edit ([§17a](#17a-homework--phase-1)) |
 | `requireClassTeacher(schoolId, scope)` | A Teacher with an ACTIVE `TeacherSchoolAffiliation` at the requested school + a matching `ClassTeacherAssignment` | Attendance, General Evaluations |
 | `teacherHoldsSubjectAssignment()` / `teacherHoldsClassAssignment()` | A **named** teacher's assignment (not the session's own user) | Admin-attributed evaluation/meeting creation |
 
@@ -574,7 +578,7 @@ Three distinct assignment models, each with a different overlap policy:
 
 `TeacherAcademicAssignment.gradeSubjectId` is a direct FK to the matching `GradeSubject` row — it is schema-impossible to assign a teacher to a subject the grade doesn't actually offer that session. Multiple different teachers may freely overlap on the same subject/grade/section (no teaching hierarchy exists or is planned).
 
-`requireTeacherAssignment()` was built in Phase 3A *ahead of its first caller*, specifically as shared foundation for later phases — Phase 3B's Teaching Plans/Units/Tests, Phase 3C's Subject Evaluations, and Phase 3D-2's marks entry/publish all depend on it. See [§8](#8-authentication--authorization) for its exact scope semantics.
+`requireTeacherAssignment()` was built in Phase 3A *ahead of its first caller*, specifically as shared foundation for later phases — Phase 3B's Teaching Plans/Units/Tests, Phase 3C's Subject Evaluations, Phase 3D-2's marks entry/publish, and Phase 1 Homework creation/edit ([§17a](#17a-homework--phase-1)) all depend on it, exactly as the doc comment above it in `authorize.ts` anticipated. See [§8](#8-authentication--authorization) for its exact scope semantics.
 
 *(Source: [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md))*
 
@@ -655,6 +659,23 @@ Added for the Student Profile page (`/dashboard/students/[studentId]`) — skips
 `UnitTest`/`UnitTestResult` remain **genuinely separate from `AssessmentFramework`/`AssessmentComponent`** — no merge, no auto-derivation of marks between the two systems, by explicit design decision.
 
 *(Source: [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md), [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md))*
+
+---
+
+## 17a. Homework — Phase 1
+
+`Homework` (`prisma/schema.prisma`) is a Teacher-authored item scoped to `academicSessionId`/`schoolGradeId`/optional `sectionId`/`gradeSubjectId`/`subjectId`, for one grade (or one section of it) and one subject, for one session. **No per-student fan-out row exists** — unlike `UnitTestResult`, one `Homework` row serves every applicable student; visibility is resolved entirely at read time against a student's own `GradeHistory` placement, reusing the same three-way `sectionScopeWhere()` idiom already established for teacher authorization (see [§8](#8-authentication--authorization)).
+
+- **Authorship**: `teacherId → Teacher`, not `createdByUserId → User` — a deliberate divergence from `TeachingUnit`'s precedent, matching `StudentEvaluation`'s instead, so authorship resolves through the real institutional Teacher identity, never the raw account.
+- **Lifecycle**: a single `status` (`DRAFT`/`PUBLISHED`) plus `publishedAt` gates Student **and** Parent visibility together — not two independent flags like `StudentEvaluation.visibleToParent`/`visibleToStudent`, since nothing in Phase 1 calls for an asymmetric audience between a student and their own parent. Once `PUBLISHED`, `title`/`instructions`/`dueDate`/`sectionId` are frozen (`PATCH` returns `409`), matching the "permanent once shared" precedent already used for `StudentEvaluation` sharing and `Certificate` issuance; only the `DRAFT → PUBLISHED` transition itself remains allowed, idempotently.
+- **Date semantics**: `dueDate` is date-only, following the `Attendance.date`/`UnitTest.testDate` convention (client-supplied `"YYYY-MM-DD"`, exact-match). "Today's Homework" means **`dueDate` equals today** — **not** "published today." "Today" is resolved via `todayInKathmandu()` (`src/lib/homework.ts`), an `Intl.DateTimeFormat` call hardcoded to `Asia/Kathmandu` — deliberately **not** the naive `new Date().toISOString().slice(0, 10)` pattern used elsewhere in this codebase (e.g. `dashboard/attendance/page.tsx`, purely as an overridable UI default), since Nepal Standard Time (UTC+5:45) makes that pattern show the wrong calendar date for roughly the first ~5h45m of every Nepal day. No date/timezone package was installed; no `School` timezone field was added — the anchor is hardcoded, since the platform is Nepal-only today.
+- **Shared read function**: `fetchTodaysHomework(studentId)` is the one place this query is written, called by both the Student dashboard branch and, once per linked child, the Parent branch — mirroring `fetchAcademicProgress()`'s "one function, every caller" discipline (see [§25](#25-dashboard-architecture), [§30](#30-calculation-engines--shared-libraries)). Like `fetchAcademicProgress()`, it performs no authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller may see.
+- **Parent visibility**: reuses the existing `Parent → ParentStudent → Student` chain unchanged — **no new `ParentHomework` relationship** was introduced. `dashboard/page.tsx`'s `PARENT` branch adds `fetchTodaysHomework(c.student.id)` to its existing per-child `Promise.all` fan-out (alongside `fetchAcademicProgress`/`fetchMeetingsForStudent`/`fetchAssessmentResults`), with the identical security posture: child ids are derived entirely from the caller's own `ParentStudent` rows, never a request-supplied `studentId`.
+- **Authorization**: `POST /api/schools/[id]/homework` (create) is gated by `requireTeacherAssignment()` alone — deliberately **not** composed with `requireSchoolAdmin()` (unlike `TeachingUnit`'s create route), since `Homework.teacherId` is a real, non-nullable `Teacher` FK and Phase 1 has no approved "Admin authors on behalf of a teacher" flow. `PATCH .../homework/[homeworkId]` (edit/publish) accepts either `requireSchoolAdmin()` or `requireTeacherAssignment()` re-checked fresh against the homework row's own stored scope — never just "are you the teacher who originally created this." Every relational id (`gradeSubjectId`, `sectionId`) and the homework row's own `schoolGradeId` are re-validated against the URL's `schoolId` server-side — defense in depth against a forged cross-school `homeworkId`, verified live.
+- **UI**: `/dashboard/schools/[schoolId]/homework` — URL-scoped from day one via `verifySchoolAccess()` ([§10a](#10a-institutional-affiliation--context-architecture)); unlike Attendance/Evaluations/Meetings, Homework has **no unscoped legacy sibling**, since it has no pre-Phase-4D history to preserve. Reachable from the School Admin and Teacher dashboards and the Phase 4D-1 multi-school chooser page, the same discoverability approach already used for the Public School Gateway's Inquiries.
+- **Deliberately out of scope for Phase 1** (see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)): submissions, attachments, grading, rubrics, feedback, discussion, plagiarism checking, analytics, reminders/notifications on publish, upcoming/past views, and a School-Admin-authors-on-behalf-of-teacher flow.
+
+*(Source: [HOMEWORK.md](HOMEWORK.md))*
 
 ---
 
@@ -869,8 +890,9 @@ A new, deliberately minimal self-service page — available to any authenticated
 
 - **`AcademicProgressPanel.tsx`** — Teaching Progress, Test Results, Recent Attendance, Teacher Evaluations, Assessment Results — parameterized by an explicit `audience: "STUDENT" | "PARENT" | "STAFF"` that filters what's shown (e.g. published-only for Student/Parent, unfiltered for Staff). Rendered once per Student, once per linked child on Parent, and on the Student Profile page.
 - **`MeetingActions.tsx`** — all meeting create/complete/cancel/reschedule/link logic, reused identically on three surfaces (General Evaluations, Subject Evaluations panel, Meetings management page).
+- **`TodaysHomeworkPanel.tsx`** (Phase 1) — renders whatever `fetchTodaysHomework()` returns; rendered once on the Student dashboard and once per linked child on the Parent dashboard. See [§17a](#17a-homework--phase-1).
 
-`fetchAcademicProgress()`/`fetchAssessmentResults()`/`fetchMeetingsForStudent()` (`src/lib/academicProgress.ts`, `src/lib/assessmentResults.ts`) are the shared query functions every dashboard branch and the Student Profile page call — never a second, parallel query implementation per surface.
+`fetchAcademicProgress()`/`fetchAssessmentResults()`/`fetchMeetingsForStudent()` (`src/lib/academicProgress.ts`, `src/lib/assessmentResults.ts`) and `fetchTodaysHomework()` (`src/lib/homework.ts`) are the shared query functions every dashboard branch and the Student Profile page call — never a second, parallel query implementation per surface.
 
 *(Source: [ARCHITECTURE.md](ARCHITECTURE.md), [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md), [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md))*
 
@@ -893,6 +915,7 @@ The full, exact inventory (method, path, auth, request/response shape) is mainta
 | Subjects & academic assignment (3A) | `.../subjects*`, `.../teacher-academic-assignments*` | `requireSchoolAdmin` |
 | Operations (3B) | `.../class-teacher-assignments*`, `.../attendance*`, `.../units*`, `.../tests*` | `requireSchoolAdmin` OR `requireClassTeacher`/`requireTeacherAssignment` |
 | Evaluation & PTM (3C) | `.../evaluations*`, `.../meetings*` | `requireSchoolAdmin` OR `requireClassTeacher`/`requireTeacherAssignment` |
+| Homework (Phase 1) | `.../homework*` | `requireTeacherAssignment` only (create) / `requireSchoolAdmin` OR `requireTeacherAssignment` (edit/publish) |
 | Assessment Framework (3D-1) | `.../grading-scales*`, `.../assessment-frameworks*`, `.../assessment-framework-assignments*` | `requireSchoolAdmin` only |
 | Assessment Results (3D-2/3/4) | `.../components/[id]/results`, `.../publish`, `/api/schools/[id]/assessment-results/[resultId]` | `requireSchoolAdmin` OR `requireTeacherAssignment` |
 | Organizations & courses | `/api/organizations/*`, `/api/courses/*`, `/api/enrollments/*` | `requireOrgAdmin`/`requireCourseOwner`/inline |
@@ -1129,6 +1152,15 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | Auth | OAuth/SSO, email verification, password reset, rate limiting, session revocation, account deactivation/deletion |
 | Platform Admin | No in-app route to grant/revoke `PLATFORM_ADMIN` |
 
+### 🔭 Homework (Phase 1) — deliberate scope decisions
+
+| Area | Deferred item |
+|---|---|
+| Submissions & grading | No submissions, attachments, grading, rubrics, or feedback — a publish-and-view mechanism only; no per-student result row exists |
+| Notifications | Publishing does not notify anyone (unlike `NewsPost`'s `notifySchoolCommunity()`) — a Student/Parent must visit their dashboard |
+| Upcoming/past views | Only "due today" is surfaced; `fetchTodaysHomework()`'s exact-match `dueDate` query would need to become a range query |
+| Admin-on-behalf-of-teacher authoring | Unlike Evaluations/`TeachingUnit`; `Homework.teacherId` is a real, non-nullable `Teacher` FK and Phase 1 has no approved flow for it |
+
 ### 🟡 Designed but not implemented
 
 - Grade-based certificates (a reserved field exists on `Certificate`, but no issuance path).
@@ -1162,6 +1194,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) | Subjects, `GradeSubject`, `TeacherAcademicAssignment` (Phase 3A) |
 | [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) | Grade Coordinators/Class Teachers, Attendance, Teaching Units, Unit Tests (Phase 3B) |
 | [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) | Evaluations, Parent-Teacher Meetings (Phase 3C) |
+| [HOMEWORK.md](HOMEWORK.md) | Homework model, Draft/Published lifecycle, date semantics, teacher authorization, Student/Parent visibility (Phase 1) |
 | [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) | Framework/grading-scale configuration, the guided wizard (Phase 3D-1) |
 | [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) | Marks entry, publishing, calculation engine, Report Card (Phase 3D-2/3/4) |
 | [CERTIFICATES.md](CERTIFICATES.md) | Certificate model, issuance, display |

@@ -8,6 +8,7 @@ import AcademicProgressPanel, {
 } from "@/components/AcademicProgressPanel";
 import type { MeetingRow } from "@/lib/academicProgress";
 import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults";
+import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
 
 type Parent = {
   id: string;
@@ -30,6 +31,9 @@ type Parent = {
     // own props.
     meetings: MeetingRow[];
     assessment: { subjects: SubjectResult[]; gpa: number | null };
+    // Reuses the same TodaysHomeworkPanel/fetchTodaysHomework() the
+    // Student branch uses for their own view — see src/lib/homework.ts.
+    todaysHomework: HomeworkRow[];
   }[];
 };
 
@@ -90,6 +94,10 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
                 >
                   {c.student.approved ? "Approved" : "Pending School Approval"}
                 </span>
+
+                <div className="mt-4">
+                  <TodaysHomeworkPanel homework={c.todaysHomework} />
+                </div>
 
                 {(c.progress.attendance.length > 0 ||
                   c.progress.teachingProgress.length > 0 ||

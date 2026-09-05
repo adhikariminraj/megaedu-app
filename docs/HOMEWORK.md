@@ -1,0 +1,66 @@
+# Homework
+
+> Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
+> Last verified: 2026-09-06 (Phase 1 — fundamental Homework structure), against the current codebase.
+
+## The fundamental flow ✅
+
+```
+Teacher → creates Homework → assigns to Grade/Section → selects Subject → publishes
+        → Students see it → Parents see today's due homework for each child
+```
+
+One `Homework` row serves every applicable student — there is **no per-student fan-out record** (no `HomeworkStudent`/`StudentHomework`/`HomeworkAssignment` table). Student and Parent visibility is resolved entirely at read time by matching a student's current institutional placement against the `Homework` row's own scope.
+
+## Data model ✅
+
+`Homework` (`prisma/schema.prisma`) — see [DATABASE.md](DATABASE.md) for the full field list. In short:
+- `academicSessionId`, `schoolGradeId`, `sectionId?`, `gradeSubjectId`, `subjectId` — the same institutional scoping shape already used by `TeachingUnit`/`TeacherAcademicAssignment`. `sectionId: null` = grade-wide; a real value = that section only, following the three-way `sectionScopeWhere()` idiom (`src/lib/authorize.ts`) used throughout Phase 3.
+- `teacherId → Teacher` — the real institutional Teacher identity, **not** just a `createdByUserId → User` audit field (unlike `TeachingUnit`/`UnitTest`). Matches `StudentEvaluation`'s precedent instead: authorship resolves through the Teacher identity, never the raw account. See [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md).
+- `title`, `instructions`, `dueDate` (date-only, see below).
+- `status` (`DRAFT` | `PUBLISHED`) and `publishedAt?` — a single gate for **both** Student and Parent visibility simultaneously. Deliberately not two independent flags like `StudentEvaluation.visibleToParent`/`visibleToStudent` — nothing in Phase 1's product direction calls for an asymmetric audience between a student and their own parent.
+
+Once `PUBLISHED`, `title`/`instructions`/`dueDate`/`sectionId` are frozen (a `PATCH` attempting to change them returns `409`) — matching the "permanent once shared" precedent already established for `StudentEvaluation` sharing and `Certificate` issuance. Only the `DRAFT → PUBLISHED` transition itself is allowed afterward, and it's idempotent (publishing an already-published item is a harmless no-op).
+
+## Date semantics — "today" vs. "due today" ✅
+
+`dueDate` is date-only, following the `Attendance.date`/`UnitTest.testDate`/`AcademicSession.startDate` convention: always derived from a client-supplied `"YYYY-MM-DD"` string via `new Date(dateString)`, never a server-computed "today" — the same byte-identical UTC-midnight value every time makes plain equality (`dueDate: parsedDate`) a reliable exact match.
+
+"Today's Homework," for both the Student and Parent read paths, means **homework whose `dueDate` equals today's calendar date** — not "published today." "Today" itself is resolved via `todayInKathmandu()` (`src/lib/homework.ts`), using `Intl.DateTimeFormat` with an explicit `Asia/Kathmandu` anchor — **deliberately not** `new Date().toISOString().slice(0, 10)` (the pattern used elsewhere in this codebase, e.g. `dashboard/attendance/page.tsx`, purely as an overridable UI default). Nepal Standard Time is UTC+5:45; the UTC calendar date diverges from Nepal's actual local date for roughly the first ~5h45m of every Nepal day (Nepal local midnight through ~05:44 local), which is exactly the early-morning window a parent checking homework before the school day starts is most likely to hit. `Asia/Kathmandu` is hardcoded — this platform is Nepal-only today, and no `School` has ever had (or needed) its own timezone field; adding one now would be speculative infrastructure for a scenario that doesn't exist yet. No date/timezone package was installed — `Intl.DateTimeFormat` is native.
+
+## Shared read function ✅
+
+`fetchTodaysHomework(studentId)` (`src/lib/homework.ts`) is the **one** place this query is written — shared by the Student's own dashboard and, once per linked child, the Parent dashboard, matching the exact "one function, every caller" discipline already established by `fetchAcademicProgress()` (`src/lib/academicProgress.ts`). It:
+1. Resolves the student's current placement via `GradeHistory` (`{ studentId, academicSession: { status: "ACTIVE" } }`) — no placement, no homework, returns `[]`.
+2. Resolves today's date via `todayInKathmandu()`.
+3. Queries `PUBLISHED` `Homework` matching that placement's `academicSessionId`/`schoolGradeId`, `dueDate = today`, and the student's own `sectionId` via `sectionScopeWhere()` (grade-wide OR that exact section).
+
+Like `fetchAcademicProgress()`, this function does no authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller is allowed to see.
+
+## Parent visibility — reuses the existing Parent → ParentStudent → Student chain ✅
+
+No new `ParentHomework` relationship was introduced. `dashboard/page.tsx`'s existing `PARENT` branch already resolves `parent.children` from the authenticated user's own `ParentStudent` rows — never a request-supplied `studentId` — and already fans out per-child reads (`fetchAcademicProgress`, `fetchMeetingsForStudent`, `fetchAssessmentResults`) via `Promise.all`. `fetchTodaysHomework(c.student.id)` was added as one more call in that same fan-out, reusing the identical security posture: *"childStudentIds is derived ENTIRELY from the logged-in parent's own resolved ParentStudent rows... so one child's data can never leak into another's."* `TodaysHomeworkPanel` (`src/components/TodaysHomeworkPanel.tsx`) is the shared presentational component rendered once on the Student's own dashboard and once per child on the Parent's — matching `AcademicProgressPanel`'s own reuse pattern.
+
+## Teacher authorization ✅
+
+Creation is gated by `requireTeacherAssignment()` (`src/lib/authorize.ts`) alone — **not** composed with `requireSchoolAdmin()` the way the analogous `TeachingUnit` create route is. `Homework.teacherId` is a real, non-nullable `Teacher` FK, and nothing in the approved Phase 1 scope describes a School Admin authoring "on behalf of" a named teacher the way Evaluations does — restricting creation to the caller's own resolved Teacher identity avoids that ambiguity entirely. Editing/publishing (`PATCH`) accepts either `requireSchoolAdmin()` (oversight) or `requireTeacherAssignment()` re-checked fresh against the homework row's own stored scope — never just "are you the teacher who originally created this," matching the no-hierarchy-among-teachers precedent already established for `TeacherAcademicAssignment`.
+
+The three-way `sectionId` semantics (`sectionScopeWhere()`) are unweakened: a teacher holding only section-specific assignments (e.g. Section A and B, but no grade-wide row) is correctly rejected from creating grade-wide (`sectionId: null`) homework — confirmed live during Phase 1 testing.
+
+## Routes ✅
+
+- `POST /api/schools/[id]/homework` — create a `DRAFT`. Teacher-only (see above). Every relational id (`gradeSubjectId`, `sectionId`) is re-resolved and cross-checked server-side against the URL's school — never trusted from the client in isolation, matching the `TeachingUnit` create route's exact validation shape.
+- `PATCH /api/schools/[id]/homework/[homeworkId]` — edit `DRAFT` fields and/or publish. Re-verifies the homework's own `schoolGradeId` belongs to the URL's school (defense in depth against a forged `homeworkId` even when the caller is a genuine admin/teacher elsewhere).
+
+## Teacher experience ✅
+
+`/dashboard/schools/[schoolId]/homework` — URL-scoped from day one via `verifySchoolAccess()` (Phase 4D pattern). Unlike Attendance/Evaluations/Meetings, Homework has **no unscoped legacy sibling page** — it's a brand-new feature with no pre-Phase-4D history to preserve, so it skips straight to the pattern those features were migrated *to*. Reachable via: a link on the School Admin's main dashboard (next to "Inquiries"), a link on the Teacher's main dashboard (next to "Assessment Results"), and a link on the Phase 4D-1 multi-school chooser page — the same discoverability approach already used for Inquiries.
+
+## Student & Parent experience ✅
+
+- **Student** (`dashboard/page.tsx`'s `STUDENT` branch → `StudentDashboard.tsx`): a "Today's Homework" section, subject/title/instructions per item.
+- **Parent** (`PARENT` branch → `ParentDashboard.tsx`): the same section, once per linked child, grouped under that child's card.
+
+## Explicitly out of scope for Phase 1 🔭
+
+Student submissions, file attachments, grading, rubrics, teacher feedback, discussion, plagiarism checking, analytics, reminders/notifications, homework categories/types, completion tracking, upcoming/past homework views. See [KNOWN_GAPS.md](KNOWN_GAPS.md).

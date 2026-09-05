@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-09-05, against what is actually available in the app today.
+> **Last verified**: 2026-09-06 (added Homework, Phase 1), against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -244,6 +244,20 @@ Ranking uses a student's GPA when at least one of their own published subjects r
 
 **Important rule:** Unit Tests and the formal Assessment system (below) are two genuinely separate things — a Unit Test score never automatically becomes part of a student's official assessment result, and the two are never merged.
 
+### Homework
+
+**What is this?** A homework item a teacher assigns to a grade — or just one section of it — for one of their subjects: a title, instructions, and a due date. One item covers every applicable student; there's no separate record created per student.
+
+**Who can use it?** A Teacher creates and publishes homework for a grade/section/subject they're actually assigned to teach. A School Administrator can see homework the same way but cannot create it on a teacher's behalf in this phase.
+
+**How to use it:** From the Homework page, choose the grade, section (or "whole grade"), and subject you're assigning for, then write a title, instructions, and pick a due date. It's saved as a **Draft** — not visible to anyone yet. When you're ready, **Publish** it, and it becomes visible to every Student (and their Parent) in that grade/section.
+
+**Important rules:** Nothing is visible to a Student or Parent until you publish it — a Draft is exactly like it doesn't exist, from their side. Once published, the title, instructions, due date, and section can no longer be edited — this keeps what a family sees permanently trustworthy, the same rule already used for shared evaluations and issued certificates. Homework you assign to "the whole grade" is visible in every section of that grade; homework assigned to one section only appears to students in that section.
+
+**What students and parents see:** A "Today's Homework" section on their dashboard, showing whatever's due **today** — not everything ever assigned, and not what was published today, specifically what's *due* today. This isn't available yet as an upcoming or past list; only today's due items are shown in this phase.
+
+**Not built yet (Coming later):** student submissions, file attachments, grading or marks, teacher feedback on a submission, and notifications when something new is published — a Student or Parent currently needs to check their dashboard to see it.
+
 ---
 
 ## 6. Assessment & Results
@@ -403,7 +417,7 @@ If you administer more than one school, Attendance, Evaluations, Parent-Teacher 
 
 ### Teacher
 
-Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
+Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, assigning homework, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
 
 If you teach at more than one school, Attendance, Evaluations, and Parent-Teacher Meetings will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)).
 
@@ -413,11 +427,11 @@ If you're connected to more than one school as a School Administrator or Teacher
 
 ### Student
 
-Your dashboard shows your own school status, your interests and credited skills, any courses you're enrolled in, and — once you're placed into a grade — your Teaching Progress, Test Results, Recent Attendance, any evaluations shared with you, and your published Assessment Results and Report Card.
+Your dashboard shows your own school status, your interests and credited skills, any courses you're enrolled in, and — once you're placed into a grade — your Today's Homework, Teaching Progress, Test Results, Recent Attendance, any evaluations shared with you, and your published Assessment Results and Report Card.
 
 ### Parent
 
-Your dashboard shows, for each of your linked children, the same progress information they see themselves — school status, teaching progress, test results, recent attendance, shared evaluations, published assessment results — plus your Parent-Teacher Meetings, which your child never sees on their own dashboard.
+Your dashboard shows, for each of your linked children, the same progress information they see themselves — school status, today's homework, teaching progress, test results, recent attendance, shared evaluations, published assessment results — plus your Parent-Teacher Meetings, which your child never sees on their own dashboard.
 
 ### My Profile
 
@@ -486,6 +500,12 @@ No — meetings are visible only to parents and staff. This is a deliberate, str
 **Q: Can I delete a section or subject once it's been used?**
 No — sections and subjects can be deactivated (hidden from future use) but never permanently deleted, so any student's history that references them always stays meaningful.
 
+**Q: When does a Student or Parent actually see a homework item?**
+Only once a Teacher publishes it — a Draft doesn't exist as far as a Student or Parent can tell. Once published, it appears under "Today's Homework" on the day it's due, not the day it was published.
+
+**Q: Can I see homework that's due next week, or homework from last month?**
+Not yet — only what's due **today** is shown. An upcoming/past homework view is planned but not built yet.
+
 **Q: What's the difference between a Unit Test and the Assessment system?**
 A Unit Test is a quick, informal check tied to one teaching chapter. The Assessment system is the school's official, report-card-driving marking scheme. They're kept completely separate — a Unit Test score is never automatically pulled into an official assessment result.
 
@@ -520,6 +540,7 @@ In an area that supports it (Attendance, Evaluations, Parent-Teacher Meetings, G
 | **GPA** | An unweighted average of a student's subject grades |
 | **Report Card** | The full, formatted view of a student's published results, attendance, and evaluations |
 | **Evaluation** | A teacher's written comment about a student, general or subject-specific |
+| **Homework** | A Teacher-authored assignment for a grade (or one section) and subject, invisible until published; a Student/Parent sees it under "Today's Homework" on its due date |
 | **Parent-Teacher Meeting (PTM)** | A scheduled meeting between a teacher and a parent |
 | **Certificate** | A verifiable credential issued automatically on course completion |
 | **MEGA Academy** | The part of MEGA.EDU where organizations publish free online courses |

@@ -269,6 +269,7 @@ model Teacher {
   classTeacherAssignments ClassTeacherAssignment[]
   studentEvaluations      StudentEvaluation[]
   parentTeacherMeetings   ParentTeacherMeeting[]
+  homework                Homework[]
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Same structural separation from portal access
@@ -518,6 +519,7 @@ model AcademicSession {
   studentEvaluations             StudentEvaluation[]
   parentTeacherMeetings          ParentTeacherMeeting[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
+  homework                       Homework[]
 
   @@index([schoolId])
 }
@@ -555,6 +557,7 @@ model SchoolGrade {
   teachingPlans                  TeachingPlan[]
   studentEvaluations             StudentEvaluation[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
+  homework                       Homework[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -582,6 +585,7 @@ model Section {
   teachingUnits              TeachingUnit[]
   teachingPlans              TeachingPlan[]
   studentEvaluations         StudentEvaluation[]
+  homework                   Homework[]
 
   @@unique([schoolGradeId, name])
   @@index([schoolGradeId])
@@ -692,6 +696,7 @@ model Subject {
   teacherAssignments TeacherAcademicAssignment[]
   teachingUnits      TeachingUnit[]
   teachingPlans      TeachingPlan[]
+  homework           Homework[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -727,6 +732,7 @@ model GradeSubject {
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   assessmentComponentResults     AssessmentComponentResult[]
   assessmentResultPublications   AssessmentResultPublication[]
+  homework                       Homework[]
 
   @@unique([schoolGradeId, subjectId, academicSessionId])
   @@index([schoolGradeId])
@@ -982,6 +988,77 @@ model UnitTestResult {
 
   @@unique([unitTestId, studentId])
   @@index([studentId])
+}
+
+// ============================================================
+// HOMEWORK — Phase 1
+// One row per teacher-created homework item, shared by every student it
+// applies to — deliberately NOT fanned out into a per-student row the
+// way UnitTestResult is (that exists specifically for per-student
+// *grading*, which Homework does not have in this phase). Student and
+// Parent visibility is resolved entirely at read time, by matching a
+// student's current GradeHistory placement (schoolGradeId/sectionId,
+// this session) against a Homework row's own scope — see
+// src/lib/homework.ts. sectionId null = grade-wide (every section);
+// a real value = that section only — the same three-way idiom already
+// used by TeachingUnit/StudentEvaluation/ClassTeacherAssignment via
+// sectionScopeWhere() in src/lib/authorize.ts.
+//
+// teacherId references the Teacher identity directly (not just a
+// createdByUserId → User audit field, unlike TeachingUnit/UnitTest) —
+// matching StudentEvaluation's precedent, deliberately, so authorship
+// resolves through the institutional Teacher identity rather than the
+// raw account. gradeSubjectId is the source-of-truth that this subject
+// is actually offered at this grade/session (the same role it plays for
+// TeacherAcademicAssignment/TeachingUnit); subjectId/schoolGradeId/
+// academicSessionId are denormalized alongside it purely for query
+// convenience, same precedent.
+//
+// dueDate is date-only, following the Attendance.date/UnitTest.testDate
+// convention: always derived from a client-supplied "YYYY-MM-DD"
+// string, never a server-computed "today" — see src/lib/homework.ts for
+// how "today" is resolved for the Student/Parent read side specifically
+// (Asia/Kathmandu, not the server's own clock/UTC).
+//
+// status is DRAFT | PUBLISHED — a single gate for both Student and
+// Parent visibility simultaneously (not two independent flags like
+// StudentEvaluation's visibleToParent/visibleToStudent), since nothing
+// in this phase's product direction calls for an asymmetric audience.
+// publishedAt is null while DRAFT, set once at the DRAFT->PUBLISHED
+// transition.
+model Homework {
+  id                String          @id @default(cuid())
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  sectionId         String?
+  section           Section?        @relation(fields: [sectionId], references: [id])
+  gradeSubjectId    String
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  subjectId         String
+  subject           Subject         @relation(fields: [subjectId], references: [id])
+  teacherId         String
+  teacher           Teacher         @relation(fields: [teacherId], references: [id])
+
+  title        String
+  instructions String
+  dueDate      DateTime
+
+  status      String    @default("DRAFT") // DRAFT | PUBLISHED
+  publishedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Supports the core read pattern directly: "published homework due on
+  // this date, for this grade" (src/lib/homework.ts's
+  // fetchTodaysHomework, and the teacher-facing list/filter view) —
+  // both are equality lookups, so a single compound index in this
+  // column order serves both without a redundant second index.
+  @@index([schoolGradeId, dueDate])
+  @@index([academicSessionId])
+  @@index([teacherId])
 }
 
 // ============================================================

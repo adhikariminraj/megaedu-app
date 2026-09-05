@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-06 (Phase 1 — Homework) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -122,6 +122,20 @@ Every Organization Admin page resolves its organization the same unscoped way (`
 
 ### Student simultaneous multi-school affiliation remains an undecided product policy 🔭
 `StudentSchoolAffiliation` permits a Student to hold 2+ `ACTIVE` rows at once — the schema imposes no limit, mirroring the Teacher side — but unlike Teacher (explicitly designed and tested for multi-school), no business rule or product decision has ever been made about whether a Student *should* be allowed to be simultaneously enrolled at two schools. Nothing in the app currently blocks it; nothing in the app was designed assuming it happens. A future phase should either explicitly bless it (and audit every Student-scoped roster/attendance/grade view for multi-school correctness) or add an enforced one-ACTIVE-affiliation-at-a-time rule for Students specifically.
+
+## Homework (Phase 1)
+
+### No submissions, attachments, grading, or feedback 🔭
+Deliberate Phase 1 scope decision, not an oversight — Homework is a publish-and-view mechanism only in this phase. `Homework` has no schema hook for any of these yet (no per-student result row exists at all, unlike `UnitTestResult`); adding them later is additive, not a redesign.
+
+### No reminders or notifications on publish 🔭
+Publishing a `Homework` item does not notify anyone (unlike `NewsPost`, which fires `notifySchoolCommunity()`) — a Student/Parent only sees it by visiting their dashboard. Deliberately deferred; the existing `notify()` pattern (`src/lib/notify.ts`) would be the natural mechanism to extend later.
+
+### No upcoming/past homework view 🔭
+Only "due today" is surfaced in Phase 1. `fetchTodaysHomework()`'s exact-match `dueDate` query would need to become a range query to support this — a small, additive change, not a redesign, but explicitly out of scope for now.
+
+### School Admin cannot author Homework "on behalf of" a named teacher 🔭
+Unlike Evaluations (`teacherHoldsSubjectAssignment()`) or the `TeachingUnit` create route (Admin-or-Teacher composed), Homework creation is Teacher-only — `Homework.teacherId` is a real, non-nullable `Teacher` FK, and Phase 1's approved scope never described an Admin-authoring flow. Worth reconsidering only if a genuine product need for it emerges; would need the same explicit-named-teacher pattern Evaluations already uses.
 
 ## Authentication
 

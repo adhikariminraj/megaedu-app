@@ -14,6 +14,7 @@ import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { fetchTodaysHomework } from "@/lib/homework";
 import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
 import SchoolChooser from "@/components/SchoolChooser";
 
@@ -301,6 +302,7 @@ export default async function DashboardPage() {
     if (student) {
       const progress = await fetchAcademicProgress(student.id, "STUDENT");
       const assessment = await fetchAssessmentResults(student.id, "STUDENT");
+      const todaysHomework = await fetchTodaysHomework(student.id);
       let interestsLocked = false;
       if (student.schoolId) {
         const activeSession = await prisma.academicSession.findFirst({
@@ -324,6 +326,7 @@ export default async function DashboardPage() {
           subjectResults={toSubjectResultRows(assessment.subjects)}
           gpa={assessment.gpa}
           interestsLocked={interestsLocked}
+          todaysHomework={todaysHomework}
         />
       );
     }
@@ -349,6 +352,10 @@ export default async function DashboardPage() {
           progress: await fetchAcademicProgress(c.student.id, "PARENT"),
           meetings: await fetchMeetingsForStudent(c.student.id, "PARENT"),
           assessment: await fetchAssessmentResults(c.student.id, "PARENT"),
+          // Reuses the exact same shared function the Student branch
+          // above calls for their own view — never a separate
+          // parent-specific visibility algorithm (see src/lib/homework.ts).
+          todaysHomework: await fetchTodaysHomework(c.student.id),
         }))
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;

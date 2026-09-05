@@ -103,6 +103,13 @@ Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTea
 | `POST` | `/api/schools/[id]/units/[unitId]/tests` | Create a Unit/Chapter Test | `{title, testDate, maxMarks}` | `400` if the unit is still `NOT_STARTED`; pre-creates a `PENDING` `UnitTestResult` row for every enrolled student in the unit's scope |
 | `PATCH` | `/api/schools/[id]/tests/[unitTestId]/results` | Bulk-record student evaluations | `{results: [{studentId, status, marksObtained?, remarks?}]}` | `status: "ABSENT"` forces `marksObtained: null`; `status: "EVALUATED"` requires `0 ≤ marksObtained ≤ maxMarks`, otherwise skipped |
 
+## Schools — Homework (Phase 1)
+
+| Method | Path | Purpose | Body | Notes |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/homework` | Create one `DRAFT` Homework item | `{schoolGradeId, sectionId?, gradeSubjectId, title, instructions, dueDate}` | Teacher-only (`requireTeacherAssignment()`, not composed with `requireSchoolAdmin()`) — `teacherId` resolved server-side from the session, never client-supplied; every relational id re-validated against the URL's school |
+| `PATCH` | `/api/schools/[id]/homework/[homeworkId]` | Edit `DRAFT` fields and/or publish | `{title?, instructions?, dueDate?, sectionId?, status?}` | School Admin or the assigned Teacher, re-verified against the homework's own stored scope; `409` if editing fields on an already-`PUBLISHED` item; `DRAFT → PUBLISHED` is idempotent |
+
 ## Schools — Teacher Qualitative Evaluation & Parent-Teacher Meetings (Phase 3C)
 
 Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTeacherAssignment` scope noted per route — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for full behavioral detail; this table is structural.

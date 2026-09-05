@@ -9,6 +9,7 @@ import AcademicProgressPanel, {
   EvaluationRow,
   SubjectResultRow,
 } from "@/components/AcademicProgressPanel";
+import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
 
 type Student = {
   id: string;
@@ -34,6 +35,7 @@ export default function StudentDashboard({
   subjectResults,
   gpa,
   interestsLocked,
+  todaysHomework,
 }: {
   student: Student;
   userName: string;
@@ -44,6 +46,7 @@ export default function StudentDashboard({
   subjectResults: SubjectResultRow[];
   gpa: number | null;
   interestsLocked: boolean;
+  todaysHomework: HomeworkRow[];
 }) {
   if (!student.school) {
     return (
@@ -153,6 +156,10 @@ export default function StudentDashboard({
             ))
           )}
         </div>
+      </div>
+
+      <div className="mb-6">
+        <TodaysHomeworkPanel homework={todaysHomework} />
       </div>
 
       <AcademicProgressPanel

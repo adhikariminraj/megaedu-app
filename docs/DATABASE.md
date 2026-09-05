@@ -205,6 +205,19 @@ Seven new models, additive on top of Phase 2/3A — no existing model's columns 
 
 ---
 
+## Homework — Phase 1 ✅ (fully implemented and in active use)
+
+One new model, additive on top of Phase 2/3A/3B — no existing model's columns changed, only new relation-array fields. See [HOMEWORK.md](HOMEWORK.md) for the full behavioral write-up; this section covers structure only.
+
+### `Homework`
+**Purpose**: one teacher-created homework item for a grade (or one section of it) and subject, for one session. **Currently used**: yes.
+**Key fields**: `id, academicSessionId (FK), schoolGradeId (FK), sectionId? (FK to Section), gradeSubjectId (FK), subjectId (FK), teacherId (FK), title, instructions, dueDate, status (default "DRAFT"), publishedAt?, createdAt, updatedAt`. Valid `status`: `DRAFT | PUBLISHED`.
+**Constraints**: none beyond FKs — a grade/section/subject may have any number of Homework rows, no uniqueness restriction.
+**Delete behavior**: cascades from `GradeSubject`; no delete route in this phase.
+**Notes**: deliberately **not** fanned out into a per-student row the way `UnitTestResult` is — Student/Parent visibility is resolved entirely at read time by matching a student's current `GradeHistory` placement against a `Homework` row's own scope (`fetchTodaysHomework()`, `src/lib/homework.ts`), never a stored per-student relationship. `sectionId: null` = grade-wide (every section); a real value = that section only — the same three-way idiom already used by `TeachingUnit`/`StudentEvaluation` via `sectionScopeWhere()`. `teacherId` references the `Teacher` identity directly (matching `StudentEvaluation`'s precedent), not just a `createdByUserId` audit field the way `TeachingUnit`/`UnitTest` do — deliberate, so authorship resolves through the institutional Teacher identity rather than the raw account. `dueDate` is date-only, following the `Attendance.date`/`UnitTest.testDate` convention (always derived from a client-supplied `"YYYY-MM-DD"` string, never a server-computed "today"). `status` is a single gate for both Student and Parent visibility simultaneously — not two independent flags like `StudentEvaluation.visibleToParent`/`visibleToStudent`. Once `PUBLISHED`, `title`/`instructions`/`dueDate`/`sectionId` are frozen — matching the "permanent once shared" precedent already established for `StudentEvaluation` sharing and `Certificate` issuance.
+
+---
+
 ## Teacher Qualitative Evaluation & Parent-Teacher Meetings — Phase 3C ✅ (fully implemented and in active use)
 
 Two new models, additive on top of Phase 2/3A/3B — no existing model's columns changed, only new relation-array fields. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for the full behavioral write-up; this section covers structure only.
