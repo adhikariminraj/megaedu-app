@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { createStudentAffiliation } from "@/lib/affiliation";
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
@@ -111,6 +112,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const student = await tx.student.create({
       data: { userId: user.id, fullName: name, schoolId: params.id, approved: true },
     });
+
+    // A School Admin adding a student directly vets them by construction
+    // — approved immediately, same ACTIVE semantics as an admin approving
+    // a self-service join.
+    await createStudentAffiliation(tx, { studentId: student.id, schoolId: params.id, status: "ACTIVE" });
+
     if (validGradeId && academicSessionId) {
       await tx.gradeHistory.create({
         data: {

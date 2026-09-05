@@ -3,6 +3,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { createTeacherAffiliation } from "@/lib/affiliation";
 
 const POSITIONS = ["Teacher", "Librarian", "Counselor", "Coach", "Administrative Staff", "Nurse", "Other"] as const;
 
@@ -51,9 +52,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const user = await tx.user.create({
       data: { name, email: normalizedEmail, passwordHash, roles: { create: [{ role: "TEACHER" }] } },
     });
-    return tx.teacher.create({
+    const teacher = await tx.teacher.create({
       data: { userId: user.id, fullName: name, schoolId: params.id, position, subjects, approved: true },
     });
+
+    // A School Admin adding a teacher directly vets them by construction
+    // — approved immediately, same ACTIVE semantics as an admin approving
+    // a self-service join.
+    await createTeacherAffiliation(tx, {
+      teacherId: teacher.id,
+      schoolId: params.id,
+      status: "ACTIVE",
+      position,
+      subjects: subjects ?? null,
+    });
+
+    return teacher;
   });
 
   return NextResponse.json({ ok: true, teacherId: teacher.id });

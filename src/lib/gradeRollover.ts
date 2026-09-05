@@ -9,8 +9,14 @@ type Client = typeof prisma | Prisma.TransactionClient;
  * about — used for the pre-close preview on /dashboard/sessions/new.
  */
 export async function classifySessionForRollover(schoolId: string, sessionId: string) {
+  // Phase 4A: membership sourced from StudentSchoolAffiliation (ACTIVE
+  // only — rollover concerns currently-enrolled students), not the
+  // Student.schoolId/approved bridge fields.
   const rows = await prisma.gradeHistory.findMany({
-    where: { academicSessionId: sessionId, student: { schoolId, approved: true } },
+    where: {
+      academicSessionId: sessionId,
+      student: { schoolAffiliations: { some: { schoolId, status: "ACTIVE" } } },
+    },
     include: {
       student: true,
       schoolGrade: { include: { gradeReference: true } },
@@ -38,10 +44,13 @@ export async function classifySessionForRollover(schoolId: string, sessionId: st
  * until someone actually resolves them, never silently dropped.
  */
 export async function findPendingStudents(schoolId: string, activeSessionId: string | null) {
-  const students = await prisma.student.findMany({
-    where: { schoolId, approved: true },
-    select: { id: true },
+  // Phase 4A: membership sourced from StudentSchoolAffiliation (ACTIVE
+  // only), not the Student.schoolId/approved bridge fields.
+  const affiliations = await prisma.studentSchoolAffiliation.findMany({
+    where: { schoolId, status: "ACTIVE" },
+    select: { studentId: true },
   });
+  const students = affiliations.map((a) => ({ id: a.studentId }));
   if (students.length === 0) return [];
 
   const allHistories = await prisma.gradeHistory.findMany({
@@ -80,10 +89,13 @@ export async function carryForwardEligibleStudents(
   targetSessionId: string,
   client: Client = prisma
 ) {
-  const students = await client.student.findMany({
-    where: { schoolId, approved: true },
-    select: { id: true },
+  // Phase 4A: membership sourced from StudentSchoolAffiliation (ACTIVE
+  // only), not the Student.schoolId/approved bridge fields.
+  const affiliations = await client.studentSchoolAffiliation.findMany({
+    where: { schoolId, status: "ACTIVE" },
+    select: { studentId: true },
   });
+  const students = affiliations.map((a) => ({ id: a.studentId }));
   if (students.length === 0) return { placed: 0 };
 
   const allHistories = await client.gradeHistory.findMany({

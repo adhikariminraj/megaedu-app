@@ -33,11 +33,16 @@ export default async function AcademicsPage() {
       },
       orderBy: { gradeReference: { order: "asc" } },
     }),
-    prisma.teacher.findMany({
-      where: { schoolId, approved: true },
-      include: { user: true },
-      orderBy: { user: { name: "asc" } },
-    }),
+    // Phase 4A: membership sourced from TeacherSchoolAffiliation (ACTIVE
+    // only — this picker assigns real teaching duties), not the
+    // Teacher.schoolId/approved bridge fields.
+    prisma.teacherSchoolAffiliation
+      .findMany({
+        where: { schoolId, status: "ACTIVE" },
+        include: { teacher: { include: { user: true } } },
+        orderBy: { teacher: { user: { name: "asc" } } },
+      })
+      .then((affs) => affs.map((a) => a.teacher)),
   ]);
 
   let gradeSubjectsByGrade: Record<string, { id: string; subjectId: string; subjectName: string }[]> = {};

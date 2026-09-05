@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { createStudentAffiliation } from "@/lib/affiliation";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -44,9 +45,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await tx.student.create({
+    const student = await tx.student.create({
       data: { userId: user.id, fullName: name, schoolId, gradeLevel, approved: false },
     });
+
+    // Self-registration always needs fresh approval — same PENDING
+    // semantics as the self-service /api/student/join-school route.
+    await createStudentAffiliation(tx, { studentId: student.id, schoolId, status: "PENDING" });
   });
 
   return NextResponse.json({ ok: true });

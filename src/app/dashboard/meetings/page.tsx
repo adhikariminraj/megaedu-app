@@ -76,11 +76,16 @@ export default async function MeetingsPage({
     evaluationsByStudent.set(ev.studentId, list);
   }
 
+  // Phase 4A: membership sourced from TeacherSchoolAffiliation (ACTIVE
+  // only), not the Teacher.schoolId/approved bridge fields.
   const teacherOptions = isAdmin
-    ? await prisma.teacher.findMany({
-        where: { schoolId, approved: true },
-        orderBy: { fullName: "asc" },
-      })
+    ? await prisma.teacherSchoolAffiliation
+        .findMany({
+          where: { schoolId, status: "ACTIVE" },
+          include: { teacher: true },
+          orderBy: { teacher: { fullName: "asc" } },
+        })
+        .then((affs) => affs.map((a) => a.teacher))
     : [];
 
   return (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { createTeacherAffiliation } from "@/lib/affiliation";
 
 const POSITIONS = ["Teacher", "Librarian", "Counselor", "Coach", "Administrative Staff", "Nurse", "Other"] as const;
 
@@ -47,8 +48,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    await tx.teacher.create({
+    const teacher = await tx.teacher.create({
       data: { userId: user.id, fullName: name, schoolId, subjects, position, approved: false },
+    });
+
+    // Self-registration always needs fresh approval — same PENDING
+    // semantics as the self-service /api/teacher/join-school route.
+    await createTeacherAffiliation(tx, {
+      teacherId: teacher.id,
+      schoolId,
+      status: "PENDING",
+      position,
+      subjects: subjects ?? null,
     });
   });
 

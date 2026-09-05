@@ -115,8 +115,6 @@ export default async function DashboardPage() {
             news: true,
             events: true,
             opportunities: { orderBy: { createdAt: "desc" } },
-            teachers: { include: { user: true }, orderBy: { createdAt: "desc" } },
-            students: { include: { user: true }, orderBy: { createdAt: "desc" } },
             accountants: { include: { user: true } },
             addresses: {
               where: { label: "OFFICIAL" },
@@ -139,6 +137,42 @@ export default async function DashboardPage() {
         orderBy: { gradeReference: { order: "asc" } },
       });
 
+      // Institutional membership — Phase 4A: sourced from
+      // TeacherSchoolAffiliation/StudentSchoolAffiliation, not the
+      // Teacher.schoolId/Student.schoolId bridge relation, so a person
+      // affiliated with this school shows up here even if their bridge
+      // fields currently point elsewhere (the 2+-open-affiliations
+      // case). Includes both ACTIVE and PENDING — this tab is exactly
+      // where a School Admin reviews and approves PENDING relationships,
+      // so pending membership must remain visible here.
+      const [teacherAffiliations, studentAffiliations] = await Promise.all([
+        prisma.teacherSchoolAffiliation.findMany({
+          where: { schoolId, status: { in: ["ACTIVE", "PENDING"] } },
+          include: { teacher: { include: { user: true } } },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.studentSchoolAffiliation.findMany({
+          where: { schoolId, status: { in: ["ACTIVE", "PENDING"] } },
+          include: { student: { include: { user: true } } },
+          orderBy: { createdAt: "desc" },
+        }),
+      ]);
+      const teachers = teacherAffiliations.map((a) => ({
+        id: a.teacher.id,
+        approved: a.status === "ACTIVE",
+        subjects: a.subjects,
+        position: a.position,
+        fullName: a.teacher.fullName,
+        user: a.teacher.user,
+      }));
+      const students = studentAffiliations.map((a) => ({
+        id: a.student.id,
+        approved: a.status === "ACTIVE",
+        gradeLevel: a.student.gradeLevel,
+        fullName: a.student.fullName,
+        user: a.student.user,
+      }));
+
       let placementByStudentId: Record<
         string,
         { gradeHistoryId: string; schoolGradeId: string; gradeDisplayName: string; sectionId: string | null; sectionName: string | null }
@@ -146,7 +180,7 @@ export default async function DashboardPage() {
       if (activeSession) {
         const placements = await prisma.gradeHistory.findMany({
           where: {
-            studentId: { in: schoolAdmin.school.students.map((s) => s.id) },
+            studentId: { in: students.map((s) => s.id) },
             academicSessionId: activeSession.id,
           },
           include: { schoolGrade: true, section: true },
@@ -169,7 +203,8 @@ export default async function DashboardPage() {
         <DashboardClient
           school={{
             ...schoolAdmin.school,
-            students: schoolAdmin.school.students.map((s) => ({
+            teachers,
+            students: students.map((s) => ({
               ...s,
               placement: placementByStudentId[s.id] ?? null,
             })),
