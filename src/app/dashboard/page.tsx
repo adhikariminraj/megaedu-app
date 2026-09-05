@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +14,8 @@ import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
+import SchoolChooser from "@/components/SchoolChooser";
 
 export const dynamic = "force-dynamic";
 
@@ -106,24 +109,46 @@ export default async function DashboardPage() {
   // the others. This is a simple MVP priority order, not a permission
   // hierarchy.
   if (roles?.includes("SCHOOL_ADMIN")) {
-    const schoolAdmin = await prisma.schoolAdmin.findFirst({
-      where: { userId },
-      include: {
-        school: {
+    // Phase 4D-1: institutional context is resolved via
+    // getAccessibleSchools() (ACTIVE School Admin links), never an
+    // arbitrary findFirst() pick — authoritative even in the
+    // single-school case. 2+ schools require an explicit choice (or a
+    // previously-chosen, freshly-revalidated cookie preference); there
+    // is no default "first" school.
+    const adminSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "SCHOOL_ADMIN");
+    let resolvedSchoolId: string | null = null;
+    if (adminSchools.length === 1) {
+      resolvedSchoolId = adminSchools[0].schoolId;
+    } else if (adminSchools.length > 1) {
+      const cookieSchoolId = cookies().get(SCHOOL_CONTEXT_COOKIE)?.value;
+      const match = cookieSchoolId && adminSchools.find((s) => s.schoolId === cookieSchoolId);
+      if (match) {
+        resolvedSchoolId = match.schoolId;
+      } else {
+        return <SchoolChooser schools={adminSchools} userName={userName} />;
+      }
+    }
+
+    const schoolAdmin = resolvedSchoolId
+      ? await prisma.schoolAdmin.findUnique({
+          where: { userId_schoolId: { userId, schoolId: resolvedSchoolId } },
           include: {
-            programs: true,
-            news: true,
-            events: true,
-            opportunities: { orderBy: { createdAt: "desc" } },
-            accountants: { include: { user: true } },
-            addresses: {
-              where: { label: "OFFICIAL" },
-              include: { province: true, district: true, localLevel: true },
+            school: {
+              include: {
+                programs: true,
+                news: true,
+                events: true,
+                opportunities: { orderBy: { createdAt: "desc" } },
+                accountants: { include: { user: true } },
+                addresses: {
+                  where: { label: "OFFICIAL" },
+                  include: { province: true, district: true, localLevel: true },
+                },
+              },
             },
           },
-        },
-      },
-    });
+        })
+      : null;
     if (schoolAdmin) {
       const schoolId = schoolAdmin.school.id;
       const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
@@ -223,6 +248,22 @@ export default async function DashboardPage() {
   }
 
   if (roles?.includes("TEACHER")) {
+    // Phase 4D-1: institutional context resolved via
+    // getAccessibleSchools() (ACTIVE TeacherSchoolAffiliation only),
+    // authoritative even in the single-school case — never the
+    // Teacher.schoolId bridge field. With 2+ ACTIVE affiliations,
+    // TeacherDashboard (which doesn't yet filter by a specific school)
+    // is not rendered here at all — that would risk showing the wrong
+    // school's data; the person is routed to the URL-scoped context
+    // instead, per an explicit choice or a freshly-revalidated cookie.
+    const teacherSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "TEACHER");
+    if (teacherSchools.length > 1) {
+      const cookieSchoolId = cookies().get(SCHOOL_CONTEXT_COOKIE)?.value;
+      const match = cookieSchoolId && teacherSchools.find((s) => s.schoolId === cookieSchoolId);
+      if (match) redirect(`/dashboard/schools/${match.schoolId}`);
+      return <SchoolChooser schools={teacherSchools} userName={userName} />;
+    }
+
     const teacher = await prisma.teacher.findUnique({
       where: { userId },
       include: {
