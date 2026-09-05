@@ -35,10 +35,16 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     const sessionUserId = (session?.user as any)?.id as string | undefined;
     if (sessionUserId) {
-      const teacher = await prisma.teacher.findFirst({
-        where: { userId: sessionUserId, schoolId: params.id, approved: true },
-      });
-      if (teacher && teacher.id === meeting.teacherId) authorized = true;
+      // Phase 4D-3: teacher identity resolved via userId alone, then
+      // confirmed via an ACTIVE TeacherSchoolAffiliation at this
+      // specific schoolId — not the Teacher.schoolId/approved bridge.
+      const teacher = await prisma.teacher.findUnique({ where: { userId: sessionUserId } });
+      if (teacher && teacher.id === meeting.teacherId) {
+        const affiliation = await prisma.teacherSchoolAffiliation.findFirst({
+          where: { teacherId: teacher.id, schoolId: params.id, status: "ACTIVE" },
+        });
+        if (affiliation) authorized = true;
+      }
     }
   }
   if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

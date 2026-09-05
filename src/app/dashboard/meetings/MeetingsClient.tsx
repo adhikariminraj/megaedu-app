@@ -27,6 +27,7 @@ export default function MeetingsClient({
   selectedStatus,
   selectedWhen,
   meetings,
+  basePath = "/dashboard/meetings",
 }: {
   schoolId: string;
   isAdmin: boolean;
@@ -36,6 +37,10 @@ export default function MeetingsClient({
   selectedStatus: string | null;
   selectedWhen: string;
   meetings: MeetingWithContext[];
+  // Phase 4D-3: the unscoped legacy page keeps its default; the
+  // schoolId-scoped page passes its own path so filter changes stay
+  // scoped instead of bouncing back to the unscoped route.
+  basePath?: string;
 }) {
   const router = useRouter();
 
@@ -47,7 +52,7 @@ export default function MeetingsClient({
     if (teacher) qs.set("teacher", teacher);
     if (status) qs.set("status", status);
     if (when && when !== "all") qs.set("when", when);
-    router.push(`/dashboard/meetings${qs.toString() ? `?${qs.toString()}` : ""}`);
+    router.push(`${basePath}${qs.toString() ? `?${qs.toString()}` : ""}`);
   }
 
   return (

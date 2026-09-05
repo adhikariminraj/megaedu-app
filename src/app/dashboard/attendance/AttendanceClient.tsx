@@ -30,6 +30,7 @@ export default function AttendanceClient({
   selectedSectionId,
   selectedDate,
   roster,
+  basePath = "/dashboard/attendance",
 }: {
   schoolId: string;
   academicSessionId: string;
@@ -38,6 +39,10 @@ export default function AttendanceClient({
   selectedSectionId: string | null;
   selectedDate: string;
   roster: RosterRow[];
+  // Phase 4D-3: the unscoped legacy page keeps its default; the
+  // schoolId-scoped page passes its own path so filter changes stay
+  // scoped instead of bouncing back to the unscoped route.
+  basePath?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +59,7 @@ export default function AttendanceClient({
       next.set("section", params.section !== undefined ? params.section : selectedSectionId!);
     }
     next.set("date", params.date ?? selectedDate);
-    router.push(`/dashboard/attendance?${next.toString()}`);
+    router.push(`${basePath}?${next.toString()}`);
   }
 
   async function saveAttendance() {

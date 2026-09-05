@@ -35,9 +35,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!sessionUserId) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
 
   const adminUserId = await requireSchoolAdmin(params.id);
-  const selfTeacher = await prisma.teacher.findFirst({
-    where: { userId: sessionUserId, schoolId: params.id, approved: true },
-  });
+  // Phase 4D-3: teacher identity resolved via userId alone, then
+  // confirmed via an ACTIVE TeacherSchoolAffiliation at this specific
+  // schoolId — not the Teacher.schoolId/approved bridge, so a teacher
+  // active here via a second concurrent affiliation (bridge pointing
+  // elsewhere) is correctly recognized.
+  const teacherRecord = await prisma.teacher.findUnique({ where: { userId: sessionUserId } });
+  const selfTeacherAffiliation = teacherRecord
+    ? await prisma.teacherSchoolAffiliation.findFirst({
+        where: { teacherId: teacherRecord.id, schoolId: params.id, status: "ACTIVE" },
+      })
+    : null;
+  const selfTeacher = selfTeacherAffiliation ? teacherRecord : null;
   if (!adminUserId && !selfTeacher) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

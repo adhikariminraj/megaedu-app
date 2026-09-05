@@ -169,6 +169,7 @@ export default async function ScopedEvaluationsPage({
   return (
     <EvaluationsClient
       schoolId={schoolId}
+      basePath={`/dashboard/schools/${schoolId}/evaluations`}
       isAdmin={isAdmin}
       myTeacherId={teacherId}
       classTeacherOptions={classTeachers.map((c) => ({ id: c.teacherId, name: c.teacher.fullName }))}

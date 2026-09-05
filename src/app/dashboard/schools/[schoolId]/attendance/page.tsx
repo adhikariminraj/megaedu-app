@@ -141,6 +141,7 @@ export default async function ScopedAttendancePage({
   return (
     <AttendanceClient
       schoolId={schoolId}
+      basePath={`/dashboard/schools/${schoolId}/attendance`}
       academicSessionId={activeSession.id}
       gradeOptions={gradeOptions.map((g) => ({
         id: g.id,

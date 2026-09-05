@@ -30,6 +30,7 @@ export default function EvaluationsClient({
   selectedGradeId,
   selectedSectionId,
   roster,
+  basePath = "/dashboard/evaluations",
 }: {
   schoolId: string;
   isAdmin: boolean;
@@ -39,6 +40,10 @@ export default function EvaluationsClient({
   selectedGradeId: string;
   selectedSectionId: string | null;
   roster: RosterRow[];
+  // Phase 4D-3: the unscoped legacy page keeps its default; the
+  // schoolId-scoped page passes its own path so filter changes stay
+  // scoped instead of bouncing back to the unscoped route.
+  basePath?: string;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +60,7 @@ export default function EvaluationsClient({
     const qs = new URLSearchParams();
     qs.set("grade", gradeId);
     if (sectionId) qs.set("section", sectionId);
-    router.push(`/dashboard/evaluations?${qs.toString()}`);
+    router.push(`${basePath}?${qs.toString()}`);
   }
 
   async function call(url: string, options: RequestInit) {
