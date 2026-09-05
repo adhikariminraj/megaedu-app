@@ -19,18 +19,24 @@ export default async function GradeRosterPage({
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) redirect("/login");
 
-  const schoolAdmin = await prisma.schoolAdmin.findFirst({
-    where: { userId },
-    include: { school: true },
-  });
-  if (!schoolAdmin) redirect("/dashboard");
-  const schoolId = schoolAdmin.school.id;
-
+  // Phase 4D-4 companion fix: schoolId is derived from the TARGET grade
+  // itself (unambiguous — a SchoolGrade belongs to exactly one school),
+  // then admin access to that specific school is verified directly —
+  // never from an arbitrary schoolAdmin.findFirst() pick, which could
+  // send a multi-school Admin here to a "not found" even though the
+  // grade genuinely belongs to a school they administer. Same
+  // target-derived pattern already used by academics/[gradeSubjectId].
   const schoolGrade = await prisma.schoolGrade.findUnique({
     where: { id: params.schoolGradeId },
     include: { gradeReference: true },
   });
-  if (!schoolGrade || schoolGrade.schoolId !== schoolId) notFound();
+  if (!schoolGrade) notFound();
+  const schoolId = schoolGrade.schoolId;
+
+  const schoolAdmin = await prisma.schoolAdmin.findUnique({
+    where: { userId_schoolId: { userId, schoolId } },
+  });
+  if (!schoolAdmin) redirect("/dashboard");
 
   // Normally the current ACTIVE session — but the Pending/Unresolved
   // queue links here with ?session=<closed session id> so a School

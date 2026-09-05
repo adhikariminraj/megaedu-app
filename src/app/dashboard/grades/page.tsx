@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { cookies } from "next/headers";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { findPendingStudents } from "@/lib/gradeRollover";
 import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
+import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
+import SchoolChooser from "@/components/SchoolChooser";
 import PendingQueue from "./PendingQueue";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +17,36 @@ export default async function GradesIndexPage() {
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) redirect("/login");
 
-  const schoolAdmin = await prisma.schoolAdmin.findFirst({
-    where: { userId },
+  // Phase 4D-4: institutional context resolved via getAccessibleSchools()
+  // (ACTIVE School Admin links), never an arbitrary findFirst() pick —
+  // authoritative even in the single-school case. 2+ schools require an
+  // explicit choice (or a previously-chosen, freshly-revalidated cookie
+  // preference), returned to this same /dashboard/grades URL rather
+  // than a new route — there is no default "first" school.
+  const adminSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "SCHOOL_ADMIN");
+  if (adminSchools.length === 0) redirect("/dashboard");
+
+  let resolvedSchoolId: string;
+  if (adminSchools.length === 1) {
+    resolvedSchoolId = adminSchools[0].schoolId;
+  } else {
+    const cookieSchoolId = cookies().get(SCHOOL_CONTEXT_COOKIE)?.value;
+    const match = cookieSchoolId && adminSchools.find((s) => s.schoolId === cookieSchoolId);
+    if (match) {
+      resolvedSchoolId = match.schoolId;
+    } else {
+      return (
+        <SchoolChooser
+          schools={adminSchools}
+          userName={session?.user?.name || "there"}
+          redirectTo="/dashboard/grades"
+        />
+      );
+    }
+  }
+
+  const schoolAdmin = await prisma.schoolAdmin.findUnique({
+    where: { userId_schoolId: { userId, schoolId: resolvedSchoolId } },
     include: { school: true },
   });
   if (!schoolAdmin) redirect("/dashboard");

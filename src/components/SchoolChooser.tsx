@@ -13,7 +13,20 @@ type School = { schoolId: string; schoolName: string };
  * a grant — see /api/dashboard/school-context) and navigates into its
  * URL-scoped context, which independently re-verifies access.
  */
-export default function SchoolChooser({ schools, userName }: { schools: School[]; userName: string }) {
+export default function SchoolChooser({
+  schools,
+  userName,
+  redirectTo,
+}: {
+  schools: School[];
+  userName: string;
+  // Phase 4D-4: callers using the URL-scoped pattern (schools/[schoolId]/...)
+  // leave this unset and keep the existing per-school destination;
+  // callers using the same-URL pattern (e.g. /dashboard/grades) pass
+  // their own path so re-visiting it now resolves via the
+  // just-set cookie instead of an arbitrary pick.
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
 
@@ -24,7 +37,7 @@ export default function SchoolChooser({ schools, userName }: { schools: School[]
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ schoolId }),
     });
-    router.push(`/dashboard/schools/${schoolId}`);
+    router.push(redirectTo ?? `/dashboard/schools/${schoolId}`);
   }
 
   return (
