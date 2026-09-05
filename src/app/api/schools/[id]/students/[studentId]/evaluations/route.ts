@@ -28,9 +28,14 @@ export async function POST(
   { params }: { params: { id: string; studentId: string } }
 ) {
   const student = await prisma.student.findUnique({ where: { id: params.studentId } });
-  if (!student || student.schoolId !== params.id) {
-    return NextResponse.json({ error: "Student not found." }, { status: 404 });
-  }
+  if (!student) return NextResponse.json({ error: "Student not found." }, { status: 404 });
+  // Phase 4C: institutional membership resolved via StudentSchoolAffiliation
+  // (ACTIVE or PENDING — matches the prior bridge-based check, which had no
+  // approved filter of its own), not the Student.schoolId bridge field.
+  const studentAffiliation = await prisma.studentSchoolAffiliation.findFirst({
+    where: { studentId: student.id, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  if (!studentAffiliation) return NextResponse.json({ error: "Student not found." }, { status: 404 });
 
   const activeSession = await prisma.academicSession.findFirst({
     where: { schoolId: params.id, status: "ACTIVE" },
@@ -90,10 +95,14 @@ export async function POST(
   let teacherId: string | null = null;
   let actingUserId: string | null = null;
 
+  // Phase 4C: requireTeacherAssignment()/requireClassTeacher() above
+  // already confirmed an ACTIVE affiliation at params.id plus the
+  // matching assignment — re-deriving teacher.id must not re-check the
+  // Teacher.schoolId bridge field, or a teacher active here via a
+  // second concurrent affiliation (bridge pointing elsewhere) would be
+  // wrongly denied one step after being correctly authorized.
   if (teacherSelfUserId) {
-    const teacher = await prisma.teacher.findFirst({
-      where: { userId: teacherSelfUserId, schoolId: params.id, approved: true },
-    });
+    const teacher = await prisma.teacher.findUnique({ where: { userId: teacherSelfUserId } });
     if (teacher) {
       teacherId = teacher.id;
       actingUserId = teacherSelfUserId;
@@ -108,7 +117,14 @@ export async function POST(
       );
     }
     const namedTeacher = await prisma.teacher.findUnique({ where: { id: body.teacherId } });
-    if (!namedTeacher || namedTeacher.schoolId !== params.id) {
+    if (!namedTeacher) return NextResponse.json({ error: "Invalid teacher." }, { status: 400 });
+    // Phase 4C: institutional membership resolved via TeacherSchoolAffiliation
+    // (ACTIVE or PENDING — matches the prior bridge-based check), not the
+    // Teacher.schoolId bridge field.
+    const namedTeacherAffiliation = await prisma.teacherSchoolAffiliation.findFirst({
+      where: { teacherId: namedTeacher.id, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+    });
+    if (!namedTeacherAffiliation) {
       return NextResponse.json({ error: "Invalid teacher." }, { status: 400 });
     }
     const holds = subjectId

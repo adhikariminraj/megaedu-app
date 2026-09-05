@@ -19,9 +19,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string;
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const student = await prisma.student.findUnique({ where: { id: params.studentId } });
-  if (!student || student.schoolId !== params.id) {
-    return NextResponse.json({ error: "Student not found." }, { status: 404 });
-  }
+  if (!student) return NextResponse.json({ error: "Student not found." }, { status: 404 });
+  // Phase 4C: institutional membership resolved via StudentSchoolAffiliation
+  // (ACTIVE or PENDING — matches the prior bridge-based check, which had no
+  // approved filter of its own), not the Student.schoolId bridge field.
+  const affiliation = await prisma.studentSchoolAffiliation.findFirst({
+    where: { studentId: student.id, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  if (!affiliation) return NextResponse.json({ error: "Student not found." }, { status: 404 });
 
   const validated = validateFamilyContactInput(await req.json(), {
     allowedRelationships: STUDENT_CONTACT_RELATIONSHIPS,

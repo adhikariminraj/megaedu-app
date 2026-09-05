@@ -15,11 +15,22 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // Any approved teacher at this school, or the school's admin, can view
   // its student roster — matches the interim rule that grade-scoping
   // isn't built yet (Phase 2).
-  const [teacher, admin] = await Promise.all([
-    prisma.teacher.findFirst({ where: { userId, schoolId: params.id, approved: true } }),
+  //
+  // Phase 4C: teacher membership resolved via an ACTIVE
+  // TeacherSchoolAffiliation (matching the prior approved:true filter
+  // exactly), not the Teacher.schoolId bridge field — so a teacher
+  // active at this school is recognized even if their bridge points
+  // elsewhere due to another concurrent affiliation.
+  const [teacherRecord, admin] = await Promise.all([
+    prisma.teacher.findUnique({ where: { userId } }),
     prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId: params.id } } }),
   ]);
-  if (!teacher && !admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const teacherAffiliation = teacherRecord
+    ? await prisma.teacherSchoolAffiliation.findFirst({
+        where: { teacherId: teacherRecord.id, schoolId: params.id, status: "ACTIVE" },
+      })
+    : null;
+  if (!teacherAffiliation && !admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const students = await prisma.student.findMany({
     where: { schoolId: params.id, approved: true },

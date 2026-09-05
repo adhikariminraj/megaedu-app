@@ -24,9 +24,16 @@ export async function PATCH(
     where: { id: params.contactId },
     include: { teacher: true },
   });
-  if (!contact || contact.teacherId !== params.teacherId || contact.teacher?.schoolId !== params.id) {
+  if (!contact || contact.teacherId !== params.teacherId || !contact.teacher) {
     return NextResponse.json({ error: "Contact not found." }, { status: 404 });
   }
+  // Phase 4C: institutional membership resolved via TeacherSchoolAffiliation
+  // (ACTIVE or PENDING — matches the prior bridge-based check), not the
+  // Teacher.schoolId bridge field.
+  const affiliation = await prisma.teacherSchoolAffiliation.findFirst({
+    where: { teacherId: contact.teacherId!, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  if (!affiliation) return NextResponse.json({ error: "Contact not found." }, { status: 404 });
 
   const body = await req.json();
   const data: Record<string, unknown> = {};

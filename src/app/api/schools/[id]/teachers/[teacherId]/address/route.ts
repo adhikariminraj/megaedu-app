@@ -16,9 +16,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (!adminUserId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const teacher = await prisma.teacher.findUnique({ where: { id: params.teacherId } });
-  if (!teacher || teacher.schoolId !== params.id) {
-    return NextResponse.json({ error: "Teacher not found." }, { status: 404 });
-  }
+  if (!teacher) return NextResponse.json({ error: "Teacher not found." }, { status: 404 });
+  // Phase 4C: institutional membership resolved via TeacherSchoolAffiliation
+  // (ACTIVE or PENDING — matches the prior bridge-based check, which had no
+  // approved filter of its own), not the Teacher.schoolId bridge field.
+  const affiliation = await prisma.teacherSchoolAffiliation.findFirst({
+    where: { teacherId: teacher.id, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  if (!affiliation) return NextResponse.json({ error: "Teacher not found." }, { status: 404 });
   // See the identical guard in the Student address route — Address is
   // still keyed on the linked User (Phase A/B design); reconciling that
   // with User-less institutional records is deliberately deferred.

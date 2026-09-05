@@ -33,7 +33,14 @@ export default async function GradeSubjectUnitsPage({
   let myTeacherId: string | null = null;
 
   if (!isAdmin) {
-    const teacher = await prisma.teacher.findFirst({ where: { userId, schoolId, approved: true } });
+    // Phase 4C: resolve the caller's Teacher identity only (no schoolId/
+    // approved filter here) — requireTeacherAssignment() below is the
+    // real gate, and already checks for an ACTIVE affiliation at this
+    // specific schoolId. Pre-filtering this lookup by the
+    // Teacher.schoolId bridge field would incorrectly redirect a
+    // teacher who is active here via a second concurrent affiliation
+    // (bridge pointing elsewhere) before that correct check ever runs.
+    const teacher = await prisma.teacher.findUnique({ where: { userId } });
     if (!teacher) redirect("/dashboard");
     myTeacherId = teacher.id;
     const anyAccess = await requireTeacherAssignment(schoolId, {

@@ -12,14 +12,31 @@ export async function POST(
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
 
-  const [teacher, admin] = await Promise.all([
-    prisma.teacher.findFirst({ where: { userId, schoolId: params.id, approved: true } }),
+  // Phase 4C: teacher membership resolved via an ACTIVE
+  // TeacherSchoolAffiliation (matching the prior approved:true filter
+  // exactly), not the Teacher.schoolId bridge field — so a teacher
+  // active at this school is recognized even if their bridge points
+  // elsewhere due to another concurrent affiliation.
+  const [teacherRecord, admin] = await Promise.all([
+    prisma.teacher.findUnique({ where: { userId } }),
     prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId: params.id } } }),
   ]);
-  if (!teacher && !admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const teacherAffiliation = teacherRecord
+    ? await prisma.teacherSchoolAffiliation.findFirst({
+        where: { teacherId: teacherRecord.id, schoolId: params.id, status: "ACTIVE" },
+      })
+    : null;
+  if (!teacherAffiliation && !admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const student = await prisma.student.findUnique({ where: { id: params.studentId } });
-  if (!student || student.schoolId !== params.id) {
+  if (!student) return NextResponse.json({ error: "Student not found at this school." }, { status: 404 });
+  // Phase 4C: institutional membership resolved via StudentSchoolAffiliation
+  // (ACTIVE or PENDING — matches the prior bridge-based check, which had no
+  // approved filter of its own), not the Student.schoolId bridge field.
+  const studentAffiliation = await prisma.studentSchoolAffiliation.findFirst({
+    where: { studentId: student.id, schoolId: params.id, status: { in: ["ACTIVE", "PENDING"] } },
+  });
+  if (!studentAffiliation) {
     return NextResponse.json({ error: "Student not found at this school." }, { status: 404 });
   }
 
