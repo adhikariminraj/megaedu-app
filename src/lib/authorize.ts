@@ -115,9 +115,35 @@ export function sectionScopeWhere(sectionId: string | null | undefined) {
 }
 
 /**
- * Returns the userId if the current session belongs to an approved
- * Teacher at schoolId who holds a TeacherAcademicAssignment matching
- * the given scope, otherwise null. The Phase 3A/3B permission
+ * Phase 4B foundation, shared by requireTeacherAssignment() and
+ * requireClassTeacher(): resolves the caller's own stable Teacher
+ * identity (Teacher.userId — independent of any school) and confirms
+ * an ACTIVE TeacherSchoolAffiliation with schoolId. Returns Teacher.id
+ * if both hold, otherwise null.
+ *
+ * This answers only "is this Teacher institutionally active at this
+ * school right now" — PENDING and ENDED affiliations do not satisfy
+ * it, and a Teacher with ACTIVE affiliations at several schools is
+ * correctly authorized independently at each one, since this checks
+ * the specific requested schoolId against the affiliation table, never
+ * the single-valued Teacher.schoolId bridge field. The caller-supplied
+ * schoolId remains the sole authoritative institutional context; this
+ * never derives "the" school from the Teacher record itself.
+ */
+async function resolveActiveTeacherId(userId: string, schoolId: string): Promise<string | null> {
+  const teacher = await prisma.teacher.findUnique({ where: { userId } });
+  if (!teacher) return null;
+
+  const affiliation = await prisma.teacherSchoolAffiliation.findFirst({
+    where: { teacherId: teacher.id, schoolId, status: "ACTIVE" },
+  });
+  return affiliation ? teacher.id : null;
+}
+
+/**
+ * Returns the userId if the current session belongs to a Teacher with
+ * an ACTIVE affiliation at schoolId who holds a TeacherAcademicAssignment
+ * matching the given scope, otherwise null. The Phase 3A/3B permission
  * foundation for teacher-facing academic features (Teaching Units,
  * Unit/Chapter Tests, and future homework/teaching-progress work).
  *
@@ -149,14 +175,12 @@ export async function requireTeacherAssignment(
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) return null;
 
-  const teacher = await prisma.teacher.findFirst({
-    where: { userId, schoolId, approved: true },
-  });
-  if (!teacher) return null;
+  const teacherId = await resolveActiveTeacherId(userId, schoolId);
+  if (!teacherId) return null;
 
   const match = await prisma.teacherAcademicAssignment.findFirst({
     where: {
-      teacherId: teacher.id,
+      teacherId,
       academicSessionId: scope.academicSessionId,
       schoolGradeId: scope.schoolGradeId,
       ...(scope.subjectId ? { subjectId: scope.subjectId } : {}),
@@ -167,14 +191,20 @@ export async function requireTeacherAssignment(
 }
 
 /**
- * Returns the userId if the current session belongs to an approved
- * Teacher at schoolId who holds a ClassTeacherAssignment (the Grade
- * Coordinator or Class Teacher responsibility — see PRODUCT_RULES.md)
- * matching the given scope, otherwise null. Same three-way sectionId
- * semantics as requireTeacherAssignment() above, via the same
- * sectionScopeWhere() helper — a Grade Coordinator (sectionId: null on
- * their row) satisfies a check for any section under that grade; a
- * Class Teacher satisfies only their exact section.
+ * Returns the userId if the current session belongs to a Teacher with
+ * an ACTIVE affiliation at schoolId who holds a ClassTeacherAssignment
+ * (the Grade Coordinator or Class Teacher responsibility — see
+ * PRODUCT_RULES.md) matching the given scope, otherwise null. Same
+ * three-way sectionId semantics as requireTeacherAssignment() above,
+ * via the same sectionScopeWhere() helper — a Grade Coordinator
+ * (sectionId: null on their row) satisfies a check for any section
+ * under that grade; a Class Teacher satisfies only their exact
+ * section.
+ *
+ * A Teacher who is a Class Teacher at one school does not become one
+ * at another merely by holding a Teacher identity — the ACTIVE
+ * affiliation check is scoped to the specific requested schoolId, same
+ * as requireTeacherAssignment().
  *
  * Deliberately teacher-only — does not fold in a School Admin bypass;
  * callers compose both checks inline, same pattern as every other
@@ -192,14 +222,12 @@ export async function requireClassTeacher(
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) return null;
 
-  const teacher = await prisma.teacher.findFirst({
-    where: { userId, schoolId, approved: true },
-  });
-  if (!teacher) return null;
+  const teacherId = await resolveActiveTeacherId(userId, schoolId);
+  if (!teacherId) return null;
 
   const match = await prisma.classTeacherAssignment.findFirst({
     where: {
-      teacherId: teacher.id,
+      teacherId,
       academicSessionId: scope.academicSessionId,
       schoolGradeId: scope.schoolGradeId,
       ...sectionScopeWhere(scope.sectionId),
