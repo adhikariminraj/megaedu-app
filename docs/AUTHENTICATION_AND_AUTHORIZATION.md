@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3C — Teacher Qualitative Evaluation & Parent-Teacher Meetings), against the current codebase.
+> Last verified: 2026-09-05 (Phase 4B/4C/4D — affiliation-based authorization and institutional context), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -55,7 +55,7 @@ requireTeacherAssignment(
 ): Promise<string | null>
 ```
 
-Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for a `TeacherAcademicAssignment` matching `academicSessionId` + `schoolGradeId` (+ `subjectId` if given). `scope.sectionId` follows **three distinct states**, via a shared `sectionScopeWhere()` helper — this is a Phase 3B correction to the original Phase 3A code, made before the function had any real caller:
+Resolves the caller's own `Teacher` identity via a shared `resolveActiveTeacherId()` helper — an **ACTIVE `TeacherSchoolAffiliation`** for `(userId, schoolId)`, not the legacy `Teacher.schoolId`/`approved` bridge fields (Phase 4B correction; the bridge fields are read only as a same-effect fallback when no affiliation row exists at all yet, e.g. very old data not yet migrated) — then checks for a `TeacherAcademicAssignment` matching `academicSessionId` + `schoolGradeId` (+ `subjectId` if given). `scope.sectionId` follows **three distinct states**, via a shared `sectionScopeWhere()` helper — this is a Phase 3B correction to the original Phase 3A code, made before the function had any real caller:
 
 - **omitted**: no section restriction — matches any assignment for the grade/subject regardless of section.
 - **`null`**: the target itself is grade-wide (e.g. a grade-wide `TeachingUnit`) — requires a grade-wide assignment *specifically*; a section-specific-only teacher does not pass.
@@ -63,7 +63,7 @@ Resolves the caller's own approved `Teacher` row at `schoolId`, then checks for 
 
 The original implementation treated `null` and *omitted* identically (both are falsy in JS), which never mattered while nothing called it, but would have wrongly authorized a section-specific-only teacher to manage a grade-wide unit once Phase 3B started depending on it. Verified independently against real assignment data (six scenarios, including the specific `null`-requires-grade-wide case) *before* any Teaching Unit/Test route was built on top of it.
 
-`requireClassTeacher()`, new in Phase 3B, checks a `ClassTeacherAssignment` (Grade Coordinator / Class Teacher) with the identical three-way `sectionId` semantics, via the same `sectionScopeWhere()` helper:
+`requireClassTeacher()`, new in Phase 3B, resolves the caller's Teacher identity the same way (`resolveActiveTeacherId()` — ACTIVE affiliation at `schoolId`, bridge-field fallback only when no affiliation row exists), then checks a `ClassTeacherAssignment` (Grade Coordinator / Class Teacher) with the identical three-way `sectionId` semantics, via the same `sectionScopeWhere()` helper:
 
 ```ts
 requireClassTeacher(
@@ -75,6 +75,12 @@ requireClassTeacher(
 Both gate Phase 3B's operational routes: `requireTeacherAssignment()` for Teaching Units, Teaching Plans, and Unit/Chapter Tests (scoped to the unit/plan/test's own grade/section/subject); `requireClassTeacher()` for Attendance (scoped to the grade/section being marked — passing `sectionId: null` when marking the whole grade correctly requires a Grade Coordinator, not just any Class Teacher). Verified live through a real logged-in Class Teacher account: marking their own section succeeded, marking a different section or the whole grade unscoped both returned `403`.
 
 Both are deliberately teacher-only, no School-Admin bypass baked in; a caller wanting "Admin or the assigned Teacher" composes both checks inline, the same way `students/[studentId]/skills` already combines an inline teacher check with `requireSchoolAdmin`, and every Phase 3B write route does the same (`requireSchoolAdmin(...) || requireClassTeacher(...)` / `requireTeacherAssignment(...)`). See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md), [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md), and [PRODUCT_RULES.md](PRODUCT_RULES.md).
+
+**Phase 4C note**: eleven ownership/existence checks elsewhere in the app (teacher/student address, contacts, contacts-address, skills, evaluations, the roster `GET`) previously re-derived the caller's `Teacher`/`Student` identity a second time via the bridge fields, sometimes *after* one of the `requireX` helpers above had already authorized correctly via the affiliation table — a stale re-check that could reject an otherwise-authorized multi-school caller. All eleven now resolve identity from `userId` alone (no redundant bridge-based re-check), consistent with the affiliation-based authorization already performed upstream.
+
+## Institutional context — the layer in front of school-scoped pages ✅
+
+Phase 4D added a resolution layer that runs *before* any of the checks above, for pages (not API routes) that need to know *which* school a multi-school person means: `getAccessibleSchools(userId)` and `verifySchoolAccess(userId, schoolId)` in `src/lib/institutionalContext.ts`. `getAccessibleSchools()` lists only **ACTIVE** affiliations (`PENDING` is excluded) and is a display/routing input only — never itself an authorization decision. `verifySchoolAccess()` is the actual security gate, re-checked fresh on every request; it never trusts the `mega_school_ctx` preference cookie (`POST /api/dashboard/school-context`, `httpOnly`, `sameSite=lax`, 180-day) as anything more than a hint for which school to pre-select. Full detail, including the three migration patterns (URL-scoped, same-URL, target-derived) and the `basePath` client-navigation pattern: [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md).
 
 ## Checking a NAMED teacher's assignment — `teacherHoldsSubjectAssignment()` / `teacherHoldsClassAssignment()` ✅
 

@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-09-01 (School Logos & User Profile Photos identity system), against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -19,6 +19,7 @@
 8. [Authentication & Authorization](#8-authentication--authorization)
 9. [User Roles & Permissions](#9-user-roles--permissions)
 10. [School & Multi-School Architecture](#10-school--multi-school-architecture)
+    - [10a. Institutional Affiliation & Context Architecture](#10a-institutional-affiliation--context-architecture)
 11. [Academic Sessions, Grades, Sections & Subjects](#11-academic-sessions-grades-sections--subjects)
 12. [Student Lifecycle & GradeHistory](#12-student-lifecycle--gradehistory)
 13. [Teacher Assignments & Authorization Scopes](#13-teacher-assignments--authorization-scopes)
@@ -374,8 +375,8 @@ Every write route that needs "does this session have permission to act on this s
 | `requirePlatformAdmin()` | Session + `roles.includes("PLATFORM_ADMIN")` | `/admin/*`, `/api/admin/*` |
 | `requireSchoolFinance(schoolId)` | Session + (`SchoolAdmin` **or** `SchoolAccountant`) | Finance-only surfaces |
 | `requireOrgFinance(organizationId)` | Session + (`OrganizationAdmin` **or** `OrganizationAccountant`) | Finance-only surfaces |
-| `requireTeacherAssignment(schoolId, scope)` | Approved `Teacher` + a matching `TeacherAcademicAssignment` | Teaching Plans/Units/Tests, Subject Evaluations, Assessment Results marks entry/publish |
-| `requireClassTeacher(schoolId, scope)` | Approved `Teacher` + a matching `ClassTeacherAssignment` | Attendance, General Evaluations |
+| `requireTeacherAssignment(schoolId, scope)` | A Teacher with an ACTIVE `TeacherSchoolAffiliation` at the requested school + a matching `TeacherAcademicAssignment` | Teaching Plans/Units/Tests, Subject Evaluations, Assessment Results marks entry/publish |
+| `requireClassTeacher(schoolId, scope)` | A Teacher with an ACTIVE `TeacherSchoolAffiliation` at the requested school + a matching `ClassTeacherAssignment` | Attendance, General Evaluations |
 | `teacherHoldsSubjectAssignment()` / `teacherHoldsClassAssignment()` | A **named** teacher's assignment (not the session's own user) | Admin-attributed evaluation/meeting creation |
 
 **Deliberate design note**: the finance helpers check *both* the Admin and Accountant relationships on purpose — an Admin keeps full authority (finance included); a bare Accountant gets finance access *only*.
@@ -389,6 +390,12 @@ Every write route that needs "does this session have permission to act on this s
 - **a real section id** — the target is one specific section; a grade-wide assignment (covers every section) or that exact section's assignment both satisfy it.
 
 This distinction was corrected in Phase 3B, before either helper had a real caller — the original implementation collapsed `null` and *omitted* into one code path (both are falsy in JavaScript), which would have wrongly authorized a section-specific-only teacher to manage a grade-wide unit.
+
+### Identity resolution — `resolveActiveTeacherId()` (Phase 4B)
+
+Both `requireTeacherAssignment()` and `requireClassTeacher()` resolve the caller's Teacher identity through a shared helper, `resolveActiveTeacherId(userId, schoolId)`, rather than reading `Teacher.schoolId`/`Teacher.approved` directly: it looks up the caller's `Teacher` row, then requires an **ACTIVE** `TeacherSchoolAffiliation` for `(teacherId, schoolId)` — falling back to the legacy bridge-field check only when no affiliation row exists at all (pre-Phase-3 data never migrated). This is what allows a teacher with 2+ simultaneous ACTIVE affiliations to authorize correctly at every school they actually teach at, not just whichever single school `Teacher.schoolId` happens to hold. See [§10a](#10a-institutional-affiliation--context-architecture) for the full affiliation model.
+
+**Phase 4C note**: eleven other ownership/existence checks across the app (teacher/student address, contacts, contacts-address, skills, evaluations, the roster `GET`) previously re-derived identity a second time via the bridge fields — in two cases, *after* one of the helpers above had already authorized correctly through the affiliation table, incorrectly rejecting an already-approved multi-school teacher. All eleven now resolve identity from `userId` alone, with no redundant bridge-based re-check.
 
 ### Access patterns not covered by `authorize.ts`
 
@@ -416,20 +423,73 @@ PLATFORM_ADMIN → SCHOOL_ADMIN → TEACHER → STUDENT → PARENT → ORGANIZAT
 | **ORGANIZATION_ADMIN** | Course authoring/publishing, opportunities, accountant management. ⚠️ `Organization.verified` is never checked before publishing or enrollment. | Platform Admin (`verified` flag) |
 | **ACCOUNTANT** | Finance-surface visibility only (no real transaction data exists — payments aren't integrated). Not self-registerable. | Granted directly by an Admin |
 
+**Phase 4D addition**: for a person connected to more than one school, the SCHOOL_ADMIN and TEACHER branches of `dashboard/page.tsx` (and the migrated feature pages below them) resolve *which* school to show through the institutional-context layer (`getAccessibleSchools()`/`verifySchoolAccess()`, [§10a](#10a-institutional-affiliation--context-architecture)) before running their existing role-scoped queries — this sits in front of, and is independent of, the role priority-order above.
+
 *(Source: [USER_ROLES.md](USER_ROLES.md), [MEGA_ID.md](MEGA_ID.md))*
 
 ---
 
 ## 10. School & Multi-School Architecture
 
-A **MEGA ID belongs to the individual**, not to a school — a `User` is never owned by an institution. School affiliation is a state on a `Teacher`/`Student` profile (`schoolId`, unaffiliated/pending/approved), not baked into the account itself. This means:
+A **MEGA ID belongs to the individual**, not to a school — a `User` is never owned by an institution. A person's relationship to a specific school is a row in `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` (`PENDING`/`ACTIVE`/`ENDED`, time-bounded), not a single field on the account or even on the `Teacher`/`Student` profile — a person can hold zero, one, or several such rows simultaneously. This means:
 
 - **Learning history follows the person, not the school.** `CourseEnrollment` and `GradeHistory` both link to `Student.id → User.id`; if a student transfers or leaves, their historical rows are never deleted — only a new `status` (`TRANSFERRED`/`LEFT`) is recorded.
 - **A school and an organization are structurally independent.** A `Course` belongs only to an `Organization`; Phase 2's grade structure belongs entirely to a `School`. The two only meet at `Certificate.associatedSchoolId`, an informational link, never an ownership relation.
-- **Registration is deliberately two-stage.** Every path creates a minimal, single-role account first; school/organization affiliation happens afterward from the person's own dashboard (`POST /api/teacher/join-school`, `.../student/join-school`, `.../parent/link-child`, `.../schools/create-for-admin`).
+- **Registration is deliberately two-stage.** Every path creates a minimal, single-role account first; school/organization affiliation happens afterward from the person's own dashboard, via the JOIN/LEAVE/TRANSFER lifecycle described in [§10a](#10a-institutional-affiliation--context-architecture).
 - **Multi-school independence**: nothing in the schema assumes a single school's data ever interacts with another school's. `AcademicSession`, `SchoolGrade`, `Section`, `Subject` are all `schoolId`-scoped, and every write route resolves the caller's own school via `requireSchoolAdmin`/`requireTeacherAssignment`/`requireClassTeacher` before touching any row.
+- **A person can genuinely be affiliated with more than one school at once.** Teacher multi-school is explicitly designed for and tested (Phase 4B/4C authorize correctly against whichever school an ACTIVE affiliation names). Student simultaneous multi-school is schema-permitted but not a decided product policy — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions).
 
 *(Source: [MEGA_ID.md](MEGA_ID.md), [ARCHITECTURE.md](ARCHITECTURE.md))*
+
+---
+
+## 10a. Institutional Affiliation & Context Architecture
+
+*(Phase 3–4D. Source: [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md), [MEGA_ID.md](MEGA_ID.md), [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md))*
+
+### The three-layer model
+
+`User` (MEGA ID, never school-scoped) → `Teacher`/`Student` (a stable role identity, still not itself school-scoped) → `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` (the actual institutional relationship: `status` `PENDING`/`ACTIVE`/`ENDED`, real `startDate`/`endDate`, one row per person-school pair). A person can hold several affiliation rows, in any mix of statuses, at once.
+
+### Lifecycle: JOIN / LEAVE / TRANSFER / REJOIN
+
+Implemented as primitives in `src/lib/affiliation.ts` (Phase 3), called from `POST /api/{teacher,student}/{join-school,leave-school,transfer-school}`:
+
+- **JOIN** creates a `PENDING` affiliation; a School Admin approval (`POST /api/schools/[id]/{teachers,students}/[id]/approve`) flips it `ACTIVE` (resolved via the affiliation table first, bridge-field fallback only if no affiliation row exists at all).
+- **LEAVE** ends the current `ACTIVE` affiliation (`ENDED`, `endDate` set); other affiliations at other schools are untouched.
+- **TRANSFER** ends the old affiliation and creates a new `PENDING` one atomically. The primitives **throw** `AffiliationError` rather than returning `{ error }` — a correction made after discovering Prisma's `$transaction` only rolls back on a thrown error, never a returned error value, which had allowed a failed TRANSFER to leave a half-applied state.
+- **REJOIN** is simply another JOIN after a prior affiliation at that school has ended.
+
+### Bridge fields — transitional, not authoritative
+
+`Teacher.schoolId`/`approved`/`position`/`subjects` and `Student.schoolId`/`approved` still exist and are read by a shrinking set of not-yet-migrated call sites (see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)). They're kept in sync automatically only for the 0-or-1-open-affiliation case; once a person has 2+, the bridge fields are deliberately left untouched — never guessed — since there's no single correct value once the real relationship is one-to-many.
+
+### From ACTIVE affiliation to authorized access — `institutionalContext.ts`
+
+```ts
+getAccessibleSchools(userId: string): Promise<{ schoolId, schoolName, role: "SCHOOL_ADMIN" | "TEACHER" }[]>
+verifySchoolAccess(userId: string, schoolId: string): Promise<{ role: "SCHOOL_ADMIN" } | { role: "TEACHER"; teacherId: string } | null>
+```
+
+`getAccessibleSchools()` lists only **ACTIVE** relationships (`PENDING` excluded — an unapproved JOIN isn't a real relationship yet) and is a display/routing input only, never itself an authorization decision. `verifySchoolAccess()` is the actual security gate, re-checked fresh on every request with no caching — `null` (fail closed) for `PENDING`/`ENDED`/no relationship at all with that school. Scoped to School Admin and Teacher only; Student is deliberately excluded, since simultaneous multi-school policy for Student remains undecided ([§37](#37-known-gaps--deliberate-out-of-scope-decisions)). Design principle set explicitly for this and every migrated feature: ACTIVE affiliations alone define what's selectable, and the resolver is authoritative even in the single-school case — there's no separate "skip the resolver" path when a person has only one school.
+
+### The preference cookie — never authoritative
+
+`mega_school_ctx` (`POST /api/dashboard/school-context`, `httpOnly`, `sameSite=lax`, 180-day) records a person's last-chosen school purely so a same-URL page doesn't force a re-choice every visit. Every read is followed by re-validating the school against `getAccessibleSchools()`/`verifySchoolAccess()`; a stale cookie pointing at a school the person no longer has ACTIVE access to is ignored, never trusted as a grant.
+
+### Three proven migration patterns
+
+1. **URL-scoped** (`/dashboard/schools/[schoolId]/{attendance,evaluations,meetings}`) — the school is a path segment, `verifySchoolAccess()` checks it directly; a chooser (2+ schools) routes into a fresh URL per school. Established Phase 4D-1 (Attendance), reused unchanged Phase 4D-2 (Evaluations), Phase 4D-3 (Meetings).
+2. **Same-URL** (`/dashboard/grades`) — the page's URL never changes; `SchoolChooser`'s `redirectTo` prop returns the person to that same URL, resolved via the freshly-set (and re-verified) cookie. Established Phase 4D-4 (Grades index).
+3. **Target-derived** (`/dashboard/academics/[gradeSubjectId]`, `/dashboard/grades/[schoolGradeId]`) — no chooser: the URL parameter itself unambiguously belongs to one school, so the school is derived directly from the target entity, then checked with an exact `schoolAdmin.findUnique({ userId_schoolId })` — never an arbitrary `findFirst()` that could 404 a genuinely-authorized multi-school Admin. The Grades companion page was fixed to this pattern in Phase 4D-4, matching the `academics/[gradeSubjectId]` precedent.
+
+### Scoped client-side navigation — the `basePath` pattern
+
+`AttendanceClient.tsx`/`EvaluationsClient.tsx`/`MeetingsClient.tsx` each perform in-page filter navigation (`router.push`). Before Phase 4D-3, all three hardcoded their unscoped legacy path, silently bouncing a person viewing the URL-scoped page back to the unscoped one on the first filter change. Fixed with an optional `basePath` prop on all three — supplied by the URL-scoped page to keep navigation scoped; omitted (the default) preserves the original unscoped behavior exactly.
+
+### What's still on the legacy pattern
+
+Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the profile pages still resolve school context via a plain `findFirst()` pick — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed). See [§37](#37-known-gaps--deliberate-out-of-scope-decisions).
 
 ---
 
@@ -530,6 +590,8 @@ Three distinct assignment models, each with a different overlap policy:
 
 **Visibility**: Student sees their own last-15-days attendance (read-only); Parent sees the same, per linked child; both reflect corrections, never the original pre-correction value.
 
+**Phase 4D-1**: also reachable at the URL-scoped `/dashboard/schools/[schoolId]/attendance`, the proof-of-concept for the institutional-context migration pattern — same `AttendanceClient`, resolved and access-checked via `verifySchoolAccess()` instead of an unscoped bridge-field pick. See [§10a](#10a-institutional-affiliation--context-architecture).
+
 *(Source: [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md))*
 
 ---
@@ -556,6 +618,8 @@ A School Admin may create either **on behalf of a named teacher** — the named 
 
 Added for the Student Profile page (`/dashboard/students/[studentId]`) — skips the visibility filter entirely, returning every evaluation including private ones, since School Admins/approved Teachers already have full write access at their school.
 
+**Phase 4D-2**: also reachable at the URL-scoped `/dashboard/schools/[schoolId]/evaluations`, reusing `EvaluationsClient` unchanged, resolved via the same institutional-context pattern as Attendance. See [§10a](#10a-institutional-affiliation--context-architecture).
+
 *(Source: [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md))*
 
 ---
@@ -573,6 +637,8 @@ Added for the Student Profile page (`/dashboard/students/[studentId]`) — skips
 ### Structural, not just UI, visibility guarantee
 
 `fetchMeetingsForStudent(studentId, audience)` (`src/lib/academicProgress.ts`) accepts **only** `"PARENT" | "STAFF"` — its type signature has no `"STUDENT"` member at all. It is called only from the Parent dashboard branch and the staff-only Student Profile page — never from the Student branch, and never folded into the shared `AcademicProgressPanel.tsx` that the Student's own render path uses. A Student attempting direct navigation to `/dashboard/students/[studentId]` or `/dashboard/meetings` is redirected away before any meeting data is fetched.
+
+**Phase 4D-3**: also reachable at the URL-scoped `/dashboard/schools/[schoolId]/meetings`, reusing `MeetingsClient` unchanged, resolved via the same institutional-context pattern. This phase's own audit found the Meetings API routes (`POST /api/schools/[id]/meetings`, `PATCH .../meetings/[meetingId]`) still resolving the calling teacher via the legacy bridge fields, never touched by Phase 4B/4C — fixed to use `resolveActiveTeacherId()` the same way `requireTeacherAssignment()`/`requireClassTeacher()` do. See [§10a](#10a-institutional-affiliation--context-architecture).
 
 *(Source: [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md))*
 
@@ -713,6 +779,10 @@ The Class Overview roster uses the broadened `CURRENT_ROSTER_STATUSES` (see [§1
 
 A student never decided stays `ENROLLED` indefinitely. On rollover, they're excluded from automatic placement and surface in a **persistent** Pending/Unresolved queue on `/dashboard/grades` — resolvable by recording the missing decision (audited) or manually placing them directly (unaudited, an honest gap in the record). Verified correct across a 3-session chain, including a student pending through an intervening session with zero rows of their own.
 
+### Phase 4D-4: institutional context migration
+
+`/dashboard/grades` was migrated to the **same-URL** institutional-context pattern (a School Admin with 2+ ACTIVE affiliations sees a chooser, but stays on `/dashboard/grades` itself — resolved via the just-set `mega_school_ctx` cookie rather than a new URL). This surfaced a second, independent bug in the companion `/dashboard/grades/[schoolGradeId]` page: it resolved its own school via an arbitrary `schoolAdmin.findFirst({ userId })`, which would 404 a multi-school Admin clicking into a grade belonging to any school other than whichever one `findFirst()` happened to return. Fixed via the **target-derived** pattern already used by `academics/[gradeSubjectId]`: `schoolId` is read directly from the target `SchoolGrade` row, then checked with an exact `schoolAdmin.findUnique({ userId_schoolId })`. See [§10a](#10a-institutional-affiliation--context-architecture).
+
 *(Source: [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md))*
 
 ---
@@ -793,6 +863,8 @@ A new, deliberately minimal self-service page — available to any authenticated
 
 `dashboard/page.tsx` is a single server component that branches on the caller's role-priority order (see [§9](#9-user-roles--permissions)), resolves the relevant data with direct Prisma queries, and renders the matching role-specific client component (`DashboardClient.tsx`, `TeacherDashboard.tsx`, `StudentDashboard.tsx`, `ParentDashboard.tsx`, `OrgDashboard.tsx`, `PlatformAdminDashboard.tsx`). Each role dashboard's `DashboardHero` now optionally shows an identity badge — the school's logo for the School Admin dashboard, the person's own avatar for Teacher/Student/Parent — via the shared `Avatar` component (see [§24](#24-school-logos--user-profile-photos)). A separate, role-agnostic `/dashboard/profile` page (also §24) is the self-service surface for managing that avatar, reachable from `SiteHeader.tsx`.
 
+**Phase 4D**: the SCHOOL_ADMIN and TEACHER branches resolve institutional context (`getAccessibleSchools()`, [§10a](#10a-institutional-affiliation--context-architecture)) before their existing role-scoped queries — for a person connected to 2+ schools, this is what decides which school's data the dashboard actually shows, independent of the role-priority order that decides *which dashboard* to render. `SchoolChooser.tsx` is the shared client component shown when a choice is needed.
+
 **Shared presentational components**, reused rather than duplicated per role:
 
 - **`AcademicProgressPanel.tsx`** — Teaching Progress, Test Results, Recent Attendance, Teacher Evaluations, Assessment Results — parameterized by an explicit `audience: "STUDENT" | "PARENT" | "STAFF"` that filters what's shown (e.g. published-only for Student/Parent, unfiltered for Staff). Rendered once per Student, once per linked child on Parent, and on the Student Profile page.
@@ -813,7 +885,7 @@ The full, exact inventory (method, path, auth, request/response shape) is mainta
 | Domain | Route prefix | Auth |
 |---|---|---|
 | Auth & registration | `/api/auth/*` | none / NextAuth |
-| Post-registration affiliation | `/api/teacher\|student\|parent/*`, `/api/schools/create-for-admin` | session |
+| Post-registration affiliation | `/api/teacher\|student/{join-school,leave-school,transfer-school}`, `/api/parent/link-child`, `/api/schools/create-for-admin` | session |
 | Platform Admin | `/api/admin/*` | `requirePlatformAdmin` |
 | School directory & profile | `/api/schools/[id]`, `.../programs`, `.../news`, `.../opportunities`, `.../logo` | `requireSchoolAdmin` |
 | Staff & students | `.../students`, `.../teachers`, `.../accountants` | `requireSchoolAdmin` |
@@ -825,6 +897,7 @@ The full, exact inventory (method, path, auth, request/response shape) is mainta
 | Assessment Results (3D-2/3/4) | `.../components/[id]/results`, `.../publish`, `/api/schools/[id]/assessment-results/[resultId]` | `requireSchoolAdmin` OR `requireTeacherAssignment` |
 | Organizations & courses | `/api/organizations/*`, `/api/courses/*`, `/api/enrollments/*` | `requireOrgAdmin`/`requireCourseOwner`/inline |
 | Identity & notifications | `/api/interests/*`, `/api/notifications/*`, `/api/user/avatar` | session/inline |
+| Institutional context (4D) | `/api/dashboard/school-context` | session (sets the `mega_school_ctx` preference cookie; never itself a grant — see [§10a](#10a-institutional-affiliation--context-architecture)) |
 
 *(Source: [API.md](API.md))*
 
@@ -1060,6 +1133,14 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 
 - Grade-based certificates (a reserved field exists on `Certificate`, but no issuance path).
 
+### ⚠️ Phase 4D — institutional context migration in progress
+
+| Gap | Detail |
+|---|---|
+| Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern | Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the profile pages still use a plain `findFirst({ userId })` pick rather than one of the three proven migration patterns ([§10a](#10a-institutional-affiliation--context-architecture)) — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed) |
+| Organization Admin has the identical arbitrary-pick gap | Every Organization Admin page resolves its organization via `organizationAdmin.findFirst({ userId })` — Phase 4D's institutional-context work was scoped to Schools only; a parallel Organization-side initiative would be needed |
+| Student simultaneous multi-school affiliation is an undecided product policy | `StudentSchoolAffiliation` permits 2+ simultaneous `ACTIVE` rows (schema-unrestricted, mirroring Teacher), but unlike Teacher this has never been explicitly designed for, tested, or business-approved — nothing blocks it today, nothing was built assuming it happens |
+
 *(Source: [KNOWN_GAPS.md](KNOWN_GAPS.md))*
 
 ---
@@ -1075,6 +1156,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md) | Login, session, the full `requireX()` suite |
 | [USER_ROLES.md](USER_ROLES.md) | What every role can do, approval workflows |
 | [MEGA_ID.md](MEGA_ID.md) | The identity model and its design principles |
+| [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md) | The affiliation lifecycle, `getAccessibleSchools()`/`verifySchoolAccess()`, the preference cookie, and the three multi-school migration patterns (Phase 3–4D) |
 | [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md) | Sessions, rollover, the one-ACTIVE-per-school rule |
 | [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md) | Grades, sections, promotion, Class Overview |
 | [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) | Subjects, `GradeSubject`, `TeacherAcademicAssignment` (Phase 3A) |

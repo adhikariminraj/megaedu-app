@@ -1,7 +1,7 @@
 # MEGA ID
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-28, against the current codebase.
+> Last verified: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture), against the current codebase.
 
 ## The core principle: MEGA ID belongs to the individual ✅
 
@@ -15,7 +15,7 @@ The doc comment above `authOptions` in `src/lib/auth.ts` states this plainly:
 
 These are three separate, optional relationships a single `User` can hold simultaneously — none of them define the identity, they're attached to it:
 
-- **School** — via a `Teacher` or `Student` profile (`schoolId` on that profile, not on the `User`), or via `SchoolAdmin`/`SchoolAccountant` join rows. A person's `Teacher`/`Student` profile can be unaffiliated (`schoolId: null`), affiliated and pending approval, or affiliated and approved — the school relationship is a state on the profile, not baked into the account.
+- **School** — via a `Teacher` or `Student` profile, or via `SchoolAdmin`/`SchoolAccountant` join rows. The relationship itself is a row in `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`, not a field on the account: a person can hold zero, one, or several such rows at once, each independently `PENDING`, `ACTIVE`, or `ENDED`, each carrying its own `startDate`/`endDate`. A Teacher is explicitly supported holding more than one simultaneous `ACTIVE` affiliation (multi-school teaching); Student simultaneous multi-school affiliation is schema-permitted but not yet a decided product policy (see [KNOWN_GAPS.md](KNOWN_GAPS.md)). `Teacher.schoolId`/`approved` and `Student.schoolId`/`approved` still exist as **transitional bridge fields** — kept in sync automatically only for the simple 0-or-1-open-affiliation case, deliberately left untouched (never guessed) once a person has 2+ affiliations — and are being phased out in favor of reading the affiliation table directly. See [ARCHITECTURE.md](ARCHITECTURE.md) and [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md) for the full lifecycle (JOIN/LEAVE/TRANSFER/REJOIN) and how an ACTIVE affiliation becomes an accessible, authorized school context.
 - **Organization** — via `OrganizationAdmin`/`OrganizationAccountant` join rows, granting management access to a specific organization's courses and content.
 - **MEGA Academy** — via `CourseEnrollment` rows, tied to the person's `Teacher` or `Student` profile, independent of which school (if any) that profile is affiliated with. Enrolling in a course has no relationship to school affiliation at all — an unaffiliated student can enroll in a free MEGA Academy course.
 
@@ -28,9 +28,9 @@ Nothing in the schema or auth layer limits a `User` to one role. `UserRole` is a
 Every registration path creates a **minimal, single-role account first**; affiliation with a school/organization happens later, from the person's own dashboard. Two ways to register:
 
 1. **Generic** (`POST /api/auth/register`) — name, email, password, one role. Teacher/Student/Parent get an unaffiliated profile immediately; School Admin/Organization Admin get nothing yet.
-2. **Role-specific, single-step** — combines account creation with immediate affiliation (requires an already-verified school for Teacher/Student).
+2. **Role-specific, single-step** — combines account creation with immediate affiliation (requires an already-verified school for Teacher/Student). Both this path and the direct-creation admin routes (Add Teacher/Add Student) create an ACTIVE `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` row alongside the bridge field, not the bridge field alone (Phase 4A — "affiliation-complete" creation).
 
-**Post-registration affiliation routes**: `POST /api/teacher/join-school`, `POST /api/student/join-school`, `POST /api/parent/link-child`, `POST /api/schools/create-for-admin`, `POST /api/organizations/create-for-admin`.
+**Post-registration affiliation lifecycle routes**: `POST /api/teacher/{join-school,leave-school,transfer-school}`, `POST /api/student/{join-school,leave-school,transfer-school}`, `POST /api/parent/link-child`, `POST /api/schools/create-for-admin`, `POST /api/organizations/create-for-admin`. JOIN creates a `PENDING` affiliation; a School Admin approval (`POST /api/schools/[id]/{teachers,students}/[id]/approve`) flips it `ACTIVE`; LEAVE ends the current `ACTIVE` affiliation (`ENDED`, `endDate` set); TRANSFER ends the old one and creates a new `PENDING` one atomically (a thrown error rolls back the whole operation, never a half-applied transfer); REJOIN is simply another JOIN after a prior one ended. See [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md) for the full state machine.
 
 ## Learning history follows the person, not the school ✅
 

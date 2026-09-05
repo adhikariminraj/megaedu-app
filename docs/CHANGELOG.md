@@ -6,6 +6,72 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Phase 4D-4: Grades same-URL context migration (2026-09-05)
+Migrated the Grades index (`/dashboard/grades`) to institutional context using the **same-URL** pattern rather than the URL-scoped pattern used by Attendance/Evaluations/Meetings — an Admin-only page didn't warrant a new route per school. `SchoolChooser` gained an optional `redirectTo` prop (default preserves its original per-school-URL destination) so choosing a school returns the Admin to `/dashboard/grades` itself, resolved via the freshly-set `mega_school_ctx` cookie rather than a new URL.
+
+**A second, independent bug was found and fixed during this same pass**: `grades/[schoolGradeId]/page.tsx` resolved its own school via an arbitrary `schoolAdmin.findFirst({ userId })` pick — a multi-school Admin clicking into any grade belonging to their *second* school would have been silently 404'd, since the query would resolve to their *first* school instead. Fixed via the target-derived pattern already established by `academics/[gradeSubjectId]`: the school is derived from the target `SchoolGrade` row itself (unambiguous — a grade belongs to exactly one school), then checked with an exact `schoolAdmin.findUnique({ userId_schoolId })`.
+
+**Verified live**: 22 throwaway-fixture tests covering single-school and multi-school Admin accounts, chooser round-trip via the cookie, and the `grades/[schoolGradeId]` companion fix against a second school — all passing after adding missing `AcademicSession` fixtures (six initial failures traced to one missing-session cause, all resolved). `npx tsc --noEmit` back to the pre-existing 13-error baseline.
+
+Updated `src/app/dashboard/grades/page.tsx`, `src/app/dashboard/grades/[schoolGradeId]/page.tsx`, `src/components/SchoolChooser.tsx`.
+
+### Added — Phase 4D-3: Meetings context migration + basePath navigation fix (2026-09-04)
+Migrated Parent-Teacher Meetings to the URL-scoped institutional-context pattern (`/dashboard/schools/[schoolId]/meetings`), reusing `MeetingsClient` unchanged aside from the fix below.
+
+**Two issues found during this phase's own audit, before implementation was considered complete**: (1) the Meetings API routes (`POST /api/schools/[id]/meetings`, `PATCH .../meetings/[meetingId]`) had their own independent, bridge-field-based teacher-resolution logic that Phase 4B/4C had never touched — fixed via the same `userId → Teacher → ACTIVE TeacherSchoolAffiliation` substitution used everywhere else. (2) `AttendanceClient`, `EvaluationsClient`, and `MeetingsClient` all hardcoded their internal filter-navigation (`router.push`) to their unscoped legacy paths — a person viewing the new URL-scoped page would be silently bounced back to the unscoped page on the first filter change. Fixed across all three components at once (not just Meetings) via an optional `basePath` prop; omitting it preserves the exact legacy behavior.
+
+**Verified live**: URL-scoped Meetings page loads and scopes correctly for both Teacher and Admin roles; in-page filter changes on all three migrated features (Attendance, Evaluations, Meetings) now stay under their scoped URL when `basePath` is supplied, and stay on the legacy unscoped path when it isn't; the Meetings API teacher-resolution fix verified against a multi-school teacher who previously would have been rejected.
+
+Updated `src/app/dashboard/schools/[schoolId]/meetings/page.tsx`, `src/app/api/schools/[id]/meetings/route.ts`, `src/app/api/schools/[id]/meetings/[meetingId]/route.ts`, `src/app/dashboard/attendance/AttendanceClient.tsx`, `src/app/dashboard/evaluations/EvaluationsClient.tsx`, `src/app/dashboard/meetings/MeetingsClient.tsx`.
+
+### Added — Phase 4D-2: Evaluations context migration (2026-09-03)
+Migrated Evaluations to the same URL-scoped institutional-context pattern established by Attendance, reusing `EvaluationsClient` unchanged — confirming the pattern generalizes to a second feature with no new edge cases.
+
+**Verified live**: URL-scoped Evaluations page correctly resolves and scopes for both single-school and multi-school Teacher/Admin accounts; unscoped legacy `/dashboard/evaluations` unaffected.
+
+Updated `src/app/dashboard/schools/[schoolId]/evaluations/page.tsx`.
+
+### Added — Phase 4D-1: Institutional context foundation + Attendance proof-of-concept (2026-09-03)
+Built the foundation for resolving "which school" a multi-school person means, ahead of migrating any specific feature: `src/lib/institutionalContext.ts` (`getAccessibleSchools()` — ACTIVE affiliations only, a display/routing input, never itself an authorization decision; `verifySchoolAccess()` — the real, fresh-every-request security gate), the `mega_school_ctx` preference cookie (`POST /api/dashboard/school-context`, `httpOnly`, `sameSite=lax`, 180-day — never authoritative, always re-verified before being trusted), and `SchoolChooser.tsx`. Attendance (`/dashboard/schools/[schoolId]/attendance`) was migrated first, as a proof of concept for the URL-scoped pattern.
+
+Two design principles were explicitly set for this and every later Phase 4D sub-phase: ACTIVE affiliations alone define what's selectable/accessible (`PENDING` excluded from `getAccessibleSchools()`); and the institutional-context resolver is authoritative even in the single-school case — there is no separate "skip the resolver" path when a person has only one school.
+
+**Verified live**: a single-school Teacher/Admin resolves directly with no chooser shown; a multi-school Admin sees the chooser, and choosing a school persists the cookie and lands on the correctly-scoped Attendance page; `verifySchoolAccess()` correctly rejects a school the person has no ACTIVE affiliation or SchoolAdmin row for, even when passed directly in the URL.
+
+Added `src/lib/institutionalContext.ts`, `src/components/SchoolChooser.tsx`, `src/app/api/dashboard/school-context/route.ts`, `src/app/dashboard/schools/[schoolId]/page.tsx`, `src/app/dashboard/schools/[schoolId]/attendance/page.tsx`. Updated `src/app/dashboard/page.tsx` (SCHOOL_ADMIN/TEACHER branch context resolution).
+
+### Added — Phase 4C: Affiliation-based ownership/existence guards (2026-09-02)
+Converted the remaining eleven ownership/existence checks not yet touched by Phase 4B — teacher/student address, contacts, contacts-address, skills, evaluations, and the roster `GET` — from `Teacher.schoolId`/`approved` bridge-field reads to ACTIVE `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` checks.
+
+**Two confirmed live regressions found and fixed during this pass, both the same shape**: the Evaluations route and the `academics/[gradeSubjectId]` page each re-derived the caller's Teacher identity a *second* time via the bridge fields, after `requireTeacherAssignment()`/`requireClassTeacher()` (already affiliation-based since Phase 4B) had already authorized correctly — the stale second check then rejected an already-approved multi-school teacher. Fixed by removing the redundant bridge-based re-check entirely; identity resolves from `userId` alone.
+
+**Verified live**: a real multi-school teacher account exercised against all eleven converted checks plus the two regression sites, confirmed passing after the fix; a single-school teacher and a teacher with no affiliation at all confirmed still correctly rejected where expected.
+
+Updated teacher/student address, contacts, contacts/[contactId], contacts/[contactId]/address routes; `schools/[id]/students/route.ts` (GET); `students/[studentId]/skills/route.ts`; `students/[studentId]/evaluations/route.ts`; `dashboard/academics/[gradeSubjectId]/page.tsx`.
+
+### Added — Phase 4B: Affiliation-based teacher authorization (2026-09-02)
+Converted `requireTeacherAssignment()` and `requireClassTeacher()` in `src/lib/authorize.ts` to resolve the caller's Teacher identity via a new shared `resolveActiveTeacherId()` helper — an ACTIVE `TeacherSchoolAffiliation` at the requested school — instead of `Teacher.schoolId`/`Teacher.approved`. Both functions' existing assignment-matching logic (`TeacherAcademicAssignment`/`ClassTeacherAssignment`, the three-way `sectionId` semantics) is unchanged; only the identity-resolution step underneath them changed.
+
+**Verified live**: a multi-school teacher, previously unable to pass either check outside whichever single school the bridge field happened to point at, now authorizes correctly at every school they hold an ACTIVE affiliation with; a teacher with only a `PENDING` affiliation at a school correctly still fails.
+
+Updated `src/lib/authorize.ts`.
+
+### Added — Phase 4A: Affiliation-complete teacher/student creation + roster reads (2026-09-02)
+Made the four legacy Teacher/Student creation paths (`register-teacher`, `register-student`, `POST /api/schools/[id]/teachers`, `POST /api/schools/[id]/students`) create a real `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` row alongside the existing bridge-field write, rather than the bridge field alone — closing the gap where every account created before Phase 3 had no affiliation row at all. Converted the dashboard roster/community queries (`dashboard/page.tsx`, `notify.ts`, `gradeRollover.ts`) from bridge-field membership checks to the affiliation table.
+
+**Verified live**: a fresh account created through each of the four paths produces both the bridge field and a matching ACTIVE affiliation row; roster/notification/rollover queries confirmed to correctly include a person with an affiliation row but a stale/absent bridge field.
+
+Updated `src/app/api/auth/register-teacher/route.ts`, `register-student/route.ts`, `src/app/api/schools/[id]/teachers/route.ts`, `src/app/api/schools/[id]/students/route.ts`, `src/app/dashboard/page.tsx`, `src/lib/notify.ts`, `src/lib/gradeRollover.ts`.
+
+### Added — Phase 3: Institutional affiliation lifecycle — JOIN/LEAVE/TRANSFER/REJOIN (2026-09-02)
+Introduced `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` as the authoritative institutional relationship model (`PENDING`/`ACTIVE`/`ENDED`, time-bounded, real dates only) and the full lifecycle around it: `src/lib/affiliation.ts` primitives, `POST /api/{teacher,student}/{join-school,leave-school,transfer-school}` routes, and updated the `POST /api/schools/[id]/{teachers,students}/[id]/approve` routes to resolve against the affiliation table first (bridge-field fallback only when no affiliation row exists at all).
+
+**Two issues found and fixed during a correction pass, before this phase was considered complete**: (1) TRANSFER was non-atomic — `affiliation.ts`'s primitives originally returned `{ error }` rather than throwing, and Prisma's `$transaction` only rolls back on a *thrown* error, never a returned error value, so a failed TRANSFER could leave a half-applied state (old affiliation ended, new one never created). Fixed by making the primitives throw `AffiliationError`, caught and translated to a `409` by the calling routes. (2) The approve routes' stale `schoolId !== params.id` bridge-field check ran even when a valid affiliation existed, blocking approval for a multi-school teacher/student. Fixed by resolving via the affiliation table first.
+
+**Verified live**: full JOIN → approve → ACTIVE → LEAVE → ENDED → REJOIN → PENDING cycle for both Teacher and Student; TRANSFER's atomicity re-verified by forcing a failure mid-transaction and confirming no partial state was left; multi-school approval re-verified after the bridge-field-check fix.
+
+Added `src/lib/affiliation.ts`, the six `join-school`/`leave-school`/`transfer-school` routes. Updated `src/app/api/schools/[id]/{teachers,students}/[id]/approve/route.ts`.
+
 ### Changed — Standardize teacher responsibility terminology: Grade Coordinator / Class Teacher (2026-09-01)
 An audit of `ClassTeacherAssignment` (Phase 3B) confirmed the schema already fully supports the desired model — one `Teacher` holding multiple Subject Teaching Assignments (`TeacherAcademicAssignment`, already multi-subject/multi-grade/multi-section) plus, independently, an optional grade-wide and/or section-specific `ClassTeacherAssignment` responsibility, all coexisting on the same person with no elevated authority over other teachers. The only real gap was terminology: the grade-wide variant (`sectionId: null`) was inconsistently called "Grade Class Teacher" or just "Class Teacher (whole grade)", and the section-specific variant (`sectionId` set) was called "Section Teacher" — both user-facing terms now retired in favor of **Grade Coordinator** (grade-wide) and **Class Teacher** (section-specific).
 

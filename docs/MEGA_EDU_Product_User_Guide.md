@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-09-01, against what is actually available in the app today.
+> **Last verified**: 2026-09-05, against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -73,6 +73,8 @@ MEGA.EDU is a platform that gives every school a digital identity and gives ever
 | Organization Admin | Publishes free courses on MEGA Academy |
 
 A single person can hold more than one role at once (for example, a Teacher who is also a Parent) — MEGA.EDU shows whichever dashboard is most relevant when they sign in.
+
+A single person can also be connected to more than one school at once — a Teacher teaching at two schools, or a School Administrator running more than one. If that applies to you, you'll be asked which school you mean the first time you visit an area that's already been updated to support this, and MEGA.EDU remembers your choice for next time. See [Switching between schools](#switching-between-schools) below.
 
 ---
 
@@ -397,9 +399,17 @@ Every promotion decision — for every student, every time — is permanently re
 
 Your dashboard is the control center for everything above — school profile, staff and student approval, sessions, grades and sections, subjects, teacher assignments, attendance, evaluations, meetings, assessments, and promotion, all in one place, organized by tab.
 
+If you administer more than one school, Attendance, Evaluations, Parent-Teacher Meetings, and Grades &amp; Promotion will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)). A few other areas — Initial Setup, Starting a New Session, Assessment Frameworks, and Assessment Results — are still being updated for the multi-school experience.
+
 ### Teacher
 
 Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
+
+If you teach at more than one school, Attendance, Evaluations, and Parent-Teacher Meetings will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)).
+
+### Switching between schools
+
+If you're connected to more than one school as a School Administrator or Teacher, some areas of your dashboard show a school picker the first time you visit them — pick the one you mean, and MEGA.EDU remembers it for that area until you choose differently. This is rolling out area by area; the areas above already support it, and the rest are still being updated for the multi-school experience in the meantime.
 
 ### Student
 
@@ -485,6 +495,9 @@ Not yet — only free courses can currently be enrolled in.
 **Q: Is "Roll No." on the Class Overview a permanent student ID?**
 No — it's simply each student's position in the list within their section, recalculated every time the page is viewed. It isn't stored anywhere as a permanent student record.
 
+**Q: I work at more than one school — how do I switch between them?**
+In an area that supports it (Attendance, Evaluations, Parent-Teacher Meetings, Grades &amp; Promotion), you'll see a school picker the first time you visit it there; choosing a school is remembered for that area afterward. Areas that haven't been updated for multi-school yet are still being worked on — see [Switching between schools](#switching-between-schools).
+
 ---
 
 ## 13. Glossary of Terms
@@ -492,6 +505,7 @@ No — it's simply each student's position in the list within their section, rec
 | Term | Meaning |
 |---|---|
 | **MEGA ID** | A person's single account on MEGA.EDU, usable across every role they hold |
+| **School Affiliation** | A person's relationship to a specific school (pending, active, or ended) — a Teacher can hold more than one at once |
 | **Profile Photo / Avatar** | A person's picture, attached to their MEGA ID and shown wherever their identity appears; shows as an initials badge when none is uploaded |
 | **School Logo** | A school's uploaded logo, shown on its Directory card and profile; shows as an initials monogram when none is uploaded |
 | **Academic Session** | One school year on MEGA.EDU |

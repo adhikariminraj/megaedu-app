@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-01 (School Logos & User Profile Photos identity system) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -111,6 +111,17 @@ Deliberately not built — see [PRODUCT_RULES.md](PRODUCT_RULES.md) for the reas
 
 ### "Roll No." on the Class Overview is a display-only position, not a persisted student field 🔭
 No roll-number concept exists anywhere in the Prisma schema — confirmed via a direct search across `schema.prisma` returning zero matches. The number shown next to each student on `/dashboard/grades/[schoolGradeId]` is computed purely for display: each student's sequential position within their section's list, in whatever order that section's roster query returns them. It is not stored, not stable against a future reordering of the underlying query, and not something any other page or route can reference. A school that needs a real, persisted, admin-assignable roll number would need a genuinely new schema field — this was not an oversight of the Class Overview work, just outside what it set out to build.
+
+## Phase 4D (Institutional Context) — migration in progress
+
+### Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern ⚠️
+Attendance, Evaluations, Meetings, and Grades (Promotion) have been migrated to `getAccessibleSchools()`/`verifySchoolAccess()` (see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)). Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the School Admin/Teacher profile pages have **not** been migrated yet — they still resolve "which school" via a plain `schoolAdmin.findFirst({ userId })` (or the equivalent `Teacher` bridge-field read), which silently picks *a* school rather than asking a multi-school Admin/Teacher which one they mean. This is real, in-progress migration debt, not a design decision — each of these areas is a candidate for the same URL-scoped/same-URL/target-derived pattern already proven three times over. Not a security hole (every write route still independently checks `SchoolAdmin`/affiliation ownership of the specific resource being changed) — the gap is which school's data gets *shown*, not unauthorized access to another school's data.
+
+### Organization Admin has the identical arbitrary-pick gap ⚠️
+Every Organization Admin page resolves its organization the same unscoped way (`organizationAdmin.findFirst({ userId })`) — Phase 4D's institutional-context work was scoped to Schools only; Organizations were not touched. An Organization Admin managing 2+ organizations would hit the same "shown the wrong one, silently" experience Schools had before Phase 4D. Worth tracking as a parallel future initiative, not yet started or approved.
+
+### Student simultaneous multi-school affiliation remains an undecided product policy 🔭
+`StudentSchoolAffiliation` permits a Student to hold 2+ `ACTIVE` rows at once — the schema imposes no limit, mirroring the Teacher side — but unlike Teacher (explicitly designed and tested for multi-school), no business rule or product decision has ever been made about whether a Student *should* be allowed to be simultaneously enrolled at two schools. Nothing in the app currently blocks it; nothing in the app was designed assuming it happens. A future phase should either explicitly bless it (and audit every Student-scoped roster/attendance/grade view for multi-school correctness) or add an enforced one-ACTIVE-affiliation-at-a-time rule for Students specifically.
 
 ## Authentication
 

@@ -1,7 +1,7 @@
 # Architecture
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B), against the current codebase.
+> Last verified: 2026-09-05 (Phase 4D — institutional context migration), against the current codebase.
 
 ## High-level shape ✅
 
@@ -18,12 +18,18 @@ src/
       academics/       # Phase 3A: Subject catalog, grade offerings, teacher assignments
                        #   [gradeSubjectId]/ — Phase 3B: Teaching Plans, Units/Chapters, Tests
       attendance/      # Phase 3B: daily attendance marking + correction
+      schools/[schoolId]/  # Phase 4D: URL-scoped multi-school pages
+                       #   (attendance/, evaluations/, meetings/) — same
+                       #   client components as their unscoped siblings above,
+                       #   reused via a `basePath` prop
     admin/             # Platform Admin-only pages
     ...                # public pages: schools, courses, opportunities, etc.
-  components/          # shared client components (SiteHeader, DashboardHero, certificate/)
+  components/          # shared client components (SiteHeader, DashboardHero,
+                        # SchoolChooser, certificate/)
   lib/                 # server-side helpers: auth, authorize, prisma, notify,
                         # certificates, certificateView, gradeHistory,
-                        # gradeMatching, gradeRollover
+                        # gradeMatching, gradeRollover, affiliation,
+                        # institutionalContext
   types/               # ambient type augmentation (next-auth.d.ts)
 prisma/
   schema.prisma        # single source of truth for the data model
@@ -45,7 +51,9 @@ flowchart TB
 
         subgraph Lib["src/lib"]
             Auth["auth.ts<br/>NextAuth config"]
-            Authorize["authorize.ts<br/>requireSchoolAdmin, requireOrgAdmin,<br/>requirePlatformAdmin, requireSchoolFinance,<br/>requireOrgFinance, requireCourseOwner"]
+            Authorize["authorize.ts<br/>requireSchoolAdmin, requireOrgAdmin,<br/>requirePlatformAdmin, requireSchoolFinance,<br/>requireOrgFinance, requireCourseOwner,<br/>requireTeacherAssignment, requireClassTeacher"]
+            Affiliation["affiliation.ts<br/>join/leave/transfer primitives<br/>(TeacherSchoolAffiliation,<br/>StudentSchoolAffiliation)"]
+            Context["institutionalContext.ts<br/>getAccessibleSchools(),<br/>verifySchoolAccess()"]
             Cert["certificates.ts / certificateView.ts<br/>issueCourseCertificate()"]
             Grade["gradeHistory.ts / gradeMatching.ts / gradeRollover.ts<br/>recordGradeDecision(), matchLegacyGradeText(),<br/>carryForwardEligibleStudents()"]
             Notify["notify.ts"]
@@ -85,7 +93,7 @@ A recurring, deliberate decision (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): for
 
 All five follow the same shape: typed input, optional `tx?: Prisma.TransactionClient` for composing into a larger transaction, transactional by default otherwise.
 
-Other `lib` modules: **`auth.ts`** (NextAuth config), **`authorize.ts`** (the `requireX` guard suite — see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)), **`prisma.ts`** (singleton client), **`notify.ts`** (best-effort notifications, never allowed to fail the calling action), **`certificateView.ts`** (pure view-model builder, no live text lookups), **`gradeMatching.ts`** (`matchLegacyGradeText()` — never guesses, returns `null`).
+Other `lib` modules: **`auth.ts`** (NextAuth config), **`authorize.ts`** (the `requireX` guard suite — see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)), **`affiliation.ts`** (Phase 3/4 — the JOIN/LEAVE/TRANSFER primitives behind `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`; throws `AffiliationError` rather than returning it, so a caller composing these inside a Prisma `$transaction` gets a real rollback), **`institutionalContext.ts`** (Phase 4D — `getAccessibleSchools()`/`verifySchoolAccess()`, see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)), **`prisma.ts`** (singleton client), **`notify.ts`** (best-effort notifications, never allowed to fail the calling action), **`certificateView.ts`** (pure view-model builder, no live text lookups), **`gradeMatching.ts`** (`matchLegacyGradeText()` — never guesses, returns `null`).
 
 ## Major application modules and how they relate ✅
 
@@ -97,6 +105,7 @@ flowchart LR
     Academy["MEGA Academy<br/>(Course, Enrollment)"]
     Cert["Certificates"]
     Grades["Academic Sessions & Grades<br/>(Phase 2)"]
+    IC["Institutional Context<br/>(Phase 4D)"]
 
     MEGAID -->|"one person, many roles"| School
     MEGAID -->|"one person, many roles"| Org
@@ -106,6 +115,8 @@ flowchart LR
     MEGAID -->|"Student.userId anchors"| Grades
     Org -->|"publishes, may issue"| Cert
     School -->|"may issue / associate"| Cert
+    School -->|"ACTIVE affiliation ->"| IC
+    IC -->|"resolves accessible/authorized school"| Grades
 ```
 
 A school and an organization are structurally independent — a `Course` belongs to an `Organization`, never a `School`, and Phase 2's grade structure belongs entirely to a `School`, with no organization involvement. The two only meet at `Certificate.associatedSchoolId`, an informational link (the recipient's school), not an ownership relation.
