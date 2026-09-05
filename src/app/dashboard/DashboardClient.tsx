@@ -404,6 +404,10 @@ export default function DashboardClient({
         <a href={`/schools/${school.slug}`} className="text-mega-blue hover:underline">
           View public profile →
         </a>
+        {" · "}
+        <a href={`/dashboard/schools/${school.id}/inquiries`} className="text-mega-blue hover:underline">
+          Inquiries →
+        </a>
       </p>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8 flex-wrap">

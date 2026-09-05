@@ -39,11 +39,21 @@ export default async function SchoolContextPage({ params }: { params: { schoolId
 
       <Link
         href={`/dashboard/schools/${params.schoolId}/attendance`}
-        className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition mb-8"
+        className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition mb-4"
       >
         Attendance
         <span className="text-mega-blue"> — Take or review →</span>
       </Link>
+
+      {access.role === "SCHOOL_ADMIN" && (
+        <Link
+          href={`/dashboard/schools/${params.schoolId}/inquiries`}
+          className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition mb-8"
+        >
+          Inquiries
+          <span className="text-mega-blue"> — Public visitor inquiries →</span>
+        </Link>
+      )}
 
       {otherSchools.length > 0 && (
         <div>

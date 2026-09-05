@@ -147,6 +147,9 @@ model School {
   // nothing reads or writes these yet.
   teacherAffiliations TeacherSchoolAffiliation[]
   studentAffiliations StudentSchoolAffiliation[]
+
+  // Public School Gateway — see Inquiry above.
+  inquiries Inquiry[]
 }
 
 model SchoolAdmin {
@@ -184,6 +187,55 @@ model NewsPost {
   title       String
   body        String
   publishedAt DateTime @default(now())
+}
+
+// ============================================================
+// PUBLIC INQUIRIES — Public School Gateway, Phase 1
+// A public visitor contacting a school. Deliberately one shared model
+// across every eventual category (Parent/Student/Admission/Employment/
+// Institutional/General/Other) rather than one model per category —
+// every category shares the identical lifecycle (visitor -> school ->
+// status), so `category` is a plain string discriminator, matching this
+// schema's existing convention of never using a Prisma enum (see
+// UserRole.role, FamilyContact.relationship). Phase 1 only ever writes
+// "GENERAL" here; the column exists so later categories are additive,
+// not a model replacement.
+//
+// This is a communication record only — it never creates a User,
+// Parent, Student, Teacher, or any institutional affiliation. A public
+// visitor is never assumed to be, or become, an account holder.
+// ============================================================
+model Inquiry {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  // "GENERAL" only in Phase 1. Reserved for later: "PARENT" | "STUDENT" |
+  // "TEACHER_EMPLOYMENT" | "ADMISSION" | "INSTITUTIONAL" | "OTHER".
+  category String @default("GENERAL")
+
+  // Visitor-supplied — no MEGA ID, no session, never required.
+  name    String
+  email   String
+  phone   String?
+  message String
+
+  // "NEW" | "RESOLVED". Kept deliberately binary for Phase 1 — no
+  // assignment, no internal notes, no threading (see PRODUCT_RULES.md-
+  // style deferral note: these are explicit future-phase decisions, not
+  // oversights).
+  status String @default("NEW")
+
+  // Captured server-side for basic abuse/rate-limit checks only (see
+  // src/app/api/schools/[id]/inquiries/route.ts) — never displayed to
+  // any user, never used for anything beyond that.
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, status])
+  @@index([ipAddress, createdAt])
 }
 
 // ============================================================
