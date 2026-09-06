@@ -238,7 +238,7 @@ export default function TeacherDashboard({
 
       {teacher.approved && (
         <div className="mb-8">
-          <h2 className="text-lg font-semibold text-slate-800 mb-1">Your Students</h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-1">School Students</h2>
           <p className="text-xs text-slate-400 mb-4">
             Add Skills & Competencies for approved students at {teacher.school.name}.
             Every approved teacher can currently manage any approved student

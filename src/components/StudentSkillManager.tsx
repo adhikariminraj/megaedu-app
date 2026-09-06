@@ -14,22 +14,32 @@ type StudentWithSkills = {
 export default function StudentSkillManager({ schoolId }: { schoolId: string }) {
   const [students, setStudents] = useState<StudentWithSkills[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
   const [openStudentId, setOpenStudentId] = useState<string | null>(null);
   const [newSkill, setNewSkill] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  async function loadStudents() {
+  async function loadStudents(q: string) {
     setLoading(true);
-    const res = await fetch(`/api/schools/${schoolId}/students`);
+    const res = await fetch(
+      `/api/schools/${schoolId}/students${q.length > 1 ? `?q=${encodeURIComponent(q)}` : ""}`
+    );
     const data = await res.json();
     setStudents(data.students || []);
     setLoading(false);
   }
 
+  // Debounced, same 250ms/length-gated shape as SchoolPicker's search —
+  // below 2 characters this always requests the full roster (no `q`
+  // param at all), matching this route's pre-existing default behavior
+  // exactly.
   useEffect(() => {
-    loadStudents();
+    const timeout = setTimeout(() => {
+      loadStudents(query);
+    }, 250);
+    return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schoolId]);
+  }, [schoolId, query]);
 
   async function addSkill(studentId: string) {
     if (!newSkill.trim()) return;
@@ -45,18 +55,26 @@ export default function StudentSkillManager({ schoolId }: { schoolId: string }) 
       return;
     }
     setNewSkill("");
-    loadStudents();
-  }
-
-  if (loading) return <p className="text-sm text-slate-400">Loading students...</p>;
-
-  if (students.length === 0) {
-    return <p className="text-sm text-slate-400">No approved students at your school yet.</p>;
+    loadStudents(query);
   }
 
   return (
     <div className="space-y-3">
-      {students.map((s) => (
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search students by name..."
+        className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-mega-blue"
+      />
+
+      {loading ? (
+        <p className="text-sm text-slate-400">Loading students...</p>
+      ) : students.length === 0 ? (
+        <p className="text-sm text-slate-400">
+          {query.length > 1 ? `No students match "${query}".` : "No approved students at your school yet."}
+        </p>
+      ) : (
+        students.map((s) => (
         <div key={s.id} className="border border-slate-200 rounded-xl p-4">
           <button
             onClick={() => setOpenStudentId(openStudentId === s.id ? null : s.id)}
@@ -106,7 +124,8 @@ export default function StudentSkillManager({ schoolId }: { schoolId: string }) 
             </div>
           )}
         </div>
-      ))}
+        ))
+      )}
     </div>
   );
 }

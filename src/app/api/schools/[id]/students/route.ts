@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { createStudentAffiliation } from "@/lib/affiliation";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
@@ -32,8 +32,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     : null;
   if (!teacherAffiliation && !admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  // Optional Student Finder search — a plain substring match on the
+  // institutional fullName, same idiom as /api/schools/search. Omitted
+  // entirely (not even an empty-string filter) when no query is given,
+  // so the default "whole roster" response this route already returned
+  // is completely unchanged.
+  const q = req.nextUrl.searchParams.get("q")?.trim() || "";
+
   const students = await prisma.student.findMany({
-    where: { schoolId: params.id, approved: true },
+    where: {
+      schoolId: params.id,
+      approved: true,
+      ...(q ? { fullName: { contains: q } } : {}),
+    },
     include: { user: true, skills: { include: { addedBy: true }, orderBy: { createdAt: "desc" } } },
     orderBy: { createdAt: "desc" },
   });

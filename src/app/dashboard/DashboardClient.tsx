@@ -108,10 +108,22 @@ export default function DashboardClient({
   const [assigningPlacementFor, setAssigningPlacementFor] = useState<string | null>(null);
   const [placementPick, setPlacementPick] = useState<Record<string, { schoolGradeId: string; sectionId: string }>>({});
   const [assigningPlacement, setAssigningPlacement] = useState(false);
+  const [studentQuery, setStudentQuery] = useState("");
 
   const pendingStaff = school.teachers.filter((x) => !x.approved).length;
   const pendingStudents = school.students.filter((x) => !x.approved).length;
   const pendingTotal = pendingStaff + pendingStudents;
+
+  // Student Finder — the full roster is already fetched into this page
+  // (school.students is a server-rendered prop, used for the pending
+  // counts above too), so filtering it client-side adds no new fetch
+  // and no new endpoint. Below 2 characters, show everyone, matching
+  // the same threshold used by the Teacher-side search.
+  const trimmedStudentQuery = studentQuery.trim();
+  const filteredStudents =
+    trimmedStudentQuery.length > 1
+      ? school.students.filter((s) => s.fullName.toLowerCase().includes(trimmedStudentQuery.toLowerCase()))
+      : school.students;
 
   const heroCards: HeroCard[] = [];
   if (pendingTotal > 0) {
@@ -714,10 +726,16 @@ export default function DashboardClient({
 
       {tab === "students" && (
         <div className="space-y-3 max-w-lg">
-          <div className="flex justify-end">
+          <div className="flex items-center gap-3">
+            <input
+              value={studentQuery}
+              onChange={(e) => setStudentQuery(e.target.value)}
+              placeholder="Search students by name..."
+              className="flex-1 border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-mega-blue"
+            />
             <button
               onClick={() => setShowAddStudent((v) => !v)}
-              className="text-sm font-semibold text-mega-navy bg-blue-50 rounded-full px-4 py-1.5 hover:bg-blue-100 transition"
+              className="shrink-0 text-sm font-semibold text-mega-navy bg-blue-50 rounded-full px-4 py-1.5 hover:bg-blue-100 transition"
             >
               {showAddStudent ? "Cancel" : "+ Add Student"}
             </button>
@@ -811,8 +829,10 @@ export default function DashboardClient({
             <p className="text-slate-400 text-sm">
               No students have requested to join yet. Add one directly above.
             </p>
+          ) : filteredStudents.length === 0 ? (
+            <p className="text-slate-400 text-sm">No students match &quot;{trimmedStudentQuery}&quot;.</p>
           ) : (
-            school.students.map((s) => (
+            filteredStudents.map((s) => (
               <div key={s.id} className="border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
