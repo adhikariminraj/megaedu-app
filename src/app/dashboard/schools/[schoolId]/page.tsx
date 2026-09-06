@@ -67,6 +67,14 @@ export default async function SchoolContextPage({ params }: { params: { schoolId
         <span className="text-mega-blue"> — Create & publish →</span>
       </Link>
 
+      <Link
+        href={`/dashboard/schools/${params.schoolId}/calendar`}
+        className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition mb-4"
+      >
+        Calendar
+        <span className="text-mega-blue"> — View upcoming →</span>
+      </Link>
+
       {access.role === "SCHOOL_ADMIN" && (
         <Link
           href={`/dashboard/schools/${params.schoolId}/inquiries`}

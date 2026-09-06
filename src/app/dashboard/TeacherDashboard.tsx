@@ -236,6 +236,18 @@ export default function TeacherDashboard({
         </div>
       )}
 
+      {teacher.approved && teacher.school && (
+        <div className="mb-8">
+          <Link
+            href={`/dashboard/schools/${teacher.school.id}/calendar`}
+            className="block border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 hover:border-mega-navy transition"
+          >
+            Calendar
+            <span className="text-mega-blue"> — View upcoming →</span>
+          </Link>
+        </div>
+      )}
+
       {teacher.approved && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-800 mb-1">School Students</h2>

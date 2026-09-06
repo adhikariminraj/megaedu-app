@@ -1,3 +1,4 @@
+import Link from "next/link";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import LinkChildPrompt from "@/components/LinkChildPrompt";
 import AcademicProgressPanel, {
@@ -84,6 +85,14 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
             meetings: c.meetings,
           }))}
         />
+      )}
+
+      {parent.children.length > 0 && (
+        <p className="text-xs mb-6">
+          <Link href="/dashboard/calendar" className="text-mega-blue font-medium">
+            View Calendar →
+          </Link>
+        </p>
       )}
 
       {parent.children.length > 0 && (

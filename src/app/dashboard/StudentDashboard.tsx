@@ -162,6 +162,12 @@ export default function StudentDashboard({
         <TodaysHomeworkPanel homework={todaysHomework} />
       </div>
 
+      <p className="text-xs mb-6">
+        <Link href="/dashboard/calendar" className="text-mega-blue font-medium">
+          View Calendar →
+        </Link>
+      </p>
+
       <AcademicProgressPanel
         attendance={attendance}
         teachingProgress={teachingProgress}

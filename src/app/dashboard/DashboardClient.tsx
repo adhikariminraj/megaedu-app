@@ -434,6 +434,10 @@ export default function DashboardClient({
         <a href={`/dashboard/schools/${school.id}/homework`} className="text-mega-blue hover:underline">
           Homework →
         </a>
+        {" · "}
+        <a href={`/dashboard/schools/${school.id}/calendar`} className="text-mega-blue hover:underline">
+          Calendar →
+        </a>
       </p>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8 flex-wrap">
