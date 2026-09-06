@@ -9,6 +9,7 @@ import AcademicProgressPanel, {
 import type { MeetingRow } from "@/lib/academicProgress";
 import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults";
 import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
+import MyChildrenTodayPanel from "@/components/MyChildrenTodayPanel";
 
 type Parent = {
   id: string;
@@ -74,12 +75,23 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
         cards={heroCards}
       />
 
+      {parent.children.length > 1 && (
+        <MyChildrenTodayPanel
+          entries={parent.children.map((c) => ({
+            name: c.student.fullName,
+            todaysHomework: c.todaysHomework,
+            attendance: c.progress.attendance,
+            meetings: c.meetings,
+          }))}
+        />
+      )}
+
       {parent.children.length > 0 && (
         <>
           <h2 className="text-lg font-semibold text-slate-800 mb-4">Your Children</h2>
           <div className="space-y-4 mb-8">
             {parent.children.map((c, i) => (
-              <div key={i} className="border border-slate-200 rounded-xl p-5">
+              <div key={i} id={`child-${i}`} className="border border-slate-200 rounded-xl p-5">
                 <p className="font-medium text-slate-800">{c.student.fullName}</p>
                 <p className="text-sm text-slate-500">
                   {c.student.school?.name || "No school linked yet"}
