@@ -6,6 +6,7 @@ import ProfilePhotoManager from "@/components/ProfilePhotoManager";
 import ProfileAddressManager from "@/components/ProfileAddressManager";
 import ChangePasswordManager from "@/components/ChangePasswordManager";
 import { AddressFormValue } from "@/components/AddressForm";
+import { isDemoAccountEmail } from "@/lib/demoAccount";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export default async function ProfilePage() {
   }
   const currentAddress = toAddressValue(user.addresses.find((a) => a.label === "CURRENT"));
   const permanentAddress = toAddressValue(user.addresses.find((a) => a.label === "PERMANENT"));
+  const isDemoAccount = isDemoAccountEmail(user.email);
 
   const schoolName =
     user.teacherProfile?.school?.name ||
@@ -119,11 +121,19 @@ export default async function ProfilePage() {
 
       <div className="mt-6 border border-slate-200 rounded-xl p-5">
         <h2 className="text-lg font-semibold text-slate-800 mb-1">Change Password</h2>
-        <p className="text-sm text-slate-500 mb-4">
-          Your password is your own credential — changing it never affects your MEGA ID, roles, or
-          school affiliations.
-        </p>
-        <ChangePasswordManager />
+        {isDemoAccount ? (
+          <p className="text-sm text-slate-500">
+            You can&apos;t change your password. You are using a demo account.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-slate-500 mb-4">
+              Your password is your own credential — changing it never affects your MEGA ID, roles, or
+              school affiliations.
+            </p>
+            <ChangePasswordManager />
+          </>
+        )}
       </div>
     </div>
   );

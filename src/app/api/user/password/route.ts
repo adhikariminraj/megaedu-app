@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isDemoAccountEmail } from "@/lib/demoAccount";
 
 // Self-service only — a user changes their own password, never someone
 // else's. Same inline session-derived userId check every other
@@ -37,8 +38,19 @@ export async function POST(req: NextRequest) {
   }
   const { currentPassword, newPassword } = parsed.data;
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, passwordHash: true } });
   if (!user) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
+
+  // Seeded demo accounts share one documented, stable password
+  // (see DEMO_DATA.md) that future testers rely on — this route must
+  // never touch a demo account's passwordHash, checked before any
+  // verification/hashing happens, never just hidden in the UI.
+  if (isDemoAccountEmail(user.email)) {
+    return NextResponse.json(
+      { error: "Password changes are not available for demo accounts." },
+      { status: 403 }
+    );
+  }
 
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) return NextResponse.json({ error: "Current password is incorrect." }, { status: 400 });
