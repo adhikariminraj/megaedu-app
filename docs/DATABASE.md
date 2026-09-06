@@ -218,6 +218,28 @@ One new model, additive on top of Phase 2/3A/3B — no existing model's columns 
 
 ---
 
+## Calendar — Kilometer 1 ✅
+
+One new model plus four additive fields on the pre-existing `Event` model. See [CALENDAR.md](CALENDAR.md) for the full behavioral write-up; this section covers structure only.
+
+### `GeneralCalendarEntry`
+**Purpose**: one concrete, already-resolved national/cultural date (a specific year's Dashain, a specific year's Constitution Day) — never a recurrence rule. **Currently used**: yes.
+**Key fields**: `id, date, title, type, description?, bsDateDisplay?, country (default "NP"), sourceNote?, isActive (default true), createdAt`. Valid `type`: `NATIONAL_HOLIDAY | OBSERVANCE | MEGA_WIDE_EVENT`.
+**Constraints**: none beyond the primary key — no uniqueness enforced at the database level; the seed script (`prisma/seed-general-calendar.ts`) enforces its own idempotency via an explicit find-before-create check on `(date, title)`.
+**Delete behavior**: no delete route — soft-deactivate only (`isActive: false`), matching `Section`/`Subject`/`FamilyContact`'s existing convention.
+**Notes**: `date` is date-only, following the `Attendance.date`/`Homework.dueDate` convention. `bsDateDisplay` is a plain, unvalidated string purely for display — nothing queries, sorts, or computes from it. Seeded separately from `seed.ts`/`seed-demo.ts` (via its own `npm run db:seed:calendar` command) since this is real reference data, not fictional demo data.
+
+### `Event` (pre-existing model, K1 adds a write path + four fields)
+**Purpose**: a School (or, later, Organization) Event. **Currently used**: yes, as of K1 — previously had zero rows in every environment, since no write path existed before this kilometer.
+**New fields**: `isAllDay (Boolean, default true)`, `isActive (Boolean, default true)`, `createdByUserId (String, FK to User)`, `updatedAt`.
+**New index**: `@@index([schoolId, startsAt])` — the query shape every K1 Calendar render actually uses.
+**Notes**: `isAllDay` is the sole authoritative signal for whether `startsAt` should be read as a real time — an all-day Event's `startsAt` is still a real timestamp (Kathmandu local midnight, since the column is non-nullable), but Calendar rendering never infers meaning from it. `createdByUserId` was added as non-nullable/required with no migration risk, confirmed by directly querying the table before this migration and finding zero existing rows. `organizationId` remains unused by any write path in this kilometer — Organization Events are deferred.
+
+### `ParentTeacherMeeting` — index only, no field change
+**New index**: `@@index([teacherId])` — `fetchMeetingsForTeacher()` (Teacher Today Kilometer 1) had no dedicated index on this column; Calendar's wider date-window queries made it genuinely load-bearing rather than a someday nice-to-have.
+
+---
+
 ## Teacher Qualitative Evaluation & Parent-Teacher Meetings — Phase 3C ✅ (fully implemented and in active use)
 
 Two new models, additive on top of Phase 2/3A/3B — no existing model's columns changed, only new relation-array fields. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for the full behavioral write-up; this section covers structure only.
@@ -383,7 +405,7 @@ Ordered content under a course. Cascades from `Course`/`CourseModule` respective
 
 ## Resources, Events, Opportunities ✅
 
-`Resource`, `Event`, `Opportunity` — optionally attached to a `School` and/or `Organization` (both nullable FKs). No approval/moderation workflow — posting is publishing.
+`Resource`, `Event`, `Opportunity` — optionally attached to a `School` and/or `Organization` (both nullable FKs). No approval/moderation workflow — posting is publishing. See [Calendar — Kilometer 1](#calendar--kilometer-1) above for `Event`'s K1 additions (`isAllDay`/`isActive`/`createdByUserId`/`updatedAt` and its now-real write path).
 
 ---
 

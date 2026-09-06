@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-06 (Phase 1 — Homework) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-07 (Calendar — Kilometer 1) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -136,6 +136,20 @@ Only "due today" is surfaced in Phase 1. `fetchTodaysHomework()`'s exact-match `
 
 ### School Admin cannot author Homework "on behalf of" a named teacher 🔭
 Unlike Evaluations (`teacherHoldsSubjectAssignment()`) or the `TeachingUnit` create route (Admin-or-Teacher composed), Homework creation is Teacher-only — `Homework.teacherId` is a real, non-nullable `Teacher` FK, and Phase 1's approved scope never described an Admin-authoring flow. Worth reconsidering only if a genuine product need for it emerges; would need the same explicit-named-teacher pattern Evaluations already uses.
+
+## Calendar (Kilometer 1)
+
+### General Calendar data only covers September–December 2026 🔭
+The seeded reference list (`prisma/seed-general-calendar.ts`) was built from a live research pass that found source-cited, dated holiday data for September through December 2026 only. January–August 2026 were deliberately left out rather than guessed, per an explicit instruction not to invent or guess dates. A follow-up curation pass, checked against the Nepal Panchanga Nirnayak Bikash Samiti's determination and the Ministry of Home Affairs' annual holiday gazette, is needed to complete the year.
+
+### No Organization Calendar 🔭
+Organizations have no institutional-context parity with Schools — no affiliation-status table (`OrganizationAdmin`/`OrganizationAccountant` are flat join tables, unlike `TeacherSchoolAffiliation`), and no `verifyOrgAccess()`/`getAccessibleOrganizations()` equivalent to `verifySchoolAccess()`. Building Organization Events/Calendar now would either inherit the same "arbitrary `findFirst()` pick" gap Schools had before Phase 4D, or require building that missing foundation first — deliberately deferred, not attempted in this kilometer. `Event.organizationId` remains unused by any write path.
+
+### No Event public/private visibility flag 🔭
+Every K1-created School Event is public by default, matching `NewsPost`/`Opportunity`'s existing precedent (neither has a privacy flag either). A "keep this internal-only" flag is a small, additive column that can be added later if a school ever asks for it — not built now.
+
+### No recurring events, no Month/Week/Day grid, no notifications 🔭
+Calendar Kilometer 1 is deliberately an Agenda/List view only. Recurring events, a calendar grid, drag/drop rescheduling, and any notification/reminder tied to a Calendar item are all explicitly out of scope — see [CALENDAR.md](CALENDAR.md).
 
 ## Authentication
 

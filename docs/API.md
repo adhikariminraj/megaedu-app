@@ -110,6 +110,15 @@ Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTea
 | `POST` | `/api/schools/[id]/homework` | Create one `DRAFT` Homework item | `{schoolGradeId, sectionId?, gradeSubjectId, title, instructions, dueDate}` | Teacher-only (`requireTeacherAssignment()`, not composed with `requireSchoolAdmin()`) — `teacherId` resolved server-side from the session, never client-supplied; every relational id re-validated against the URL's school |
 | `PATCH` | `/api/schools/[id]/homework/[homeworkId]` | Edit `DRAFT` fields and/or publish | `{title?, instructions?, dueDate?, sectionId?, status?}` | School Admin or the assigned Teacher, re-verified against the homework's own stored scope; `409` if editing fields on an already-`PUBLISHED` item; `DRAFT → PUBLISHED` is idempotent |
 
+## Schools — Calendar, School Events (Kilometer 1)
+
+| Method | Path | Purpose | Body | Notes |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/events` | Create a School Event | `{title, description?, date, time?, isAllDay, location?, onlineUrl?}` | School-Admin-only, mirrors `/api/schools/[id]/opportunities`'s exact shape; `createdByUserId` resolved server-side; `organizationId` is never accepted from the client |
+| `PATCH` | `/api/schools/[id]/events/[eventId]` | Edit and/or deactivate an Event | `{title?, description?, date?, time?, isAllDay?, location?, onlineUrl?, isActive?}` | School-Admin-only; re-verifies the Event's own `schoolId` against the URL's school (defense in depth against a forged cross-school `eventId`); no `DELETE` route — `isActive: false` is the only removal path, the record is never dropped |
+
+No API route exists for reading Calendar data — every Calendar page (`/calendar`, `/dashboard/calendar`, `/dashboard/schools/[id]/calendar`) queries its own already-authorized sources directly via server components, the same convention every other Phase 3 config/results page already follows.
+
 ## Schools — Teacher Qualitative Evaluation & Parent-Teacher Meetings (Phase 3C)
 
 Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTeacherAssignment` scope noted per route — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) for full behavioral detail; this table is structural.
