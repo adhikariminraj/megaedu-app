@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
+import { todayInKathmandu } from "@/lib/homework";
 import AttendanceClient from "../../../attendance/AttendanceClient";
 
 export const dynamic = "force-dynamic";
@@ -117,7 +118,10 @@ export default async function ScopedAttendancePage({
   const selectedSectionId = searchParams.section && selectedGrade.sections.some((s) => s.id === searchParams.section)
     ? searchParams.section
     : null;
-  const today = new Date().toISOString().slice(0, 10);
+  // Asia/Kathmandu, not the server's raw UTC clock — see
+  // todayInKathmandu()'s own doc comment (src/lib/homework.ts) for why
+  // the UTC-slice version this replaced was wrong for part of every day.
+  const today = todayInKathmandu();
   const selectedDate = searchParams.date || today;
 
   const roster = await prisma.gradeHistory.findMany({
