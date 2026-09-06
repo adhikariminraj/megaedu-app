@@ -12,7 +12,7 @@ import CreateSchoolPrompt from "./CreateSchoolPrompt";
 import CreateOrgPrompt from "./CreateOrgPrompt";
 import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
-import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
+import { fetchAcademicProgress, fetchMeetingsForStudent, fetchMeetingsForTeacher } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
 import { fetchTodaysHomework } from "@/lib/homework";
 import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
@@ -286,7 +286,28 @@ export default async function DashboardPage() {
     // Non-null assertion is safe here: this Teacher was looked up BY the
     // logged-in session's own userId — see the identical StudentDashboard
     // case above.
-    if (teacher) return <TeacherDashboard teacher={{ ...teacher, user: teacher.user! }} userName={userName} />;
+    if (teacher) {
+      // Teacher Today (Kilometer 1 — meetings only). Only fetched once
+      // teacher.school is confirmed non-null — a teacher with no school
+      // yet never reaches past TeacherDashboard's own JoinSchoolPrompt
+      // branch, so there's nothing to scope the query to otherwise.
+      // teacher.school here is the same institutional-context-synced
+      // bridge field every other feature on this single-school path
+      // already trusts (Homework/Attendance links, etc.) — safe
+      // specifically because this branch is only reached when
+      // getAccessibleSchools() found 0-or-1 ACTIVE affiliation, exactly
+      // the case that bridge field is documented to stay in sync for.
+      const todaysMeetings = teacher.school
+        ? await fetchMeetingsForTeacher(teacher.id, teacher.school.id, { when: "upcoming" })
+        : [];
+      return (
+        <TeacherDashboard
+          teacher={{ ...teacher, user: teacher.user! }}
+          userName={userName}
+          todaysMeetings={todaysMeetings}
+        />
+      );
+    }
   }
 
   if (roles?.includes("STUDENT")) {

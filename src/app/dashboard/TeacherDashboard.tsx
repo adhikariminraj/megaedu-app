@@ -3,6 +3,8 @@ import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 import JoinSchoolPrompt from "@/components/JoinSchoolPrompt";
 import InterestManager from "@/components/InterestManager";
 import StudentSkillManager from "@/components/StudentSkillManager";
+import TeacherTodayPanel from "@/components/TeacherTodayPanel";
+import type { TeacherMeetingRow } from "@/lib/academicProgress";
 
 type Teacher = {
   id: string;
@@ -33,7 +35,15 @@ type Teacher = {
   }[];
 };
 
-export default function TeacherDashboard({ teacher, userName }: { teacher: Teacher; userName: string }) {
+export default function TeacherDashboard({
+  teacher,
+  userName,
+  todaysMeetings,
+}: {
+  teacher: Teacher;
+  userName: string;
+  todaysMeetings: TeacherMeetingRow[];
+}) {
   if (!teacher.school) {
     return (
       <div className="max-w-xl mx-auto px-6 py-12">
@@ -95,6 +105,8 @@ export default function TeacherDashboard({ teacher, userName }: { teacher: Teach
         avatar={{ url: teacher.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />
+
+      <TeacherTodayPanel meetings={todaysMeetings} meetingsHref="/dashboard/meetings" />
 
       <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="flex items-center justify-between">

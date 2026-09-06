@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getAccessibleSchools, verifySchoolAccess } from "@/lib/institutionalContext";
+import { fetchMeetingsForTeacher } from "@/lib/academicProgress";
+import TeacherTodayPanel from "@/components/TeacherTodayPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +34,22 @@ export default async function SchoolContextPage({ params }: { params: { schoolId
 
   const otherSchools = accessibleSchools.filter((s) => s.schoolId !== params.schoolId);
 
+  // Teacher Today (Kilometer 1 — meetings only). School-Admin visitors
+  // to this same URL have no teacherId and no "Teacher Today" concept —
+  // access.teacherId only exists on the TEACHER branch of SchoolAccess.
+  const todaysMeetings =
+    access.role === "TEACHER"
+      ? await fetchMeetingsForTeacher(access.teacherId, params.schoolId, { when: "upcoming" })
+      : [];
+
   return (
     <div className="max-w-xl mx-auto px-6 py-16">
       <p className="text-sm text-slate-400 mb-1">You are working in</p>
       <h1 className="text-2xl font-bold text-slate-800 mb-8">{school.name}</h1>
+
+      {access.role === "TEACHER" && (
+        <TeacherTodayPanel meetings={todaysMeetings} meetingsHref={`/dashboard/schools/${params.schoolId}/meetings`} />
+      )}
 
       <Link
         href={`/dashboard/schools/${params.schoolId}/attendance`}

@@ -172,3 +172,73 @@ export async function fetchMeetingsForStudent(
         : null,
   }));
 }
+
+export type TeacherMeetingRow = {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  studentId: string;
+  studentName: string;
+  subjectName: string | null;
+  scheduledAt: string;
+  location: string | null;
+  onlineUrl: string | null;
+  status: string;
+  outcomeNotes: string | null;
+};
+
+/**
+ * A Teacher's own ParentTeacherMeetings at one school — the identical
+ * query shape (where/include/orderBy) that both /dashboard/meetings and
+ * /dashboard/schools/[schoolId]/meetings previously wrote independently
+ * for their own non-admin branch. Extracted here so there is exactly
+ * one place this retrieval is written, reused by both pages AND the
+ * Teacher Today panel (which calls it with no filters beyond
+ * `when: "upcoming"` to find today's soonest meeting) — matching the
+ * "one function, every caller" discipline already established by
+ * fetchAcademicProgress()/fetchMeetingsForStudent().
+ *
+ * `filters` mirrors exactly the status/when query-param handling the
+ * two pages already had inline — nothing new is introduced, this is a
+ * relocation, not a redesign. Like fetchMeetingsForStudent(), this
+ * function does no authorization itself: callers are responsible for
+ * only ever passing a teacherId they've already verified the caller is
+ * allowed to see (their own resolved Teacher identity — never a
+ * client-supplied id).
+ */
+export async function fetchMeetingsForTeacher(
+  teacherId: string,
+  schoolId: string,
+  filters?: { status?: string | null; when?: "all" | "upcoming" | "past" }
+): Promise<TeacherMeetingRow[]> {
+  const whenFilter = filters?.when ?? "all";
+  const now = new Date();
+  const meetings = await prisma.parentTeacherMeeting.findMany({
+    where: {
+      schoolId,
+      teacherId,
+      ...(filters?.status ? { status: filters.status } : {}),
+      ...(whenFilter === "upcoming" ? { scheduledAt: { gte: now } } : {}),
+      ...(whenFilter === "past" ? { scheduledAt: { lt: now } } : {}),
+    },
+    include: {
+      teacher: { include: { user: true } },
+      student: { include: { user: true } },
+      gradeSubject: { include: { subject: true } },
+    },
+    orderBy: { scheduledAt: whenFilter === "past" ? "desc" : "asc" },
+  });
+  return meetings.map((m) => ({
+    id: m.id,
+    teacherId: m.teacherId,
+    teacherName: m.teacher.fullName,
+    studentId: m.studentId,
+    studentName: m.student.fullName,
+    subjectName: m.gradeSubject?.subject.name ?? null,
+    scheduledAt: m.scheduledAt.toISOString(),
+    location: m.location,
+    onlineUrl: m.onlineUrl,
+    status: m.status,
+    outcomeNotes: m.outcomeNotes,
+  }));
+}

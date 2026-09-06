@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
+import { fetchMeetingsForTeacher, type TeacherMeetingRow } from "@/lib/academicProgress";
 import MeetingsClient from "../../../meetings/MeetingsClient";
 
 export const dynamic = "force-dynamic";
@@ -45,24 +46,45 @@ export default async function ScopedMeetingsPage({
   const whenFilter = searchParams.when === "upcoming" || searchParams.when === "past" ? searchParams.when : "all";
   const teacherFilter = isAdmin && searchParams.teacher ? searchParams.teacher : null;
 
-  const now = new Date();
-  const meetings = await prisma.parentTeacherMeeting.findMany({
-    where: {
-      schoolId,
-      ...(isAdmin ? (teacherFilter ? { teacherId: teacherFilter } : {}) : { teacherId: myTeacherId! }),
-      ...(statusFilter ? { status: statusFilter } : {}),
-      ...(whenFilter === "upcoming" ? { scheduledAt: { gte: now } } : {}),
-      ...(whenFilter === "past" ? { scheduledAt: { lt: now } } : {}),
-    },
-    include: {
-      teacher: { include: { user: true } },
-      student: { include: { user: true } },
-      gradeSubject: { include: { subject: true } },
-    },
-    orderBy: { scheduledAt: whenFilter === "past" ? "desc" : "asc" },
-  });
+  // Admin keeps its own inline query (arbitrary/optional teacherFilter,
+  // never just "one teacher's own meetings") — Teacher's branch is
+  // exactly what fetchMeetingsForTeacher() now centralizes, reused
+  // identically by the unscoped Meetings page and the Teacher Today
+  // panel. Same where/include/orderBy shape as before this change, just
+  // relocated for the non-admin case.
+  const meetingRows: TeacherMeetingRow[] = isAdmin
+    ? (
+        await prisma.parentTeacherMeeting.findMany({
+          where: {
+            schoolId,
+            ...(teacherFilter ? { teacherId: teacherFilter } : {}),
+            ...(statusFilter ? { status: statusFilter } : {}),
+            ...(whenFilter === "upcoming" ? { scheduledAt: { gte: new Date() } } : {}),
+            ...(whenFilter === "past" ? { scheduledAt: { lt: new Date() } } : {}),
+          },
+          include: {
+            teacher: { include: { user: true } },
+            student: { include: { user: true } },
+            gradeSubject: { include: { subject: true } },
+          },
+          orderBy: { scheduledAt: whenFilter === "past" ? "desc" : "asc" },
+        })
+      ).map((m) => ({
+        id: m.id,
+        teacherId: m.teacherId,
+        teacherName: m.teacher.fullName,
+        studentId: m.studentId,
+        studentName: m.student.fullName,
+        subjectName: m.gradeSubject?.subject.name ?? null,
+        scheduledAt: m.scheduledAt.toISOString(),
+        location: m.location,
+        onlineUrl: m.onlineUrl,
+        status: m.status,
+        outcomeNotes: m.outcomeNotes,
+      }))
+    : await fetchMeetingsForTeacher(myTeacherId!, schoolId, { status: statusFilter, when: whenFilter });
 
-  const studentIds = [...new Set(meetings.map((m) => m.studentId))];
+  const studentIds = [...new Set(meetingRows.map((m) => m.studentId))];
   const evaluations = studentIds.length
     ? await prisma.studentEvaluation.findMany({
         where: { studentId: { in: studentIds } },
@@ -96,18 +118,8 @@ export default async function ScopedMeetingsPage({
       selectedTeacherId={teacherFilter}
       selectedStatus={statusFilter}
       selectedWhen={whenFilter}
-      meetings={meetings.map((m) => ({
-        id: m.id,
-        teacherId: m.teacherId,
-        teacherName: m.teacher.fullName,
-        studentId: m.studentId,
-        studentName: m.student.fullName,
-        subjectName: m.gradeSubject?.subject.name ?? null,
-        scheduledAt: m.scheduledAt.toISOString(),
-        location: m.location,
-        onlineUrl: m.onlineUrl,
-        status: m.status,
-        outcomeNotes: m.outcomeNotes,
+      meetings={meetingRows.map((m) => ({
+        ...m,
         evaluationOptions: evaluationsByStudent.get(m.studentId) ?? [],
       }))}
     />
