@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import ProfilePhotoManager from "@/components/ProfilePhotoManager";
 import ProfileAddressManager from "@/components/ProfileAddressManager";
+import ChangePasswordManager from "@/components/ChangePasswordManager";
 import { AddressFormValue } from "@/components/AddressForm";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,11 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 /**
- * A focused first version of a self-service MEGA ID profile page —
- * photo, name, email, identity, and role(s) only. Deliberately not a
- * full account-management surface (no password change, no editable
- * name/email here) — this is a foundation for future MEGA ID profile
- * work, not that work itself.
+ * A focused self-service MEGA ID profile page — photo, name, email,
+ * identity, role(s), addresses, and password. Deliberately still not a
+ * full account-management surface (no editable name/email here) — this
+ * remains a foundation for future MEGA ID profile work, not that work
+ * itself.
  */
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -114,6 +115,15 @@ export default async function ProfilePage() {
           your official record.
         </p>
         <ProfileAddressManager current={currentAddress} permanent={permanentAddress} />
+      </div>
+
+      <div className="mt-6 border border-slate-200 rounded-xl p-5">
+        <h2 className="text-lg font-semibold text-slate-800 mb-1">Change Password</h2>
+        <p className="text-sm text-slate-500 mb-4">
+          Your password is your own credential — changing it never affects your MEGA ID, roles, or
+          school affiliations.
+        </p>
+        <ChangePasswordManager />
       </div>
     </div>
   );
