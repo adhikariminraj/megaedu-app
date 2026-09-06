@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sectionScopeWhere } from "@/lib/authorize";
+import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
 
 /**
  * Today's calendar date in Asia/Kathmandu, as a "YYYY-MM-DD" string.
@@ -66,4 +67,93 @@ export async function fetchTodaysHomework(studentId: string): Promise<HomeworkRo
     instructions: hw.instructions,
     dueDate: hw.dueDate.toISOString().slice(0, 10),
   }));
+}
+
+function toHomeworkCalendarItem(
+  hw: { id: string; title: string; instructions: string; dueDate: Date; subject: { name: string } },
+  schoolId: string
+): CalendarItem {
+  return {
+    id: `Homework:${hw.id}`,
+    title: `${hw.subject.name} — ${hw.title}`,
+    date: hw.dueDate.toISOString().slice(0, 10),
+    time: null,
+    isAllDay: true,
+    category: "HOMEWORK",
+    sourceType: "Homework",
+    sourceId: hw.id,
+    scopeType: "SCHOOL",
+    scopeId: schoolId,
+    description: hw.instructions,
+    location: null,
+    link: null,
+  };
+}
+
+/**
+ * Calendar K1 — PUBLISHED homework due within a date window for one
+ * student. A sibling of fetchTodaysHomework(), not a replacement:
+ * identical placement-resolution/sectionScopeWhere() logic, just
+ * dueDate widened from an exact match to a range. fetchTodaysHomework()
+ * itself is untouched — no existing caller's behavior changes.
+ */
+export async function fetchHomeworkDueForStudent(
+  studentId: string,
+  schoolId: string,
+  window: CalendarWindow
+): Promise<CalendarItem[]> {
+  const currentPlacement = await prisma.gradeHistory.findFirst({
+    where: { studentId, academicSession: { status: "ACTIVE" } },
+  });
+  if (!currentPlacement) return [];
+
+  const homework = await prisma.homework.findMany({
+    where: {
+      status: "PUBLISHED",
+      academicSessionId: currentPlacement.academicSessionId,
+      schoolGradeId: currentPlacement.schoolGradeId,
+      dueDate: { gte: new Date(window.from), lte: new Date(window.to) },
+      ...sectionScopeWhere(currentPlacement.sectionId),
+    },
+    include: { subject: true },
+    orderBy: { dueDate: "asc" },
+  });
+
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
+}
+
+/**
+ * Calendar K1 — homework a Teacher has authored, due within a date
+ * window. Uses the existing [teacherId] index; no per-role filtering
+ * beyond teacherId, matching the caller's own already-verified
+ * identity, same contract as every other adapter here.
+ */
+export async function fetchHomeworkForTeacher(
+  teacherId: string,
+  schoolId: string,
+  window: CalendarWindow
+): Promise<CalendarItem[]> {
+  const homework = await prisma.homework.findMany({
+    where: { teacherId, dueDate: { gte: new Date(window.from), lte: new Date(window.to) } },
+    include: { subject: true },
+    orderBy: { dueDate: "asc" },
+  });
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
+}
+
+/**
+ * Calendar K1 — every homework item due at a school within a date
+ * window, School Admin's own scope. Uses the existing
+ * [schoolGradeId, dueDate] index via the SchoolGrade join.
+ */
+export async function fetchHomeworkForSchool(schoolId: string, window: CalendarWindow): Promise<CalendarItem[]> {
+  const homework = await prisma.homework.findMany({
+    where: {
+      schoolGrade: { schoolId },
+      dueDate: { gte: new Date(window.from), lte: new Date(window.to) },
+    },
+    include: { subject: true },
+    orderBy: { dueDate: "asc" },
+  });
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
 }

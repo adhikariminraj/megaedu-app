@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { AttendanceRow, ProgressRow, TestResultRow, EvaluationRow } from "@/components/AcademicProgressPanel";
+import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
+import { formatKathmanduTime } from "@/lib/calendar";
 
 /**
  * The Phase 3B/3C academic summary (attendance, teaching progress, test
@@ -241,4 +243,124 @@ export async function fetchMeetingsForTeacher(
     status: m.status,
     outcomeNotes: m.outcomeNotes,
   }));
+}
+
+/**
+ * Calendar K1 — every ParentTeacherMeeting at a school within a date
+ * window, School Admin's own scope. A new function, not a
+ * modification of fetchMeetingsForTeacher() above — Admin's meeting
+ * view has always been "every meeting at the school," a genuinely
+ * different query shape than "one teacher's own," so it gets its own
+ * small function rather than overloading an existing one.
+ */
+export async function fetchMeetingsForSchool(schoolId: string, window: CalendarWindow): Promise<TeacherMeetingRow[]> {
+  const meetings = await prisma.parentTeacherMeeting.findMany({
+    where: {
+      schoolId,
+      scheduledAt: { gte: new Date(`${window.from}T00:00:00+05:45`), lte: new Date(`${window.to}T23:59:59+05:45`) },
+    },
+    include: {
+      teacher: { include: { user: true } },
+      student: { include: { user: true } },
+      gradeSubject: { include: { subject: true } },
+    },
+    orderBy: { scheduledAt: "asc" },
+  });
+  return meetings.map((m) => ({
+    id: m.id,
+    teacherId: m.teacherId,
+    teacherName: m.teacher.fullName,
+    studentId: m.studentId,
+    studentName: m.student.fullName,
+    subjectName: m.gradeSubject?.subject.name ?? null,
+    scheduledAt: m.scheduledAt.toISOString(),
+    location: m.location,
+    onlineUrl: m.onlineUrl,
+    status: m.status,
+    outcomeNotes: m.outcomeNotes,
+  }));
+}
+
+/**
+ * Calendar K1 — converts already-fetched TeacherMeetingRow[] (from
+ * fetchMeetingsForTeacher()/fetchMeetingsForSchool(), called unmodified
+ * above) into the shared CalendarItem projection, filtered to the
+ * requested window. The filtering happens here, in application code,
+ * rather than by adding a window parameter to fetchMeetingsForTeacher()
+ * itself — that function's existing "all/upcoming/past" contract, and
+ * every one of its existing callers (Teacher Today, both Meetings
+ * pages), stays completely untouched.
+ */
+export function teacherMeetingRowsToCalendarItems(
+  rows: TeacherMeetingRow[],
+  schoolId: string,
+  window: CalendarWindow
+): CalendarItem[] {
+  const from = new Date(`${window.from}T00:00:00+05:45`);
+  const to = new Date(`${window.to}T23:59:59+05:45`);
+  return rows
+    .filter((m) => m.status === "SCHEDULED")
+    .filter((m) => {
+      const t = new Date(m.scheduledAt);
+      return t >= from && t <= to;
+    })
+    .map((m) => {
+      const instant = new Date(m.scheduledAt);
+      return {
+        id: `ParentTeacherMeeting:${m.id}`,
+        title: `${m.subjectName ?? "General"} — ${m.teacherName}`,
+        date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(instant),
+        time: formatKathmanduTime(instant),
+        isAllDay: false,
+        category: "MEETING" as const,
+        sourceType: "ParentTeacherMeeting" as const,
+        sourceId: m.id,
+        scopeType: "SCHOOL" as const,
+        scopeId: schoolId,
+        description: null,
+        location: m.location,
+        link: null,
+      };
+    });
+}
+
+/**
+ * Calendar K1 — same conversion for Parent's audience, over already-
+ * fetched MeetingRow[] from fetchMeetingsForStudent() (called
+ * unmodified). That function has no window parameter of its own
+ * (always "last 20, any time"), so filtering to the requested window
+ * happens here, exactly the same technique as the Teacher-side
+ * converter above.
+ */
+export function parentMeetingRowsToCalendarItems(
+  rows: MeetingRow[],
+  schoolId: string,
+  window: CalendarWindow
+): CalendarItem[] {
+  const from = new Date(`${window.from}T00:00:00+05:45`);
+  const to = new Date(`${window.to}T23:59:59+05:45`);
+  return rows
+    .filter((m) => m.status === "SCHEDULED")
+    .filter((m) => {
+      const t = new Date(m.scheduledAt);
+      return t >= from && t <= to;
+    })
+    .map((m) => {
+      const instant = new Date(m.scheduledAt);
+      return {
+        id: `ParentTeacherMeeting:${m.id}`,
+        title: `${m.subjectName ?? "General"} — ${m.teacherName}`,
+        date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(instant),
+        time: formatKathmanduTime(instant),
+        isAllDay: false,
+        category: "MEETING" as const,
+        sourceType: "ParentTeacherMeeting" as const,
+        sourceId: m.id,
+        scopeType: "SCHOOL" as const,
+        scopeId: schoolId,
+        description: null,
+        location: m.location,
+        link: null,
+      };
+    });
 }
