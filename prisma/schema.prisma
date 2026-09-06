@@ -63,6 +63,7 @@ model User {
   attendancesMarked        Attendance[]      @relation("AttendanceMarkedBy")
   attendanceAuditsChanged  AttendanceAudit[] @relation("AttendanceAuditChangedBy")
   teachingUnitsCreated     TeachingUnit[]    @relation("TeachingUnitCreatedBy")
+  eventsCreated            Event[]           @relation("EventCreatedBy")
   teachingPlansCreated     TeachingPlan[]    @relation("TeachingPlanCreatedBy")
   unitTestsCreated         UnitTest[]        @relation("UnitTestCreatedBy")
   unitTestResultsEvaluated UnitTestResult[]  @relation("UnitTestResultEvaluatedBy")
@@ -1183,6 +1184,11 @@ model ParentTeacherMeeting {
 
   @@index([studentId])
   @@index([schoolId])
+  // Calendar K1 — fetchMeetingsForTeacher() (Teacher Today Kilometer 1)
+  // had no dedicated index on teacherId; Calendar's wider date-window
+  // queries make this genuinely load-bearing rather than a someday
+  // nice-to-have.
+  @@index([teacherId])
 }
 
 // ============================================================
@@ -1696,18 +1702,95 @@ model Resource {
   createdAt      DateTime             @default(now())
 }
 
+// ============================================================
+// CALENDAR — Kilometer 1
+// A pure projection layer sits on top of these models in application
+// code (src/lib/calendar.ts's CalendarItem type) — no CalendarEvent
+// database model exists or is planned. GeneralCalendarEntry is the one
+// genuinely new authoritative source: national/cultural dates have no
+// existing schoolId/organizationId-scoped home to belong to. See
+// docs/CALENDAR.md.
+// ============================================================
+
+// Each row is one concrete, already-resolved Gregorian-date occurrence
+// (e.g. "Dashain 2026" is its own row) — never a recurrence rule. Nepal
+// uses a lunar/Bikram-Sambat calendar, so almost nothing here repeats
+// on a fixed Gregorian date year to year; re-entering next year's dates
+// by hand (checked against the Nepal Panchanga Nirnayak Bikash Samiti's
+// determination and the Ministry of Home Affairs' annual holiday
+// gazette — see prisma/seed-general-calendar.ts) is the deliberate
+// design, not a limitation to fix later. bsDateDisplay is a plain,
+// unvalidated display string — nothing in this app queries, sorts, or
+// computes from a Bikram Sambat value; it exists purely so a Nepali
+// reader sees the familiar BS date alongside the Gregorian one.
+model GeneralCalendarEntry {
+  id String @id @default(cuid())
+
+  // Date-only — compared by calendar-day, never converted to an
+  // instant. Client/seed-supplied "YYYY-MM-DD", same convention as
+  // Attendance.date/Homework.dueDate.
+  date DateTime
+
+  title String
+
+  // "NATIONAL_HOLIDAY" | "OBSERVANCE" | "MEGA_WIDE_EVENT" — plain
+  // String, not a Prisma enum, matching this schema's project-wide
+  // convention (SQLite's Prisma connector doesn't support them).
+  type String
+
+  description String?
+
+  // Display-only, never parsed — see model comment above.
+  bsDateDisplay String?
+
+  // ISO country code, defaulting to Nepal — not a region/province
+  // hierarchy; nothing today needs finer-grained scoping than "this
+  // whole country."
+  country String @default("NP")
+
+  // Free-text provenance for whoever curates this by hand (e.g. "NPNS
+  // 2083 determination; MoHA holiday gazette 2082/83") — optional,
+  // purely for Platform Admin auditability.
+  sourceNote String?
+
+  // Soft-deactivate only, matching Section/Subject/FamilyContact's
+  // existing convention — a wrongly-entered date is corrected by
+  // deactivating the row, never hard-deleting it.
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+// Calendar K1 — School Events. schoolId is the only owner FK actually
+// writable today: the write path (School Admin only) never sets
+// organizationId — Organization Events remain a deferred, later
+// kilometer. isAllDay is the sole authoritative signal for whether
+// startsAt should be read as a real time or ignored for display; an
+// all-day Event still stores a real timestamp (Kathmandu local
+// midnight, written by the create route) purely because the column is
+// non-nullable, but Calendar rendering must never infer semantics from
+// that stored time — see docs/CALENDAR.md.
 model Event {
-  id             String        @id @default(cuid())
-  title          String
-  description    String?
-  startsAt       DateTime
-  location       String?
-  onlineUrl      String?
-  schoolId       String?
-  school         School?       @relation(fields: [schoolId], references: [id])
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id])
-  createdAt      DateTime      @default(now())
+  id              String        @id @default(cuid())
+  title           String
+  description     String?
+  startsAt        DateTime
+  isAllDay        Boolean       @default(true)
+  location        String?
+  onlineUrl       String?
+  schoolId        String?
+  school          School?       @relation(fields: [schoolId], references: [id])
+  organizationId  String?
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  isActive        Boolean       @default(true)
+  createdByUserId String
+  createdBy       User          @relation("EventCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([schoolId, startsAt])
 }
 
 model Opportunity {
