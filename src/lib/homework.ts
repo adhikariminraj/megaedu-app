@@ -71,11 +71,18 @@ export async function fetchTodaysHomework(studentId: string): Promise<HomeworkRo
 
 function toHomeworkCalendarItem(
   hw: { id: string; title: string; instructions: string; dueDate: Date; subject: { name: string } },
-  schoolId: string
+  schoolId: string,
+  options?: { link?: string | null; child?: { id: string; name: string } }
 ): CalendarItem {
+  const childName = options?.child?.name;
+  // A single Homework row can legitimately project into more than one
+  // CalendarItem — two siblings in the same grade/section both get it —
+  // so the id must incorporate the child, or React (and any consumer
+  // keying off id) sees two items with an identical key.
+  const id = options?.child ? `Homework:${hw.id}:${options.child.id}` : `Homework:${hw.id}`;
   return {
-    id: `Homework:${hw.id}`,
-    title: `${hw.subject.name} — ${hw.title}`,
+    id,
+    title: childName ? `${childName} — ${hw.subject.name} — ${hw.title}` : `${hw.subject.name} — ${hw.title}`,
     date: hw.dueDate.toISOString().slice(0, 10),
     time: null,
     isAllDay: true,
@@ -86,7 +93,9 @@ function toHomeworkCalendarItem(
     scopeId: schoolId,
     description: hw.instructions,
     location: null,
-    link: null,
+    link: options?.link ?? null,
+    childId: options?.child?.id,
+    childName,
   };
 }
 
@@ -100,7 +109,8 @@ function toHomeworkCalendarItem(
 export async function fetchHomeworkDueForStudent(
   studentId: string,
   schoolId: string,
-  window: CalendarWindow
+  window: CalendarWindow,
+  child?: { id: string; name: string }
 ): Promise<CalendarItem[]> {
   const currentPlacement = await prisma.gradeHistory.findFirst({
     where: { studentId, academicSession: { status: "ACTIVE" } },
@@ -119,7 +129,10 @@ export async function fetchHomeworkDueForStudent(
     orderBy: { dueDate: "asc" },
   });
 
-  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
+  // No link: no per-student homework detail page exists for
+  // Student/Parent today — leaving this null is honest, not an
+  // oversight (see docs/CALENDAR.md).
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId, { link: null, child }));
 }
 
 /**
@@ -138,7 +151,8 @@ export async function fetchHomeworkForTeacher(
     include: { subject: true },
     orderBy: { dueDate: "asc" },
   });
-  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
+  const link = `/dashboard/schools/${schoolId}/homework`;
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId, { link }));
 }
 
 /**
@@ -155,5 +169,6 @@ export async function fetchHomeworkForSchool(schoolId: string, window: CalendarW
     include: { subject: true },
     orderBy: { dueDate: "asc" },
   });
-  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId));
+  const link = `/dashboard/schools/${schoolId}/homework`;
+  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId, { link }));
 }

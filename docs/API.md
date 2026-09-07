@@ -117,6 +117,13 @@ Auth: `requireSchoolAdmin(id)` OR the specific `requireClassTeacher`/`requireTea
 | `POST` | `/api/schools/[id]/events` | Create a School Event | `{title, description?, date, time?, isAllDay, location?, onlineUrl?}` | School-Admin-only, mirrors `/api/schools/[id]/opportunities`'s exact shape; `createdByUserId` resolved server-side; `organizationId` is never accepted from the client |
 | `PATCH` | `/api/schools/[id]/events/[eventId]` | Edit and/or deactivate an Event | `{title?, description?, date?, time?, isAllDay?, location?, onlineUrl?, isActive?}` | School-Admin-only; re-verifies the Event's own `schoolId` against the URL's school (defense in depth against a forged cross-school `eventId`); no `DELETE` route — `isActive: false` is the only removal path, the record is never dropped |
 
+## Schools — SchoolCalendarEntry (Kilometer 1.1)
+
+| Method | Path | Purpose | Body | Notes |
+|---|---|---|---|---|
+| `POST` | `/api/schools/[id]/school-calendar` | Create a SchoolCalendarEntry | `{title, category, description?, date}` (point categories) or `{title, category, description?, startDate, endDate}` (range categories) | School-Admin-only; `affectsDayStatus` is derived from `category` server-side (`resolveSchoolCalendarEntryDates()`) and is **never** read from the request body, even if supplied; rejects a range category missing `startDate`/`endDate`, a point category missing `date`, or `startDate > endDate` |
+| `PATCH` | `/api/schools/[id]/school-calendar/[entryId]` | Edit and/or deactivate a SchoolCalendarEntry | `{title?, category?, description?, date?, startDate?, endDate?, isActive?}` | School-Admin-only; re-verifies the entry's own `schoolId` against the URL's school; changing `category` (or any date field) re-validates and re-derives `affectsDayStatus`; no `DELETE` route |
+
 No API route exists for reading Calendar data — every Calendar page (`/calendar`, `/dashboard/calendar`, `/dashboard/schools/[id]/calendar`) queries its own already-authorized sources directly via server components, the same convention every other Phase 3 config/results page already follows.
 
 ## Schools — Teacher Qualitative Evaluation & Parent-Teacher Meetings (Phase 3C)

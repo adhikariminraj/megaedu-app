@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { addDaysToDateString, mergeAndGroupCalendarItems, type CalendarItem } from "@/lib/calendar";
+import type { DayStatus } from "@/lib/schoolCalendar";
+import CalendarAnnual from "@/components/CalendarAnnual";
+import CalendarAgenda from "@/components/CalendarAgenda";
 
 /** Agenda's own concise window — independent of however wide the Annual
  * view's fetch happens to be. */
 const AGENDA_WINDOW_DAYS = 30;
-import CalendarAnnual from "@/components/CalendarAnnual";
-import CalendarAgenda from "@/components/CalendarAgenda";
 
 /**
  * Calendar Annual view — Kilometer 1 UI refinement. The one place the
@@ -22,10 +23,12 @@ export default function CalendarView({
   items,
   monthsWindow,
   todayDate,
+  dayStatuses,
 }: {
   items: CalendarItem[];
   monthsWindow: { year: number; month: number }[];
   todayDate: string;
+  dayStatuses?: Record<string, DayStatus>;
 }) {
   const [mode, setMode] = useState<"annual" | "agenda">("annual");
 
@@ -46,7 +49,7 @@ export default function CalendarView({
       </div>
 
       {mode === "annual" ? (
-        <CalendarAnnual items={items} monthsWindow={monthsWindow} todayDate={todayDate} />
+        <CalendarAnnual items={items} monthsWindow={monthsWindow} todayDate={todayDate} dayStatuses={dayStatuses} />
       ) : (
         // Agenda keeps its own concise, upcoming-only contract regardless of
         // how wide the Annual view's shared fetch is — same `items` array,

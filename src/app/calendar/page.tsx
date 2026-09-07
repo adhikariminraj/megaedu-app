@@ -3,6 +3,7 @@ import { todayInKathmandu } from "@/lib/homework";
 import { addDaysToDateString, fetchGeneralCalendarItems } from "@/lib/calendar";
 import { getAnnualMonths, monthLabel, startOfMonth } from "@/lib/monthGrid";
 import { fetchSchoolEventItems } from "@/lib/events";
+import { fetchSchoolCalendarEntryItems, resolveDayStatuses } from "@/lib/schoolCalendar";
 import CalendarView from "@/components/CalendarView";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,9 @@ export default async function CalendarPage({
     monthsWindow[11].month
   )}`;
   const generalItems = await fetchGeneralCalendarItems({ from, to });
+  // schoolId: null — no SchoolCalendarEntry query at all before a school
+  // is selected; Public Holiday + Weekly Holiday only.
+  const generalDayStatuses = Object.fromEntries(await resolveDayStatuses(null, { from, to }));
 
   const q = searchParams.q?.trim() || "";
   const selectedSchoolId = searchParams.school?.trim() || "";
@@ -59,7 +63,18 @@ export default async function CalendarPage({
       })
     : null;
 
-  const schoolEventItems = selectedSchool ? await fetchSchoolEventItems(selectedSchool.id, { from, to }) : [];
+  // SchoolCalendarEntry / Day Status are school-specific and only ever
+  // shown through this existing search-then-select flow — never a
+  // global query, exactly like School Events above.
+  const schoolItems = selectedSchool
+    ? [
+        ...(await fetchSchoolEventItems(selectedSchool.id, { from, to })),
+        ...(await fetchSchoolCalendarEntryItems(selectedSchool.id, { from, to })),
+      ]
+    : [];
+  const schoolDayStatuses = selectedSchool
+    ? Object.fromEntries(await resolveDayStatuses(selectedSchool.id, { from, to }))
+    : undefined;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">
@@ -69,7 +84,7 @@ export default async function CalendarPage({
 
       <div className="mb-12">
         <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-4">General Calendar</h2>
-        <CalendarView items={generalItems} monthsWindow={monthsWindow} todayDate={today} />
+        <CalendarView items={generalItems} monthsWindow={monthsWindow} todayDate={today} dayStatuses={generalDayStatuses} />
       </div>
 
       <div>
@@ -83,7 +98,7 @@ export default async function CalendarPage({
                 Choose a different school
               </a>
             </p>
-            <CalendarView items={schoolEventItems} monthsWindow={monthsWindow} todayDate={today} />
+            <CalendarView items={schoolItems} monthsWindow={monthsWindow} todayDate={today} dayStatuses={schoolDayStatuses} />
           </>
         ) : (
           <>

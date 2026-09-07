@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-07 (Calendar — Kilometer 1) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-07 (Calendar — Kilometer 1.1) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -148,8 +148,20 @@ Organizations have no institutional-context parity with Schools — no affiliati
 ### No Event public/private visibility flag 🔭
 Every K1-created School Event is public by default, matching `NewsPost`/`Opportunity`'s existing precedent (neither has a privacy flag either). A "keep this internal-only" flag is a small, additive column that can be added later if a school ever asks for it — not built now.
 
-### No recurring events, no Month/Week/Day grid, no notifications 🔭
-Calendar Kilometer 1 is deliberately an Agenda/List view only. Recurring events, a calendar grid, drag/drop rescheduling, and any notification/reminder tied to a Calendar item are all explicitly out of scope — see [CALENDAR.md](CALENDAR.md).
+### No recurring events, no interactive Week/Day scheduling grid, no notifications 🔭
+The Annual view (Kilometer 1 UI refinement) is a static 12-month display, not an interactive scheduling grid. Recurring events, drag/drop rescheduling, an interactive Week/Day view, and any notification/reminder tied to a Calendar item are all explicitly out of scope — see [CALENDAR.md](CALENDAR.md).
+
+### No BS↔AD calendar experience 🔭
+`bsDateDisplay` remains a plain, unpopulated display string on `GeneralCalendarEntry` — no conversion library was installed and no BS date is computed or fabricated anywhere in Kilometer 1.1, per explicit instruction. A genuine dual-calendar experience (a BS year in the page header, every day's BS equivalent) needs either a vetted conversion library or a verified per-day lookup table spanning the display window — a dedicated future kilometer, not attempted here.
+
+### No Grade/Section/Subject or category filtering on the Admin Calendar 🔭
+`fetchHomeworkForSchool()`/`fetchMeetingsForSchool()` still return everything school-wide with no filter — at a large, active school this could become a long, undifferentiated list on a busy day. Explicitly deferred per this kilometer's own scope (`Do NOT implement Grade/Section/Subject filtering... DO NOT add category filtering unless truly necessary for the new day-status implementation`) — the Day Status implementation didn't require it, so it wasn't added.
+
+### Weekly holiday is hardcoded to Saturday, no per-school configuration 🔭
+`resolveDayStatuses()` computes Weekly Holiday purely from the date's weekday (Saturday) — there is no `School` field for this and no per-school override. Every school on the platform observes Saturday-only today; revisit only if a real school needs a different weekly holiday (e.g. Friday–Saturday).
+
+### Overlapping Day Statuses never blend 🔭
+A date resolves to exactly one dominant Day Status via a fixed priority order (`SPECIAL_CLOSURE > EXAMINATION > VACATION > PUBLIC_HOLIDAY > WEEKLY_HOLIDAY`) — e.g. a Saturday that's also a Public Holiday shows only as Public Holiday. No dual-color/split-cell treatment exists; the underlying activity list still shows every real item regardless of which status "won" the background.
 
 ## Authentication
 

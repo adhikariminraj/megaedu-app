@@ -6,7 +6,24 @@ const CATEGORY_ICON: Record<CalendarItem["category"], string> = {
   MEETING: "🗓️",
   HOMEWORK: "📚",
   ACADEMIC_PERIOD: "📅",
+  SCHOOL_ACTIVITY: "📋",
 };
+
+const SCHOOL_ACTIVITY_ICON: Record<string, string> = {
+  VACATION: "🏖️",
+  EXAMINATION: "📝",
+  SPECIAL_CLOSURE: "🚫",
+  PTM: "👪",
+  RESULT_DAY: "📊",
+  REPORT_CARD_DISTRIBUTION: "📄",
+};
+
+function itemIcon(item: CalendarItem): string {
+  if (item.category === "SCHOOL_ACTIVITY" && item.subType && SCHOOL_ACTIVITY_ICON[item.subType]) {
+    return SCHOOL_ACTIVITY_ICON[item.subType];
+  }
+  return CATEGORY_ICON[item.category];
+}
 
 function formatGroupHeading(dateStr: string, todayStr: string): string {
   const isToday = dateStr === todayStr;
@@ -51,7 +68,7 @@ export default function CalendarAgenda({
             {group.items.map((item) => {
               const inner = (
                 <>
-                  <span className="mr-2">{CATEGORY_ICON[item.category]}</span>
+                  <span className="mr-2">{itemIcon(item)}</span>
                   <span className="font-medium text-slate-800">{item.title}</span>
                   {!item.isAllDay && item.time && <span className="text-slate-400"> — {item.time}</span>}
                   {item.location && <span className="text-slate-400"> — {item.location}</span>}

@@ -1387,6 +1387,86 @@ async function main() {
   });
   console.log(`Himalayan parent: ${himParentEmail} -> ${himStudents[0].user.name}`);
 
+  // ---------------------------------------------------------------------
+  // SchoolCalendarEntry — Calendar K1.1. DEMO data only, for Sunrise
+  // Academy only, illustrating the feature (a Vacation range, an
+  // Examination range, a fixed PTM date, and a Result Day + Report Card
+  // Distribution + PTM all landing on the same date, exactly the
+  // multi-activity scenario the feature exists for). These are NOT
+  // Sunrise Academy's real official dates — same "clearly fictional
+  // demo" status as every other row in this script, never to be
+  // confused with GeneralCalendarEntry's real, sourced reference data
+  // (prisma/seed-general-calendar.ts).
+  // ---------------------------------------------------------------------
+  const schoolCalendarDemoEntries = [
+    {
+      id: "sce-demo-vacation-dashain",
+      title: "Dashain Vacation",
+      category: "VACATION",
+      startDate: new Date("2026-10-15"),
+      endDate: new Date("2026-10-23"),
+      description: "School closed for Dashain.",
+    },
+    {
+      id: "sce-demo-exam-midterm",
+      title: "Mid-Term Examination",
+      category: "EXAMINATION",
+      startDate: new Date("2026-11-10"),
+      endDate: new Date("2026-11-15"),
+      description: null,
+    },
+    {
+      id: "sce-demo-ptm-first",
+      title: "First PTM",
+      category: "PTM",
+      startDate: new Date("2026-09-20"),
+      endDate: new Date("2026-09-20"),
+      description: null,
+    },
+    {
+      id: "sce-demo-result-day",
+      title: "Result Day",
+      category: "RESULT_DAY",
+      startDate: new Date("2027-03-20"),
+      endDate: new Date("2027-03-20"),
+      description: null,
+    },
+    {
+      id: "sce-demo-report-card",
+      title: "Report Card Distribution",
+      category: "REPORT_CARD_DISTRIBUTION",
+      startDate: new Date("2027-03-20"),
+      endDate: new Date("2027-03-20"),
+      description: null,
+    },
+    {
+      id: "sce-demo-ptm-final",
+      title: "Final PTM",
+      category: "PTM",
+      startDate: new Date("2027-03-20"),
+      endDate: new Date("2027-03-20"),
+      description: null,
+    },
+  ] as const;
+  for (const e of schoolCalendarDemoEntries) {
+    await prisma.schoolCalendarEntry.upsert({
+      where: { id: e.id },
+      update: {},
+      create: {
+        id: e.id,
+        schoolId: sunrise.id,
+        title: e.title,
+        category: e.category,
+        affectsDayStatus: (["VACATION", "EXAMINATION", "SPECIAL_CLOSURE"] as string[]).includes(e.category),
+        startDate: e.startDate,
+        endDate: e.endDate,
+        description: e.description,
+        createdByUserId: schoolAdminUser.id,
+      },
+    });
+  }
+  console.log(`SchoolCalendarEntry demo data seeded: ${schoolCalendarDemoEntries.length} entries for Sunrise Academy.`);
+
   console.log("\nDemo data seeding complete.");
 }
 

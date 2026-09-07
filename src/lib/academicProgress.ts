@@ -319,7 +319,12 @@ export function teacherMeetingRowsToCalendarItems(
         scopeId: schoolId,
         description: null,
         location: m.location,
-        link: null,
+        // /dashboard/meetings is Admin/Teacher-only (staff), and accepts
+        // ?teacher= — every row already carries its own teacherId, so this
+        // always lands on that specific teacher's meetings regardless of
+        // whether the caller is the Admin's school-wide view or the
+        // Teacher's own view.
+        link: `/dashboard/meetings?teacher=${m.teacherId}`,
       };
     });
 }
@@ -330,12 +335,15 @@ export function teacherMeetingRowsToCalendarItems(
  * unmodified). That function has no window parameter of its own
  * (always "last 20, any time"), so filtering to the requested window
  * happens here, exactly the same technique as the Teacher-side
- * converter above.
+ * converter above. `child`, when supplied, identifies which linked
+ * child this meeting belongs to (Parent Calendar only) — Parent has no
+ * access to /dashboard/meetings (staff-only), so no link is set here.
  */
 export function parentMeetingRowsToCalendarItems(
   rows: MeetingRow[],
   schoolId: string,
-  window: CalendarWindow
+  window: CalendarWindow,
+  child?: { id: string; name: string }
 ): CalendarItem[] {
   const from = new Date(`${window.from}T00:00:00+05:45`);
   const to = new Date(`${window.to}T23:59:59+05:45`);
@@ -347,9 +355,10 @@ export function parentMeetingRowsToCalendarItems(
     })
     .map((m) => {
       const instant = new Date(m.scheduledAt);
+      const baseTitle = `${m.subjectName ?? "General"} — ${m.teacherName}`;
       return {
         id: `ParentTeacherMeeting:${m.id}`,
-        title: `${m.subjectName ?? "General"} — ${m.teacherName}`,
+        title: child ? `${child.name} — ${baseTitle}` : baseTitle,
         date: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu" }).format(instant),
         time: formatKathmanduTime(instant),
         isAllDay: false,
@@ -361,6 +370,8 @@ export function parentMeetingRowsToCalendarItems(
         description: null,
         location: m.location,
         link: null,
+        childId: child?.id,
+        childName: child?.name,
       };
     });
 }

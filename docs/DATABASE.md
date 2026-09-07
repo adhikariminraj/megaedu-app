@@ -238,6 +238,19 @@ One new model plus four additive fields on the pre-existing `Event` model. See [
 ### `ParentTeacherMeeting` — index only, no field change
 **New index**: `@@index([teacherId])` — `fetchMeetingsForTeacher()` (Teacher Today Kilometer 1) had no dedicated index on this column; Calendar's wider date-window queries made it genuinely load-bearing rather than a someday nice-to-have.
 
+## Calendar — Kilometer 1.1 ✅
+
+One new model. See [CALENDAR.md](CALENDAR.md) for the full behavioral write-up (Day Status resolution, category semantics, the Admin management UI); this section covers structure only.
+
+### `SchoolCalendarEntry`
+**Purpose**: a school-scoped institutional calendar row — either a date range that affects the Day Status layer (`VACATION`, `EXAMINATION`, `SPECIAL_CLOSURE`) or a single-date planned activity that doesn't (`PTM`, `RESULT_DAY`, `REPORT_CARD_DISTRIBUTION`). One model for both shapes, matching `GeneralCalendarEntry`'s "school-scoped, staff-curated, concrete dates, no computation engine" pattern. **Currently used**: yes, as of K1.1 (6 demo rows for Sunrise Academy only — see Demo Data below).
+**Key fields**: `id, schoolId, title, category, affectsDayStatus (default false), startDate, endDate, description?, isActive (default true), createdByUserId, createdAt, updatedAt`.
+**`affectsDayStatus`**: server-derived from `category` only — `resolveSchoolCalendarEntryDates()` (`src/lib/schoolCalendar.ts`) sets it, never accepts it from the client. `true` for `VACATION`/`EXAMINATION`/`SPECIAL_CLOSURE`; `false` for `PTM`/`RESULT_DAY`/`REPORT_CARD_DISTRIBUTION`.
+**Date shape**: `startDate <= endDate` (inclusive range) for the three day-status categories; `startDate === endDate` for the three point-activity categories — both validated server-side on create and edit, not just in the UI.
+**New indexes**: `@@index([schoolId, startDate])`, `@@index([schoolId, endDate])` — `resolveDayStatuses()`/`fetchSchoolCalendarEntryItems()` both filter by an overlapping-range condition on these columns.
+**Delete behavior**: no delete route — soft-deactivate only (`isActive: false`), matching `Event`/`GeneralCalendarEntry`'s existing convention.
+**Notes**: deliberately *not* where individual `ParentTeacherMeeting` appointments, `UnitTest` dates, or `AssessmentPeriod` live — this model is the school-wide *planned* date only, never a per-student/per-subject record.
+
 ---
 
 ## Teacher Qualitative Evaluation & Parent-Teacher Meetings — Phase 3C ✅ (fully implemented and in active use)

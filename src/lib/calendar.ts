@@ -13,13 +13,20 @@
  */
 import { prisma } from "@/lib/prisma";
 
-export type CalendarItemCategory = "GENERAL" | "SCHOOL_EVENT" | "MEETING" | "HOMEWORK" | "ACADEMIC_PERIOD";
+export type CalendarItemCategory =
+  | "GENERAL"
+  | "SCHOOL_EVENT"
+  | "MEETING"
+  | "HOMEWORK"
+  | "ACADEMIC_PERIOD"
+  | "SCHOOL_ACTIVITY";
 export type CalendarSourceType =
   | "GeneralCalendarEntry"
   | "Event"
   | "ParentTeacherMeeting"
   | "Homework"
-  | "AcademicSession";
+  | "AcademicSession"
+  | "SchoolCalendarEntry";
 
 export type CalendarItem = {
   id: string; // `${sourceType}:${sourceId}` — composite, collision-proof across five source tables
@@ -40,8 +47,22 @@ export type CalendarItem = {
   // ("NATIONAL_HOLIDAY" | "OBSERVANCE" | "MEGA_WIDE_EVENT") so the Annual
   // view can give a national holiday a different visual weight than an
   // observance. Undefined for every other source — this is additive only,
-  // no existing consumer reads it.
+  // no existing consumer reads it. Also reused for category:"SCHOOL_ACTIVITY"
+  // items, carrying SchoolCalendarEntry's own `category` verbatim
+  // ("VACATION" | "EXAMINATION" | "SPECIAL_CLOSURE" | "PTM" | "RESULT_DAY" |
+  // "REPORT_CARD_DISTRIBUTION").
   subType?: string;
+
+  // Calendar K1.1 — Parent multi-child attribution. Populated ONLY by the
+  // Parent Calendar's own per-child aggregation loop
+  // (src/app/dashboard/calendar/page.tsx), for genuinely per-student
+  // sources (Homework, ParentTeacherMeeting) — never for school-wide
+  // items (Event, AcademicSession, SchoolCalendarEntry, GeneralCalendarEntry),
+  // and never undefined-vs-null ambiguity: simply absent for every other
+  // caller (Admin, Teacher, Student, public). The underlying adapters and
+  // their non-Parent callers are unmodified.
+  childId?: string;
+  childName?: string;
 };
 
 export type CalendarWindow = { from: string; to: string }; // both "YYYY-MM-DD"

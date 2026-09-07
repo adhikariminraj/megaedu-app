@@ -5,11 +5,17 @@ import { verifySchoolAccess } from "@/lib/institutionalContext";
 import { todayInKathmandu } from "@/lib/homework";
 import { addDaysToDateString, fetchGeneralCalendarItems, fetchAcademicSessionBoundaries, type CalendarItem } from "@/lib/calendar";
 import { getAnnualMonths, monthLabel, startOfMonth } from "@/lib/monthGrid";
-import { fetchSchoolEventItems } from "@/lib/events";
+import { fetchSchoolEventItems, fetchSchoolEventsForAdmin } from "@/lib/events";
 import { fetchHomeworkForTeacher, fetchHomeworkForSchool } from "@/lib/homework";
 import { fetchMeetingsForTeacher, fetchMeetingsForSchool, teacherMeetingRowsToCalendarItems } from "@/lib/academicProgress";
+import {
+  fetchSchoolCalendarEntryItems,
+  fetchSchoolCalendarEntriesForAdmin,
+  resolveDayStatuses,
+} from "@/lib/schoolCalendar";
 import CalendarView from "@/components/CalendarView";
 import CalendarEventForm from "@/components/CalendarEventForm";
+import SchoolCalendarManager from "@/components/SchoolCalendarManager";
 
 export const dynamic = "force-dynamic";
 
@@ -36,10 +42,12 @@ export default async function SchoolCalendarPage({ params }: { params: { schoolI
   const window = { from, to };
   const monthsWindow = getAnnualMonths(today);
 
-  const [general, events, sessions] = await Promise.all([
+  const [general, events, sessions, schoolCalendarItems, dayStatuses] = await Promise.all([
     fetchGeneralCalendarItems(window),
     fetchSchoolEventItems(schoolId, window),
     fetchAcademicSessionBoundaries(schoolId, window),
+    fetchSchoolCalendarEntryItems(schoolId, window),
+    resolveDayStatuses(schoolId, window),
   ]);
 
   let meetingItems: CalendarItem[] = [];
@@ -61,7 +69,17 @@ export default async function SchoolCalendarPage({ params }: { params: { schoolI
     homeworkItems = homework;
   }
 
-  const items = [...general, ...events, ...sessions, ...meetingItems, ...homeworkItems];
+  const items = [...general, ...events, ...sessions, ...schoolCalendarItems, ...meetingItems, ...homeworkItems];
+  const dayStatusesObj = Object.fromEntries(dayStatuses);
+
+  let existingEvents: Awaited<ReturnType<typeof fetchSchoolEventsForAdmin>> = [];
+  let existingSchoolCalendarEntries: Awaited<ReturnType<typeof fetchSchoolCalendarEntriesForAdmin>> = [];
+  if (access.role === "SCHOOL_ADMIN") {
+    [existingEvents, existingSchoolCalendarEntries] = await Promise.all([
+      fetchSchoolEventsForAdmin(schoolId, window),
+      fetchSchoolCalendarEntriesForAdmin(schoolId, window),
+    ]);
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-12">
@@ -71,9 +89,14 @@ export default async function SchoolCalendarPage({ params }: { params: { schoolI
         {monthLabel(monthsWindow[11].year, monthsWindow[11].month)}
       </p>
 
-      {access.role === "SCHOOL_ADMIN" && <CalendarEventForm schoolId={schoolId} />}
+      {access.role === "SCHOOL_ADMIN" && (
+        <>
+          <CalendarEventForm schoolId={schoolId} existingEvents={existingEvents} />
+          <SchoolCalendarManager schoolId={schoolId} existingEntries={existingSchoolCalendarEntries} />
+        </>
+      )}
 
-      <CalendarView items={items} monthsWindow={monthsWindow} todayDate={today} />
+      <CalendarView items={items} monthsWindow={monthsWindow} todayDate={today} dayStatuses={dayStatusesObj} />
     </div>
   );
 }

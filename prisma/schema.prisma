@@ -60,13 +60,14 @@ model User {
   // route reads or writes it.
   familyContactLinks FamilyContact[] @relation("FamilyContactLinkedUser")
 
-  attendancesMarked        Attendance[]      @relation("AttendanceMarkedBy")
-  attendanceAuditsChanged  AttendanceAudit[] @relation("AttendanceAuditChangedBy")
-  teachingUnitsCreated     TeachingUnit[]    @relation("TeachingUnitCreatedBy")
-  eventsCreated            Event[]           @relation("EventCreatedBy")
-  teachingPlansCreated     TeachingPlan[]    @relation("TeachingPlanCreatedBy")
-  unitTestsCreated         UnitTest[]        @relation("UnitTestCreatedBy")
-  unitTestResultsEvaluated UnitTestResult[]  @relation("UnitTestResultEvaluatedBy")
+  attendancesMarked            Attendance[]          @relation("AttendanceMarkedBy")
+  attendanceAuditsChanged      AttendanceAudit[]     @relation("AttendanceAuditChangedBy")
+  teachingUnitsCreated         TeachingUnit[]        @relation("TeachingUnitCreatedBy")
+  eventsCreated                Event[]               @relation("EventCreatedBy")
+  schoolCalendarEntriesCreated SchoolCalendarEntry[] @relation("SchoolCalendarEntryCreatedBy")
+  teachingPlansCreated         TeachingPlan[]        @relation("TeachingPlanCreatedBy")
+  unitTestsCreated             UnitTest[]            @relation("UnitTestCreatedBy")
+  unitTestResultsEvaluated     UnitTestResult[]      @relation("UnitTestResultEvaluatedBy")
 
   studentEvaluationsCreated    StudentEvaluation[]      @relation("StudentEvaluationCreatedBy")
   studentEvaluationAudits      StudentEvaluationAudit[] @relation("StudentEvaluationAuditChangedBy")
@@ -135,6 +136,7 @@ model School {
   assessmentFrameworks           AssessmentFramework[]
   gradingScales                  GradingScale[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
+  schoolCalendarEntries          SchoolCalendarEntry[]
 
   // Structured address (label "OFFICIAL") — see Address below. The
   // legacy free-text location/district fields above stay in place
@@ -1791,6 +1793,60 @@ model Event {
   updatedAt       DateTime      @updatedAt
 
   @@index([schoolId, startsAt])
+}
+
+// Calendar K1.1 — School-scoped institutional calendar rows: date
+// RANGES that affect the Day Status layer (VACATION, EXAMINATION,
+// SPECIAL_CLOSURE) and single-date institutional ACTIVITIES that never
+// do (PTM, RESULT_DAY, REPORT_CARD_DISTRIBUTION). Deliberately one
+// model for both shapes rather than two — every row is the same
+// "school-scoped, staff-curated, concrete date(s), no computation
+// engine" pattern GeneralCalendarEntry already established at the
+// network level; affectsDayStatus is a server-derived (never
+// client-editable) discriminator, not an independent choice. See
+// docs/CALENDAR.md.
+//
+// category further determines the required date shape, enforced only
+// in the write path (src/app/api/schools/[id]/school-calendar/*), never
+// at the database level:
+//   VACATION / EXAMINATION / SPECIAL_CLOSURE  -> startDate <= endDate (a range), affectsDayStatus: true
+//   PTM / RESULT_DAY / REPORT_CARD_DISTRIBUTION -> startDate == endDate (a point), affectsDayStatus: false
+//
+// This is intentionally NOT where individual ParentTeacherMeeting
+// appointments, UnitTest dates, or AssessmentPeriod live — this model
+// represents the school-wide PLANNED calendar date only ("First PTM is
+// March 20"), never the per-student/per-subject records those other
+// models already own.
+model SchoolCalendarEntry {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  title    String
+  category String // "VACATION" | "EXAMINATION" | "SPECIAL_CLOSURE" | "PTM" | "RESULT_DAY" | "REPORT_CARD_DISTRIBUTION"
+
+  // Server-derived from category — never accepted from the client. true
+  // only for VACATION/EXAMINATION/SPECIAL_CLOSURE.
+  affectsDayStatus Boolean @default(false)
+
+  // Date-only, inclusive range — equal to each other for a point
+  // activity (PTM/RESULT_DAY/REPORT_CARD_DISTRIBUTION).
+  startDate DateTime
+  endDate   DateTime
+
+  description String?
+
+  // Soft-deactivate only, matching Event/GeneralCalendarEntry's existing
+  // convention — no DELETE route.
+  isActive Boolean @default(true)
+
+  createdByUserId String
+  createdBy       User     @relation("SchoolCalendarEntryCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([schoolId, startDate])
+  @@index([schoolId, endDate])
 }
 
 model Opportunity {
