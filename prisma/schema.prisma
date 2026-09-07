@@ -379,7 +379,7 @@ model ParentStudent {
 }
 
 // ============================================================
-// INSTITUTIONAL AFFILIATION — Phase 1 (schema foundation only)
+// INSTITUTIONAL AFFILIATION — live and authoritative since Phase 3
 //
 // Teacher/Student are stable, permanent role identities (one per
 // person, ever). A TeacherSchoolAffiliation / StudentSchoolAffiliation
@@ -393,39 +393,51 @@ model ParentStudent {
 // keyed by both sides), extended here with a lifecycle and dates,
 // applied to Teacher/Student.
 //
-// Phase 1 is additive only: these two tables are created empty, and
-// nothing anywhere reads or writes them yet. Teacher.schoolId /
-// Teacher.approved / Teacher.position / Teacher.subjects and
-// Student.schoolId / Student.approved remain completely unchanged and
-// are still the live, working source of truth for every existing
-// route and page. They become transitional bridge fields only once a
-// later phase starts populating and reading these new tables.
+// These two tables are live: written by the JOIN/LEAVE/TRANSFER/REJOIN
+// primitives in src/lib/affiliation.ts, called from
+// POST /api/{teacher,student}/{join-school,leave-school,transfer-school}
+// and the registration/approval routes; read by
+// src/lib/institutionalContext.ts (getAccessibleSchools()/
+// verifySchoolAccess()) and by My Profile's institutional relationships
+// section (My Profile K1, src/lib/profile.ts). Teacher.schoolId/
+// Teacher.approved/Teacher.position/Teacher.subjects and
+// Student.schoolId/Student.approved are transitional BRIDGE fields —
+// kept in sync automatically only for the zero-or-one-open-affiliation
+// case (see syncTeacherBridgeFields()/syncStudentBridgeFields() in
+// affiliation.ts) and deliberately left untouched, never guessed, once
+// a person has 2+. A handful of not-yet-migrated call sites still read
+// the bridge fields directly rather than this table — see
+// KNOWN_GAPS.md for the current list — but that is migration debt in
+// those call sites, not evidence this table itself is unused.
 //
-// Intended future lifecycle (NOT implemented in Phase 1):
-//   JOIN     — creates a new affiliation row. Must never end an
-//              existing affiliation at a different school — a person
-//              may be genuinely ACTIVE at more than one school at
-//              once (e.g. a part-time teacher).
+// The lifecycle, as actually implemented:
+//   JOIN     — creates a new affiliation row. Never ends an existing
+//              affiliation at a different school — a person may be
+//              genuinely ACTIVE at more than one school at once (e.g.
+//              a part-time teacher; explicitly designed for and tested
+//              on the Teacher side).
 //   LEAVE    — ends the specific existing affiliation
 //              (status -> "ENDED", endDate set). Every other
 //              affiliation for that person, at any school, is
 //              untouched.
-//   TRANSFER — conceptually LEAVE (old school) + JOIN (new school),
-//              composed as one user-facing action from the same two
-//              primitives above.
-//   REJOIN   — creates a NEW row for a school the person was
+//   TRANSFER — LEAVE (old school) + JOIN (new school), composed as one
+//              atomic operation — a thrown AffiliationError rolls back
+//              both halves together, never leaving a half-applied
+//              transfer.
+//   REJOIN   — simply another JOIN for a school the person was
 //              previously affiliated with. The old, already-"ENDED"
 //              row for that same school is never reopened, mutated,
 //              or merged into — two (or more) independent rows for
 //              the same (person, school) pair, at different times, is
-//              the expected, correct shape.
+//              the expected, correct shape, and ENDED rows are never
+//              deleted — they are the permanent historical record.
 //
-// "At most one ACTIVE/PENDING row per (person, school) pair" is a
-// future application-layer rule, not a database constraint here —
-// same "app-level, not DB-level" idiom already used by AcademicSession
-// above for its own single-ACTIVE-per-school rule, and for the same
-// reason (SQLite can't express a partial unique index). Deliberately
-// NOT implemented in Phase 1.
+// "At most one ACTIVE/PENDING row per (person, school) pair" is
+// enforced at the application layer (src/lib/affiliation.ts checks
+// before every JOIN), not a database constraint — same "app-level, not
+// DB-level" idiom already used by AcademicSession above for its own
+// single-ACTIVE-per-school rule, and for the same reason (SQLite can't
+// express a partial unique index).
 // ============================================================
 
 // One Teacher's relationship-period with one School. Position and

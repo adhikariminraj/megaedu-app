@@ -1,7 +1,7 @@
 # MEGA ID
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-05 (Phase 4D — Institutional Identity & Relationship Architecture), against the current codebase.
+> Last verified: 2026-09-07 (My Profile Kilometer 1), against the current codebase.
 
 ## The core principle: MEGA ID belongs to the individual ✅
 
@@ -48,6 +48,23 @@ NextAuth Credentials provider: email + password, `bcrypt.compare` against `User.
 
 - **Certificates** — `Certificate.recipientMegaIdSnapshot` freezes the recipient's `User.id` at issuance and is displayed as `MEGA ID: {id}` on the certificate.
 - **Instructor** — deliberately *not* required to have a MEGA ID (`Instructor.megaIdUserId` is optional) — a person can be credited on a course/certificate by name alone before ever creating an account.
+- **My Profile** (`/dashboard/profile`, My Profile K1) — the one place a person sees their own MEGA ID presented as an identity, not a database field: photo, name, and MEGA ID (with a one-click Copy action) lead the page, followed by role chips and a **My Institutional Relationships** section reading `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` directly — every relationship, including `ENDED` history, never a single arbitrarily-picked school. This is a presentation layer only: it does not change what MEGA ID *is* (still `User.id`) and does not implement the `Person` model described below.
+
+## What's implemented today vs. future architecture ✅
+
+The three-layer institutional model (`User` → `Teacher`/`Student` → `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`, see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)) is real and live. A further-separated
+
+```
+Person
+  ↓
+Role Identity
+  ↓
+Institutional Affiliation
+  ↓
+optional User/login account
+```
+
+— where a MEGA ID could be assigned to a `Person` independent of whether a login account exists yet — is **future architectural direction only, not implemented**. Concretely, today: `MEGA ID = User.id`, always; a `Teacher`/`Student` row with `userId: null` (schema-permitted, see [DATABASE.md](DATABASE.md)) has **no MEGA ID at all**, because nothing anchors an identity independent of the optional login account. Closing that gap is a real, separate future schema change — see [KNOWN_GAPS.md](KNOWN_GAPS.md) — and no document in this repository should describe it as already built.
 
 ## What's absent 🔭
 

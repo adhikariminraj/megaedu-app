@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-07 (Calendar — Kilometer 1.1) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-07 (Calendar Kilometer 1.2, My Profile Kilometer 1, documentation audit) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -79,8 +79,8 @@ Explicitly out of scope, confirmed twice — once for `TeacherAcademicAssignment
 ### No retest concept for Unit/Chapter Tests 🔭
 `UnitTestResult` supports `PENDING`/`EVALUATED`/`ABSENT` only — explicitly deferred, not built.
 
-### Homework, formal examinations beyond Unit/Chapter Tests, report cards, and analytics are not started 🔭
-Explicitly out of scope for Phase 3B. **Partially closed by Phase 3C-1**: Teacher Qualitative Evaluation (General and Subject) and Parent-Teacher Meetings are now built — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md). Still genuinely missing: homework/assignments, formal term-wide examinations (beyond the existing per-unit Unit/Chapter Tests), report cards, and continuous/aggregate progress rollups — all reserved for a later Phase 3C sub-phase, to be scoped and approved separately.
+### Formal term-wide examinations beyond Unit/Chapter Tests, and analytics, are not started 🔭
+Explicitly out of scope for Phase 3B. **Since closed**: Teacher Qualitative Evaluation/Parent-Teacher Meetings (Phase 3C-1, see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md)), Homework (Phase 1, see [HOMEWORK.md](HOMEWORK.md)), and Report Cards (Phase 3D-2/3/4, see [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md)) are all now built — this entry previously listed all three as missing, which is no longer accurate. Still genuinely missing: formal term-wide examinations as their own concept (beyond the existing per-unit Unit/Chapter Tests and the Assessment Framework's own components/periods), and continuous/aggregate cross-subject progress rollups beyond what `assessmentResults.ts` already computes on read.
 
 ## Phase 3C (Teacher Qualitative Evaluation & Parent-Teacher Meetings)
 
@@ -115,7 +115,7 @@ No roll-number concept exists anywhere in the Prisma schema — confirmed via a 
 ## Phase 4D (Institutional Context) — migration in progress
 
 ### Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern ⚠️
-Attendance, Evaluations, Meetings, and Grades (Promotion) have been migrated to `getAccessibleSchools()`/`verifySchoolAccess()` (see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)). Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the School Admin/Teacher profile pages have **not** been migrated yet — they still resolve "which school" via a plain `schoolAdmin.findFirst({ userId })` (or the equivalent `Teacher` bridge-field read), which silently picks *a* school rather than asking a multi-school Admin/Teacher which one they mean. This is real, in-progress migration debt, not a design decision — each of these areas is a candidate for the same URL-scoped/same-URL/target-derived pattern already proven three times over. Not a security hole (every write route still independently checks `SchoolAdmin`/affiliation ownership of the specific resource being changed) — the gap is which school's data gets *shown*, not unauthorized access to another school's data.
+Attendance, Evaluations, Meetings, and Grades (Promotion) have been migrated to `getAccessibleSchools()`/`verifySchoolAccess()` (see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)). Initial Setup, New Session, Assessment Frameworks, and Assessment Results have **not** been migrated yet — they still resolve "which school" via a plain `schoolAdmin.findFirst({ userId })` (or the equivalent `Teacher` bridge-field read), which silently picks *a* school rather than asking a multi-school Admin/Teacher which one they mean. This is real, in-progress migration debt, not a design decision — each of these areas is a candidate for the same URL-scoped/same-URL/target-derived pattern already proven three times over. Not a security hole (every write route still independently checks `SchoolAdmin`/affiliation ownership of the specific resource being changed) — the gap is which school's data gets *shown*, not unauthorized access to another school's data. **My Profile K1 addressed its own version of this**: `/dashboard/profile` no longer picks one school at all (the old `administeredSchools[0]`/single-school display) — it now reads every `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` row directly and shows the complete set, so it never needed the chooser pattern in the first place.
 
 ### Organization Admin has the identical arbitrary-pick gap ⚠️
 Every Organization Admin page resolves its organization the same unscoped way (`organizationAdmin.findFirst({ userId })`) — Phase 4D's institutional-context work was scoped to Schools only; Organizations were not touched. An Organization Admin managing 2+ organizations would hit the same "shown the wrong one, silently" experience Schools had before Phase 4D. Worth tracking as a parallel future initiative, not yet started or approved.
@@ -137,7 +137,7 @@ Only "due today" is surfaced in Phase 1. `fetchTodaysHomework()`'s exact-match `
 ### School Admin cannot author Homework "on behalf of" a named teacher 🔭
 Unlike Evaluations (`teacherHoldsSubjectAssignment()`) or the `TeachingUnit` create route (Admin-or-Teacher composed), Homework creation is Teacher-only — `Homework.teacherId` is a real, non-nullable `Teacher` FK, and Phase 1's approved scope never described an Admin-authoring flow. Worth reconsidering only if a genuine product need for it emerges; would need the same explicit-named-teacher pattern Evaluations already uses.
 
-## Calendar (Kilometer 1)
+## Calendar (Kilometer 1 / 1.1 / 1.2)
 
 ### General Calendar data only covers September–December 2026 🔭
 The seeded reference list (`prisma/seed-general-calendar.ts`) was built from a live research pass that found source-cited, dated holiday data for September through December 2026 only. January–August 2026 were deliberately left out rather than guessed, per an explicit instruction not to invent or guess dates. A follow-up curation pass, checked against the Nepal Panchanga Nirnayak Bikash Samiti's determination and the Ministry of Home Affairs' annual holiday gazette, is needed to complete the year.
@@ -162,6 +162,23 @@ The Annual view (Kilometer 1 UI refinement) is a static 12-month display, not an
 
 ### Overlapping Day Statuses never blend 🔭
 A date resolves to exactly one dominant Day Status via a fixed priority order (`SPECIAL_CLOSURE > EXAMINATION > VACATION > PUBLIC_HOLIDAY > WEEKLY_HOLIDAY`) — e.g. a Saturday that's also a Public Holiday shows only as Public Holiday. No dual-color/split-cell treatment exists; the underlying activity list still shows every real item regardless of which status "won" the background.
+
+## My Profile (Kilometer 1)
+
+### No true `Person` identity layer — MEGA ID remains `User.id` 🔭
+The audit behind My Profile K1 confirmed the `Person → Role Identity → Institutional Affiliation → optional User` architecture is a future direction, not current implementation. Today `User` conflates the permanent identity anchor and the optional login account into one row — `MEGA ID = User.id`, unchanged and not reinterpreted by this kilometer. A `Teacher`/`Student` row with a null `userId` (a real, schema-permitted state — see [DATABASE.md](DATABASE.md)) has no MEGA ID at all today, since nothing anchors an identity independent of the login account. Closing this gap means a genuine schema change (a `Person` model MEGA ID could attach to before a login exists) — deliberately not attempted here.
+
+### Organization relationships are not shown in Profile 🔭
+`OrganizationAdmin`/`OrganizationAccountant` remain flat join tables with no `status`/date columns and no `verifyOrgAccess()`-equivalent institutional-context layer (unlike School — see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)). My Profile K1 deliberately does not display an Organization relationship rather than presenting a maturity the data model doesn't actually have. Building this requires the same missing Organization institutional-context foundation Calendar K1.1 already deferred for the identical reason.
+
+### No preferences, privacy, or notification settings in Profile 🔭
+My Profile K1 is identity/account/security/relationships/addresses only. Notification preferences, privacy controls, and any other account-settings surface remain unbuilt — not attempted, not designed yet.
+
+### No Forgot Password, MFA, or session/device management 🔭
+Explicitly out of scope for My Profile K1's Security & Account section — see "Several standard auth features are absent," below, which already covers this platform-wide; Profile's Security section surfaces only what exists (Change Password) and does not imply these are coming in the next kilometer.
+
+### School Admin relationships have no historical concept 🔭
+`SchoolAdmin` (see [DATABASE.md](DATABASE.md)) has no `status`/`startDate`/`endDate` columns — a row's existence is the entire relationship. My Profile K1 shows every administered school (never `take: 1`) but cannot show past/ended School Admin relationships, because the schema doesn't record them. Not invented; reported as a real limitation directly in the Profile UI itself.
 
 ## Authentication
 

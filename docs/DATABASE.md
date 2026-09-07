@@ -1,7 +1,7 @@
 # Database
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards), against `prisma/schema.prisma` directly.
+> Last verified: 2026-09-07 (Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1), against `prisma/schema.prisma` directly.
 
 **Datasource**: SQLite in development (`prisma/dev.db`); `.env.example` and the schema's own header comment both mark PostgreSQL as the intended production target (nothing production-specific is configured yet — see [DEPLOYMENT.md](DEPLOYMENT.md)). **No Prisma `enum`s are used anywhere** — SQLite's connector doesn't support them, even unused ones — every status/type/role field is a plain `String`, with valid values documented in a comment above the field.
 
@@ -39,9 +39,9 @@ Every model below is ✅ implemented (exists, migrated, and has at least one rou
 ### `SchoolAdmin` / `SchoolAccountant`
 **Purpose**: join tables granting School Admin / Accountant access to a specific school. **Currently used**: yes.
 **Key fields**: `userId, schoolId`.
-**Constraints**: `@@unique([userId, schoolId])` each — a school can have multiple admins/accountants.
+**Constraints**: `@@unique([userId, schoolId])` each — a school can have multiple admins/accountants, and one person can administer multiple schools (multiple rows, one per school).
 **Delete behavior**: cascades from both `User` and `School`.
-**Notes**: `SchoolAccountant` is granted directly by a School Admin (`POST /api/schools/[id]/accountants`) — there's no self-registration or approval queue for this role.
+**Notes**: `SchoolAccountant` is granted directly by a School Admin (`POST /api/schools/[id]/accountants`) — there's no self-registration or approval queue for this role. Unlike `TeacherSchoolAffiliation`/`StudentSchoolAffiliation` below, `SchoolAdmin` has **no `status`/`startDate`/`endDate` columns at all** — it is a flat, current-state-only join; a row's mere existence is the entire relationship, with no historical join/leave record. My Profile's institutional relationships (My Profile K1) shows every `SchoolAdmin` row for the caller, not just one, but cannot show admin history because the schema doesn't track it.
 
 ### `Program`, `NewsPost`
 Simple school-owned content, no approval workflow. Currently used (School Admin dashboard).
@@ -52,22 +52,30 @@ Simple school-owned content, no approval workflow. Currently used (School Admin 
 
 ### `Teacher`
 **Purpose**: a teacher's profile at (optionally) one school. **Currently used**: yes.
-**Key fields**: `id, userId (unique FK), schoolId?, bio?, subjects?, position (default "Teacher"), approved (default false)`.
-**Relationships**: `courseEnrollments`, `gradeAssignments` (`TeacherGradeAssignment[]`).
-**Delete behavior**: cascades from `User`.
-**Notes**: unaffiliated until joining a school; re-joining always resets `approved` to `false`.
+**Key fields**: `id, userId? (unique FK, nullable), schoolId?, bio?, subjects?, position (default "Teacher"), approved (default false)`.
+**Relationships**: `courseEnrollments`, `gradeAssignments` (`TeacherGradeAssignment[]`), `schoolAffiliations` (`TeacherSchoolAffiliation[]`, see below).
+**Delete behavior**: cascades from `User` — but only when a `User` row exists to delete in the first place.
+**Notes**: `userId` is **nullable** — a `Teacher` row can exist with no `User`/login account at all (e.g. a roster entry a School Admin creates before that person ever registers). A Teacher in this state has no MEGA ID today, since MEGA ID is defined as `User.id` — there is no identity anchor independent of the optional login account (see [MEGA_ID.md](MEGA_ID.md) on why this matters for the future Person-identity direction). `schoolId`/`approved` here are **transitional bridge fields**, kept in sync automatically only for the zero-or-one-open-affiliation case — see `TeacherSchoolAffiliation` below for the actual authoritative relationship.
 
 ### `Student`
 **Purpose**: a student's profile at (optionally) one school — also the anchor for Phase 2 grade placement. **Currently used**: yes, heavily.
-**Key fields**: `id, userId (unique FK), schoolId?, gradeLevel?, approved (default false)`.
-**Relationships**: `parents` (`ParentStudent[]`), `courseEnrollments`, `skills`, `gradeHistory` (`GradeHistory[]`).
-**Delete behavior**: cascades from `User`.
-**Notes**: `gradeLevel` is the **legacy free-text grade** — permanently retained as a fallback, no longer written to once a school completes Initial Setup, never scheduled for removal (see [PRODUCT_RULES.md](PRODUCT_RULES.md)).
+**Key fields**: `id, userId? (unique FK, nullable), schoolId?, gradeLevel?, approved (default false)`.
+**Relationships**: `parents` (`ParentStudent[]`), `courseEnrollments`, `skills`, `gradeHistory` (`GradeHistory[]`), `schoolAffiliations` (`StudentSchoolAffiliation[]`, see below).
+**Delete behavior**: cascades from `User` — but only when a `User` row exists to delete in the first place.
+**Notes**: `gradeLevel` is the **legacy free-text grade** — permanently retained as a fallback, no longer written to once a school completes Initial Setup, never scheduled for removal (see [PRODUCT_RULES.md](PRODUCT_RULES.md)). `userId` is nullable, same as `Teacher` above — a `Student` row can exist with no login account. `schoolId`/`approved` are transitional bridge fields; see `StudentSchoolAffiliation` below for the authoritative relationship.
 
 ### `Parent`, `ParentStudent`
 **Purpose**: a parent's linked children. **Currently used**: yes.
 **Constraints**: `@@unique([parentId, studentId])`. Linking requires the child to already exist as a `Student` (matched by email).
 **Delete behavior**: cascades from both sides.
+**Notes**: unlike `Teacher`/`Student`, `Parent.userId` is **required** (`String @unique`, not nullable) — a Parent identity cannot exist without a login account. Parent has no `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`-equivalent of its own; a Parent's institutional context is entirely indirect, through their linked children's own school relationships.
+
+### `TeacherSchoolAffiliation` / `StudentSchoolAffiliation`
+**Purpose**: the actual, authoritative (person, school) institutional relationship — one row per period, not a single field on `Teacher`/`Student`. **Currently used**: yes, live since Phase 3 — 11 `TeacherSchoolAffiliation` rows and 59 `StudentSchoolAffiliation` rows exist in the current database, written by real JOIN/LEAVE/TRANSFER traffic, not test fixtures.
+**Key fields** (identical shape on both): `id, teacherId`/`studentId` (FK), `schoolId` (FK), `status` (`PENDING | ACTIVE | ENDED`, default `PENDING`), `startDate?`, `startDateSource` (`RECORDED | UNKNOWN_MIGRATED`, default `RECORDED`), `endDate?`. `TeacherSchoolAffiliation` additionally carries `position`/`subjects` (legacy/informal, mirroring `Teacher`'s own fields).
+**Constraints**: no database-level uniqueness on the open-affiliation-per-school rule — enforced at the application layer (`src/lib/affiliation.ts`), since an `ENDED` row for the same (person, school) pair must remain legal (that's REJOIN).
+**Delete behavior**: cascades from the `Teacher`/`Student` side; rows are otherwise never deleted — an `ENDED` row is a permanent historical record, not a soft-deleted one.
+**Notes**: written and read by `src/lib/affiliation.ts`'s JOIN/LEAVE/TRANSFER primitives (`createTeacherAffiliation()`/`createStudentAffiliation()`, `endTeacherAffiliation()`/`endStudentAffiliation()`) and by `src/lib/institutionalContext.ts` (`getAccessibleSchools()`/`verifySchoolAccess()`, ACTIVE-only). A person may hold **zero, one, or several** rows at once, in any mix of statuses — Teacher-side simultaneous multi-school (2+ `ACTIVE` rows) is explicitly designed for and tested; Student-side simultaneous multi-school is schema-permitted but not yet a decided product policy (see [KNOWN_GAPS.md](KNOWN_GAPS.md)). `startDate` is never fabricated: `startDateSource: "UNKNOWN_MIGRATED"` honestly marks a row whose real join date was already lost by the time it was migrated, rather than inventing one. My Profile's institutional relationships section (My Profile K1) reads this table directly — including full `ENDED` history — never the `Teacher.schoolId`/`Student.schoolId` bridge fields, and never with a `take: 1` that would drop a second affiliation. See [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md) and [MEGA_ID.md](MEGA_ID.md) for the full behavioral write-up.
 
 ---
 

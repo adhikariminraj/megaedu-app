@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-09-06 (added Homework, Phase 1), against what is actually available in the app today.
+> **Last verified**: 2026-09-07 (added Calendar and the redesigned My Profile), against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -17,10 +17,11 @@
 7. [Report Cards](#7-report-cards)
 8. [Promotion](#8-promotion)
 9. [Dashboards](#9-dashboards)
-10. [Trying MEGA.EDU with Demo Data](#10-trying-megaedu-with-demo-data)
-11. [Certificates and MEGA Academy](#11-certificates-and-mega-academy)
-12. [Frequently Asked Questions](#12-frequently-asked-questions)
-13. [Glossary of Terms](#13-glossary-of-terms)
+10. [Calendar](#10-calendar)
+11. [Trying MEGA.EDU with Demo Data](#11-trying-megaedu-with-demo-data)
+12. [Certificates and MEGA Academy](#12-certificates-and-mega-academy)
+13. [Frequently Asked Questions](#13-frequently-asked-questions)
+14. [Glossary of Terms](#14-glossary-of-terms)
 
 ---
 
@@ -413,17 +414,17 @@ Every promotion decision — for every student, every time — is permanently re
 
 Your dashboard is the control center for everything above — school profile, staff and student approval, sessions, grades and sections, subjects, teacher assignments, attendance, evaluations, meetings, assessments, and promotion, all in one place, organized by tab.
 
-If you administer more than one school, Attendance, Evaluations, Parent-Teacher Meetings, and Grades &amp; Promotion will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)). A few other areas — Initial Setup, Starting a New Session, Assessment Frameworks, and Assessment Results — are still being updated for the multi-school experience.
+If you administer more than one school, Attendance, Evaluations, Parent-Teacher Meetings, Calendar, and Grades &amp; Promotion will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)). A few other areas — Initial Setup, Starting a New Session, Assessment Frameworks, and Assessment Results — are still being updated for the multi-school experience.
 
 ### Teacher
 
 Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, assigning homework, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
 
-If you teach at more than one school, Attendance, Evaluations, and Parent-Teacher Meetings will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)).
+If you teach at more than one school, Attendance, Evaluations, Parent-Teacher Meetings, and Calendar will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)).
 
 ### Switching between schools
 
-If you're connected to more than one school as a School Administrator or Teacher, some areas of your dashboard show a school picker the first time you visit them — pick the one you mean, and MEGA.EDU remembers it for that area until you choose differently. This is rolling out area by area; the areas above already support it, and the rest are still being updated for the multi-school experience in the meantime.
+If you're connected to more than one school as a School Administrator or Teacher, some areas of your dashboard show a school picker the first time you visit them — pick the one you mean, and MEGA.EDU remembers it for that area until you choose differently. This is rolling out area by area; the areas above already support it, and the rest are still being updated for the multi-school experience in the meantime. Your **My Profile** page is different: instead of asking you to pick one school, it simply lists every school you're connected to at once (see [My Profile](#my-profile) below), so there's no "current school" to switch between there.
 
 ### Student
 
@@ -435,21 +436,65 @@ Your dashboard shows, for each of your linked children, the same progress inform
 
 ### My Profile
 
-Every role — School Administrator, Teacher, Student, and Parent — has a **My Profile** page, reachable from the small avatar next to your name in the top menu. It's a simple, focused page: your profile photo, your name, your email, your MEGA ID, your school (where applicable), and your role(s).
+Every role — School Administrator, Teacher, Student, and Parent — has a **My Profile** page, reachable from the small avatar next to your name in the top menu. It answers one question — *who am I in MEGA?* — in four parts:
+
+**My MEGA Identity.** Your photo, your full name, and your **MEGA ID** — your permanent identifier on the network, unaffected by which school you're at or which role you're using — lead the page, with a **Copy MEGA ID** button next to it for pasting into a support request or another system. Your role chip(s) and email follow underneath.
 
 **Your profile photo belongs to your MEGA.EDU identity, and can appear wherever you participate in the network** — your dashboard, class rosters, attendance lists, and anywhere else your identity is shown — the same photo everywhere, because it's one photo attached to your one MEGA ID, not something you set up separately for each role.
 
-**Uploading a photo:** From My Profile, choose **Upload photo** and pick a PNG, JPEG, or WebP image up to 2MB.
+**Uploading a photo:** From My Profile, choose **Upload photo** and pick a PNG, JPEG, or WebP image up to 2MB. **Changing it:** choosing a new photo replaces the old one — no separate "replace" step. **Removing it:** choose **Remove**; MEGA.EDU shows a neat initials badge instead of a blank space (for example, "DA" for Demo Admin), colored consistently just for you.
 
-**Changing your photo:** Choosing a new photo replaces the old one — there's no separate "replace" step, just upload again.
+**My Institutional Relationships.** Every school you're currently — or were previously — affiliated with, each shown with the school's name, your role there, its status (**ACTIVE**, **PENDING**, or **ENDED**), and the relevant dates. An ended relationship stays visible, visually muted so it never looks like a current one — your institutional history isn't hidden just because it's over. If a start date genuinely was never recorded, this section says so plainly ("Start date not recorded") rather than showing a date that isn't real. If you administer more than one school, every one of them appears here, not just one.
 
-**Removing your photo:** Choose **Remove** to clear it. There's nothing wrong with not having a photo — see below.
+**Security &amp; Account.** Your password, kept separate from your identity information. See [Changing your password](#changing-your-password) below.
 
-**No photo yet?** You're not left with a blank space — MEGA.EDU shows a neat initials badge instead (for example, "DA" for Demo Admin), colored consistently just for you, so you're always recognizable even before you've uploaded anything.
+**Addresses.** Your Current and Permanent address, shown as a compact one-line summary (e.g. "Kathmandu, Bagmati Province") with an **Edit** link — choosing it opens the full address form; saving collapses it back to a summary. If you haven't added an address yet, you'll see "No address added" with an **Add address** link instead.
+
+#### Changing your password
+
+From My Profile's Security &amp; Account section, enter your current password and a new one (at least 8 characters) to change it. You'll need to get your current password right first — MEGA.EDU won't accept a change without it. **Demo accounts cannot change their password** — every demo account shares one password so anyone trying MEGA.EDU can log in with it, and letting one visitor change it would lock everyone else out; My Profile tells you this plainly if you're using one. Password reset/recovery for a forgotten password is **(Coming later)** — not available today, for any account.
 
 ---
 
-## 10. Trying MEGA.EDU with Demo Data
+## 10. Calendar
+
+Every role has a Calendar — public visitors get a simpler version too. It's built from things that already exist elsewhere in MEGA.EDU (holidays, school events, homework due dates, meetings, academic session dates) shown together in one place, plus a school's own planned dates (vacations, exams, PTM days, result days) laid over the top.
+
+### Two ways to view it
+
+**Annual** (the default view you see first) shows a full year as twelve month cards — a real, correctly-aligned calendar grid for each month, with important dates highlighted and a compact list of that month's holidays/events underneath. **Agenda** switches to a simple upcoming list — roughly your next 30 days, one item at a time, in order. Switch between them any time with the toggle at the top; both show the same information, just organized differently.
+
+### Understanding the colors (Day Status)
+
+The background color behind a date tells you what *kind* of day it is, at a glance:
+
+- 🔵 **Blue** — a public holiday (a national holiday, from MEGA.EDU's Nepal calendar).
+- 🟢 **Green** — a school vacation/break.
+- 🟠 **Orange/amber** — an examination period at your school.
+- ⚪ **Gray** — a regular Saturday (Nepal's weekly day off).
+- No color — an ordinary school day.
+
+A legend above the calendar explains these colors. If two things fall on the same date — say, a public holiday that lands on a Saturday — the calendar shows the more specific one (the public holiday) rather than blending the colors together. The color is separate from what's actually happening that day: a date can be an ordinary school day and still have a Result Day, a Parent-Teacher Meeting, and homework due, all listed underneath it.
+
+### What you'll see, by role
+
+- **Everyone** sees Nepal's national holidays and observances (the "General Calendar") — this part never requires being logged in.
+- **School Administrators and Teachers** additionally see their school's own Events, planned Vacations/Examinations/PTM dates/Result Days, every Parent-Teacher Meeting and homework item at the school (Teachers see only their own), and Academic Session start/end dates. If you administer or teach at more than one school, use the school picker the same way you do for Attendance and Evaluations.
+- **Students** see the General Calendar, their school's Events and planned dates, and their own published homework — never Parent-Teacher Meetings, which stay strictly a staff/parent matter.
+- **Parents** see all of the above for each linked child, clearly labeled with the child's name wherever an item is specific to them (e.g. "Anita — Mathematics Homework") so you always know whose item you're looking at. A school-wide item (like an Event or a Vacation) appears once per school, even if you have two children at the same school.
+- **Public visitors** (no login) see the General Calendar plus, after searching for and selecting a specific verified school, that school's public Events.
+
+### Managing School Events and School Calendar dates (School Administrators)
+
+From your school's Calendar page, **+ Add Event** creates a one-time school event (a title, date, optional time, and location). **+ Add School Calendar Entry** creates a planned date — a Vacation or Examination period (pick a start and end date), or a one-day PTM/Result Day/Report Card Distribution date. Both lists below their respective buttons let you **Edit** or **Deactivate** anything you've created — deactivating removes it from the calendar without deleting the record.
+
+### What's not here yet (Coming later)
+
+A Bikram Sambat (BS) date alongside the Gregorian date, recurring/repeating events, calendar notifications or reminders, syncing to Google Calendar or another calendar app, filtering by grade/section/subject, and an Organization-level calendar are all planned for later, not available today.
+
+---
+
+## 11. Trying MEGA.EDU with Demo Data
 
 MEGA.EDU includes a realistic, fully fictional demonstration environment — a ready-made example of the platform in use, so you can explore how schools, teachers, students, parents, classes, assessments, and results all fit together without needing to set any of it up yourself first.
 
@@ -459,7 +504,7 @@ If your organization is evaluating MEGA.EDU or training new staff, ask your syst
 
 ---
 
-## 11. Certificates and MEGA Academy
+## 12. Certificates and MEGA Academy
 
 ### What's actually available today
 
@@ -474,7 +519,7 @@ If your organization is evaluating MEGA.EDU or training new staff, ask your syst
 
 ---
 
-## 12. Frequently Asked Questions
+## 13. Frequently Asked Questions
 
 **Q: Can a student see their marks before they're published?**
 No. A mark that's been entered but not yet published is completely invisible to the student and their parent — only staff can see draft marks.
@@ -516,11 +561,17 @@ Not yet — only free courses can currently be enrolled in.
 No — it's simply each student's position in the list within their section, recalculated every time the page is viewed. It isn't stored anywhere as a permanent student record.
 
 **Q: I work at more than one school — how do I switch between them?**
-In an area that supports it (Attendance, Evaluations, Parent-Teacher Meetings, Grades &amp; Promotion), you'll see a school picker the first time you visit it there; choosing a school is remembered for that area afterward. Areas that haven't been updated for multi-school yet are still being worked on — see [Switching between schools](#switching-between-schools).
+In an area that supports it (Attendance, Evaluations, Parent-Teacher Meetings, Calendar, Grades &amp; Promotion), you'll see a school picker the first time you visit it there; choosing a school is remembered for that area afterward. Areas that haven't been updated for multi-school yet are still being worked on — see [Switching between schools](#switching-between-schools). My Profile is the one exception — it lists every school you're connected to at once instead of asking you to pick.
+
+**Q: What is my MEGA ID, and can I get another one?**
+Your MEGA ID is your single account — you already have exactly one, visible on your My Profile page with a Copy button next to it. You don't get a separate one for each role or each school; the same MEGA ID works everywhere on the network, across every role you hold.
+
+**Q: Why does my Calendar show a green or orange background on some dates?**
+That's the day's status — green means a school vacation, orange/amber means an examination period, blue means a public holiday, and gray means a regular Saturday. See [Understanding the colors](#understanding-the-colors-day-status) in the Calendar section.
 
 ---
 
-## 13. Glossary of Terms
+## 14. Glossary of Terms
 
 | Term | Meaning |
 |---|---|
@@ -535,6 +586,9 @@ In an area that supports it (Attendance, Evaluations, Parent-Teacher Meetings, G
 | **Promotion** | The end-of-year decision: promote, repeat, transfer, or leave |
 | **Class Overview** | The page showing everyone currently in a grade, grouped by section, with rankings |
 | **Assessment Framework** | A school's marking scheme — the assessments, their full marks, and how results are shown |
+| **Day Status** | The background color behind a Calendar date, showing what kind of day it is (public holiday, vacation, examination, regular Saturday, or an ordinary day) |
+| **Annual / Agenda** | Calendar's two views — Annual shows a full 12-month grid, Agenda shows a simple upcoming list |
+| **School Calendar Entry** | A school's own planned Vacation, Examination period, PTM date, Result Day, or Report Card Distribution date, set by a School Administrator |
 | **Grading Scale** | The table that converts a percentage into a letter grade |
 | **Publish** | The action that makes a subject's results visible to students and parents |
 | **GPA** | An unweighted average of a student's subject grades |

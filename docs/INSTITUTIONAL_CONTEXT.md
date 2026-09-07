@@ -1,7 +1,7 @@
 # Institutional Context
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-05 (Phase 4, all sub-phases through 4D-4), against the current codebase.
+> Last verified: 2026-09-07 (My Profile Kilometer 1), against the current codebase.
 
 ## Why this exists ✅
 
@@ -64,4 +64,6 @@ A page or feature that needs "which school does this person mean" falls into one
 
 ## What's still on the legacy pattern 🔭
 
-See [KNOWN_GAPS.md](KNOWN_GAPS.md) for the full, current list — in short: Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the profile pages still resolve school context via a plain `findFirst()` pick rather than one of the three patterns above. This is in-progress migration debt, not a security gap — every write route independently re-checks ownership of the specific resource being changed regardless of which school the page happened to display.
+See [KNOWN_GAPS.md](KNOWN_GAPS.md) for the full, current list — in short: Initial Setup, New Session, Assessment Frameworks, and Assessment Results still resolve school context via a plain `findFirst()` pick rather than one of the three patterns above. This is in-progress migration debt, not a security gap — every write route independently re-checks ownership of the specific resource being changed regardless of which school the page happened to display.
+
+`/dashboard/profile` (My Profile K1) is no longer on this list — it doesn't need a chooser pattern in the first place: rather than resolving "which one school does this person mean" and picking one, it reads every `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` row for the caller directly and shows the complete set (see [MEGA_ID.md](MEGA_ID.md), "Where MEGA ID surfaces elsewhere").

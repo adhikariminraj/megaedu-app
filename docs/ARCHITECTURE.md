@@ -1,7 +1,7 @@
 # Architecture
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-05 (Phase 4D — institutional context migration), against the current codebase.
+> Last verified: 2026-09-07 (Calendar Kilometer 1.2, My Profile Kilometer 1), against the current codebase.
 
 ## High-level shape ✅
 
@@ -29,7 +29,8 @@ src/
   lib/                 # server-side helpers: auth, authorize, prisma, notify,
                         # certificates, certificateView, gradeHistory,
                         # gradeMatching, gradeRollover, affiliation,
-                        # institutionalContext
+                        # institutionalContext, calendar, events, schoolCalendar,
+                        # homework, academicProgress, profile
   types/               # ambient type augmentation (next-auth.d.ts)
 prisma/
   schema.prisma        # single source of truth for the data model
@@ -93,7 +94,7 @@ A recurring, deliberate decision (see [PRODUCT_RULES.md](PRODUCT_RULES.md)): for
 
 All five follow the same shape: typed input, optional `tx?: Prisma.TransactionClient` for composing into a larger transaction, transactional by default otherwise.
 
-Other `lib` modules: **`auth.ts`** (NextAuth config), **`authorize.ts`** (the `requireX` guard suite — see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)), **`affiliation.ts`** (Phase 3/4 — the JOIN/LEAVE/TRANSFER primitives behind `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`; throws `AffiliationError` rather than returning it, so a caller composing these inside a Prisma `$transaction` gets a real rollback), **`institutionalContext.ts`** (Phase 4D — `getAccessibleSchools()`/`verifySchoolAccess()`, see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)), **`prisma.ts`** (singleton client), **`notify.ts`** (best-effort notifications, never allowed to fail the calling action), **`certificateView.ts`** (pure view-model builder, no live text lookups), **`gradeMatching.ts`** (`matchLegacyGradeText()` — never guesses, returns `null`).
+Other `lib` modules: **`auth.ts`** (NextAuth config), **`authorize.ts`** (the `requireX` guard suite — see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)), **`affiliation.ts`** (Phase 3/4 — the JOIN/LEAVE/TRANSFER primitives behind `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`; throws `AffiliationError` rather than returning it, so a caller composing these inside a Prisma `$transaction` gets a real rollback), **`institutionalContext.ts`** (Phase 4D — `getAccessibleSchools()`/`verifySchoolAccess()`, see [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md)), **`prisma.ts`** (singleton client), **`notify.ts`** (best-effort notifications, never allowed to fail the calling action), **`certificateView.ts`** (pure view-model builder, no live text lookups), **`gradeMatching.ts`** (`matchLegacyGradeText()` — never guesses, returns `null`), **`calendar.ts`/`events.ts`/`schoolCalendar.ts`** (Calendar K1/1.1/1.2 — the `CalendarItem` projection, source adapters, and the independent Day Status resolution layer, see [CALENDAR.md](CALENDAR.md)), **`profile.ts`** (My Profile K1 — pure, read-only shaping of `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` rows into a display list; no query, no authorization of its own).
 
 ## Major application modules and how they relate ✅
 

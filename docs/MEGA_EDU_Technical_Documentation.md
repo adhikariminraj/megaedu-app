@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-09-06 (Homework, Phase 1 — added on top of Phase 4D), against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-07 (Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1 — added on top of Homework Phase 1/Phase 4D), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -28,6 +28,7 @@
 16. [Parent–Teacher Meetings](#16-parentteacher-meetings)
 17. [Unit Tests](#17-unit-tests)
     - [17a. Homework — Phase 1](#17a-homework--phase-1)
+    - [17b. Calendar — Kilometer 1 / 1.1 / 1.2](#17b-calendar--kilometer-1--11--12)
 18. [Assessment Framework System](#18-assessment-framework-system)
 19. [Assessment Results & Publishing Workflow](#19-assessment-results--publishing-workflow)
 20. [Grading & GPA Calculations](#20-grading--gpa-calculations)
@@ -56,7 +57,7 @@
 
 This document is a single technical reference for MEGA.EDU, consolidating the detailed, individually-verified documents already maintained under `/docs` (each covering one subsystem in depth) into one narrative a new developer, system administrator, or maintainer can read top to bottom. It does not replace those documents — it cross-references them throughout, and the reader is expected to follow those links for full implementation detail (exact request/response shapes, full verification evidence, field-by-field schema notes). This document is the map; the individual `/docs` files are the territory.
 
-Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard**, **Class Overview** enhancements, the **School Logos & User Profile Photos** identity system, and, most recently, **Homework, Phase 1** ([§17a](#17a-homework--phase-1)). Nothing here is invented, and nothing planned is described as available today — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
+Everything below reflects the system **as implemented and verified**, as of the phases completed through **Phase 3D-2/3/4** (Assessment Results, Publishing, Report Cards) plus the subsequent **guided Assessment Wizard**, **Class Overview** enhancements, the **School Logos & User Profile Photos** identity system, **Homework, Phase 1** ([§17a](#17a-homework--phase-1)), and, most recently, **Calendar, Kilometer 1/1.1/1.2** ([§17b](#17b-calendar--kilometer-1--11--12)) and **My Profile, Kilometer 1** ([§24](#24-school-logos--user-profile-photos)). Nothing here is invented, and nothing planned is described as available today — see [§37](#37-known-gaps--deliberate-out-of-scope-decisions) for what is deliberately out of scope versus genuinely missing.
 
 ---
 
@@ -493,7 +494,11 @@ verifySchoolAccess(userId: string, schoolId: string): Promise<{ role: "SCHOOL_AD
 
 ### What's still on the legacy pattern
 
-Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the profile pages still resolve school context via a plain `findFirst()` pick — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed). See [§37](#37-known-gaps--deliberate-out-of-scope-decisions).
+Initial Setup, New Session, Assessment Frameworks, and Assessment Results still resolve school context via a plain `findFirst()` pick — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed). See [§37](#37-known-gaps--deliberate-out-of-scope-decisions). `/dashboard/profile` is no longer on this list (see §24) — it doesn't need a chooser at all, since it shows every affiliation/administered-school row for the caller at once rather than resolving to one "current" school.
+
+### Where this surfaces in the product — My Profile (My Profile K1)
+
+`/dashboard/profile`'s **My Institutional Relationships** section is the first UI in the product to read `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` directly and present them to the person they're about — every relationship, including `ENDED` history, with dates rendered honestly (`startDateSource: "UNKNOWN_MIGRATED"` shows as "Not recorded," never a fabricated date). This is a pure read/presentation layer: it introduces no new query pattern beyond a `prisma.user.findUnique` with the relevant relations included, and does not touch `src/lib/affiliation.ts` or `institutionalContext.ts`. See §24.
 
 ---
 
@@ -676,6 +681,38 @@ Added for the Student Profile page (`/dashboard/students/[studentId]`) — skips
 - **Deliberately out of scope for Phase 1** (see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)): submissions, attachments, grading, rubrics, feedback, discussion, plagiarism checking, analytics, reminders/notifications on publish, upcoming/past views, and a School-Admin-authors-on-behalf-of-teacher flow.
 
 *(Source: [HOMEWORK.md](HOMEWORK.md))*
+
+---
+
+## 17b. Calendar — Kilometer 1 / 1.1 / 1.2
+
+*(Source: [CALENDAR.md](CALENDAR.md))*
+
+A **projection layer**, never a second source of truth — no `CalendarEvent` model exists. `CalendarItem` (`src/lib/calendar.ts`) is a plain TypeScript shape assembled by source-specific adapter functions from already-authoritative models: `GeneralCalendarEntry` (new, network-wide reference dates), `Event` (pre-existing, previously had no write path at all — confirmed zero rows in every environment before Kilometer 1), `ParentTeacherMeeting`, `Homework`, `AcademicSession`, and `SchoolCalendarEntry` (new, Kilometer 1.1). Every item is traceable back to its real source row.
+
+### Day Status — an independent layer from Activities
+
+Kilometer 1.1 added **Day Status** ("what kind of day is this?"), deliberately never merged into `CalendarItem` ("what happens on this day?"). `resolveDayStatuses(schoolId, window)` (`src/lib/schoolCalendar.ts`) resolves exactly one dominant value per date — `SPECIAL_CLOSURE > EXAMINATION > VACATION > PUBLIC_HOLIDAY > WEEKLY_HOLIDAY`, no blended/dual-color treatment — from `SchoolCalendarEntry` ranges, `GeneralCalendarEntry` rows where `type === "NATIONAL_HOLIDAY"` only (`OBSERVANCE`/`MEGA_WIDE_EVENT` never set a status — an observance never implies school is closed), and a computed weekly holiday (Saturday, hardcoded — no `School` field, no per-school configuration). A Parent whose children attend different schools gets each school's statuses resolved independently, then merged with the same priority (`mergeDayStatuses()`). Kilometer 1.2 gave each status a distinct color family (blue/emerald/amber-200/slate/rose) after the original palette (several pale near-identical neutrals) proved too subtle in a dense grid — visual-only, no change to the resolution logic or priority order.
+
+### `SchoolCalendarEntry` (Kilometer 1.1)
+
+One new model covering six categories: `VACATION`/`EXAMINATION`/`SPECIAL_CLOSURE` (date ranges, `affectsDayStatus: true`) and `PTM`/`RESULT_DAY`/`REPORT_CARD_DISTRIBUTION` (single-date point activities, `affectsDayStatus: false`). `affectsDayStatus` is **server-derived from `category` alone** (`resolveSchoolCalendarEntryDates()`) and never accepted from the client, even if supplied — verified live: a request sending `{category:"PTM", affectsDayStatus:true}` is stored with `affectsDayStatus:false`. School-Admin-only write path (`POST`/`PATCH /api/schools/[id]/school-calendar[/entryId]`), soft-deactivate only, no `DELETE` — mirrors `Event`'s exact write-path shape. Deliberately not where individual `ParentTeacherMeeting` appointments, `UnitTest` dates, or `AssessmentPeriod` live.
+
+### Role-aware aggregation, authorization, and links
+
+School Admin/Teacher reach Calendar via `/dashboard/schools/[schoolId]/calendar`, gated by `verifySchoolAccess()` ([§10a](#10a-institutional-affiliation--context-architecture)) exactly like Attendance/Homework/Meetings. Student/Parent resolve their own scope from session identity (`/dashboard/calendar`, no schoolId in the URL). Parent aggregation carries two optional `CalendarItem` fields, `childId`/`childName`, populated only for genuinely per-student sources (Homework, individual `ParentTeacherMeeting`) — school-wide sources (Events, `SchoolCalendarEntry`, Academic Session boundaries) are fetched once per **distinct school**, never once per child, so two siblings at the same school never see that school's Events/Vacation/Exam dates doubled. (A real bug in this exact area — a shared Homework row producing two `CalendarItem`s with a colliding id — was caught and fixed by qualifying the id with the child id when attributed.) Public `/calendar` shows General Calendar unconditionally plus a search-first, single-school-bounded institutional section — replacing the pre-K1 unscoped `prisma.event.findMany({take:50})`, which would have starved smaller schools out of visibility at scale. `CalendarItem.link` points only at real, already-existing destinations (Homework → the school's Homework page for Teacher/Admin; `ParentTeacherMeeting` → `/dashboard/meetings?teacher=<id>`; `RESULT_DAY`/`REPORT_CARD_DISTRIBUTION` → the existing `/dashboard/report-card/[studentId]` for Student/Parent) — never an invented page.
+
+### Views
+
+**Annual** (default) — 12 static month cards (`CalendarAnnual.tsx`), `Date.UTC`-based grid math (`src/lib/monthGrid.ts`), Day Status background plus the existing per-item activity dot/number treatment layered on top, one always-visible legend. **Agenda** — the original chronological list (`CalendarAgenda.tsx`, unmodified since Kilometer 1), kept to its own ~30-day upcoming window regardless of how wide the Annual view's shared fetch is — both views render from the same fetched `CalendarItem[]`, no second query. Neither is an interactive drag/drop scheduling grid.
+
+### Event management
+
+School-Admin-only `POST`/`PATCH /api/schools/[id]/events[/eventId]` (Kilometer 1) — Create, Edit, and soft-Deactivate (`isActive:false`), no `DELETE` route. `CalendarEventForm.tsx` (Kilometer 1.1) exposes Edit/Deactivate for the school's own upcoming Events; `SchoolCalendarManager.tsx` provides the equivalent for `SchoolCalendarEntry`. Both are deliberately kept out of `CalendarAnnual`/`CalendarAgenda`, which stay display-only and shared by every role.
+
+### Deliberately out of scope
+
+BS↔AD conversion of any kind (`GeneralCalendarEntry.bsDateDisplay` remains a plain, unpopulated display string — no library installed, no fabricated value), Grade/Section/Subject or category filtering on the Admin Calendar, per-school configurable weekly holiday days, blended Day Status treatment, recurring events, calendar sync/export/subscriptions, notifications, an interactive Week/Day scheduling grid, and Organization Calendar (Organizations have no institutional-context parity with Schools — see [§10a](#10a-institutional-affiliation--context-architecture), [§37](#37-known-gaps--deliberate-out-of-scope-decisions)). The seeded `GeneralCalendarEntry` reference data covers September–December 2026 only and rests on a secondary source (`qppstudio.net`, cross-referenced) — not yet confirmed against the Nepal Panchanga Nirnayak Bikash Samiti or Ministry of Home Affairs gazette, and never described as final.
 
 ---
 
@@ -872,9 +909,16 @@ One shared component renders both people and schools, with a deliberate visual d
 - **People** — a circular avatar. With no photo, a deterministic two-letter initials badge (first + last name initial) in one of the five brand accent colors, chosen by hashing the person's name — the same person always gets the same color, no randomness.
 - **Schools** — a softly rounded-square "institution mark," bordered, always a fixed white-background/navy-text treatment (not the person palette) — both to read as distinctly institutional rather than personal, and so the fallback stays legible even placed on a navy background (e.g. the school profile page's hero band), where a randomly-assigned navy fallback would otherwise be invisible.
 
-### `/dashboard/profile` — the My Profile page
+### `/dashboard/profile` — My Profile (My Profile K1)
 
-A new, deliberately minimal self-service page — available to any authenticated role — showing the caller's photo (with upload/replace/remove via `ProfilePhotoManager.tsx`), name, email, MEGA ID, linked school (where applicable), and role(s). Reachable from a small avatar/"My Profile" link in `SiteHeader.tsx`. Not a full account-management surface — no password change or editable name/email exist here; this is a foundation for future MEGA ID profile work, not that work itself.
+A self-service page, available to any authenticated role, structured into four sections — identity, institutional relationships, security, and addresses — deliberately not a dashboard (no Homework/Meetings/Calendar/Attendance content lives here):
+
+- **My MEGA Identity** — photo (upload/replace/remove via `ProfilePhotoManager.tsx`), full name, `MEGA ID` (`user.id`, unchanged) with a client-side **Copy MEGA ID** button (`CopyMegaId.tsx` — `navigator.clipboard.writeText`, falling back to a hidden-textarea `execCommand('copy')`, no server round trip), role chip(s), and email.
+- **My Institutional Relationships** (new) — reads `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` directly (`src/lib/profile.ts`'s `buildInstitutionalRelationships()`), never the legacy `Teacher.schoolId`/`Student.schoolId` bridge fields and never with a `take: 1` — every relationship shows, `ACTIVE`/`PENDING`/`ENDED` alike, including full history. A School Admin's every administered school shows, not one arbitrarily picked. Dates are never fabricated: `startDateSource: "UNKNOWN_MIGRATED"` renders as "Not recorded." Organization relationships are deliberately not shown (see §10a and §37 — `OrganizationAdmin`/`OrganizationAccountant` have no equivalent status/date/context layer yet).
+- **Security & Account** — the existing `ChangePasswordManager.tsx`/`POST /api/user/password`, unmodified, now under its own heading. Current-password verification, ≥8-character minimum, `bcrypt`, session-scoped authorization, and the demo-account restriction (`isDemoAccountEmail()`, `@megaedu.local` domain, checked server-side) are all unchanged by this kilometer.
+- **Addresses** — Current/Permanent, collapsed to a one-line summary (`District, Province`) by default, expanding into the existing `AddressForm`/`AddressCard` (byte-identical, untouched) only on Edit, collapsing again after save. Same `PATCH /api/me/address` write path, same Province→District→LocalLevel→Ward cascade, address ownership unchanged (still `User`, not `Student`/`Teacher`).
+
+No new API route was added for the relationships section — it's read server-side, scoped to the session's own `userId`, inside the page component itself. No schema structure change; three stale schema comments claiming this affiliation data was unused ("Phase 1 schema foundation only... nothing reads or writes these yet") were corrected as part of this kilometer. Reachable from a small avatar/"My Profile" link in `SiteHeader.tsx`.
 
 *(Source: `src/lib/uploads.ts`, `src/components/Avatar.tsx`, `src/app/api/schools/[id]/logo/route.ts`, `src/app/api/user/avatar/route.ts`, `src/app/dashboard/profile/page.tsx`)*
 
@@ -1161,6 +1205,28 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | Upcoming/past views | Only "due today" is surfaced; `fetchTodaysHomework()`'s exact-match `dueDate` query would need to become a range query |
 | Admin-on-behalf-of-teacher authoring | Unlike Evaluations/`TeachingUnit`; `Homework.teacherId` is a real, non-nullable `Teacher` FK and Phase 1 has no approved flow for it |
 
+### 🔭 Calendar (Kilometer 1 / 1.1 / 1.2) — deliberate scope decisions
+
+| Area | Deferred item |
+|---|---|
+| Nepali calendar | BS↔AD conversion of any kind — no library installed, `bsDateDisplay` remains unpopulated, no date is computed or fabricated |
+| General Calendar data | Seeded reference dates cover September–December 2026 only, resting on a secondary source not yet confirmed against NPNS/MoHA |
+| Filtering | No Grade/Section/Subject or category filtering on the Admin Calendar |
+| Weekly holiday | Hardcoded to Saturday — no `School` field, no per-school configuration |
+| Day Status | Overlapping statuses never blend — one dominant value only, by fixed priority |
+| Organization Calendar | Organizations have no institutional-context parity with Schools — no affiliation-status table, no `verifyOrgAccess()` |
+| Interaction model | Recurring events, calendar sync/export/subscriptions, notifications, an interactive Week/Day scheduling grid, drag/drop |
+
+### 🔭 My Profile (Kilometer 1) — deliberate scope decisions
+
+| Area | Deferred item |
+|---|---|
+| Identity architecture | No true `Person` layer — MEGA ID remains `User.id`; a `Teacher`/`Student` with `userId: null` has no MEGA ID today |
+| Organization relationships | Not shown — `OrganizationAdmin`/`OrganizationAccountant` have no status/date columns or institutional-context layer, the same gap Calendar K1.1 deferred |
+| Account settings | No preferences, privacy, or notification settings — Profile is identity/account/security/relationships/addresses only |
+| Auth features | No Forgot Password, MFA, or session/device management — covered platform-wide under Auth above, not reintroduced here as if newly discovered |
+| School Admin history | `SchoolAdmin` has no `status`/`startDate`/`endDate` — a row's existence is the entire relationship; no historical join/leave record possible |
+
 ### 🟡 Designed but not implemented
 
 - Grade-based certificates (a reserved field exists on `Certificate`, but no issuance path).
@@ -1169,7 +1235,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 
 | Gap | Detail |
 |---|---|
-| Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern | Initial Setup, New Session, Assessment Frameworks, Assessment Results, and the profile pages still use a plain `findFirst({ userId })` pick rather than one of the three proven migration patterns ([§10a](#10a-institutional-affiliation--context-architecture)) — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed) |
+| Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern | Initial Setup, New Session, Assessment Frameworks, and Assessment Results still use a plain `findFirst({ userId })` pick rather than one of the three proven migration patterns ([§10a](#10a-institutional-affiliation--context-architecture)) — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed). `/dashboard/profile` is no longer on this list — My Profile K1 shows every affiliation/administered-school row at once rather than resolving to a single "current" school, so it never needed the chooser pattern in the first place |
 | Organization Admin has the identical arbitrary-pick gap | Every Organization Admin page resolves its organization via `organizationAdmin.findFirst({ userId })` — Phase 4D's institutional-context work was scoped to Schools only; a parallel Organization-side initiative would be needed |
 | Student simultaneous multi-school affiliation is an undecided product policy | `StudentSchoolAffiliation` permits 2+ simultaneous `ACTIVE` rows (schema-unrestricted, mirroring Teacher), but unlike Teacher this has never been explicitly designed for, tested, or business-approved — nothing blocks it today, nothing was built assuming it happens |
 
@@ -1195,6 +1261,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [ACADEMIC_OPERATIONS.md](ACADEMIC_OPERATIONS.md) | Grade Coordinators/Class Teachers, Attendance, Teaching Units, Unit Tests (Phase 3B) |
 | [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md) | Evaluations, Parent-Teacher Meetings (Phase 3C) |
 | [HOMEWORK.md](HOMEWORK.md) | Homework model, Draft/Published lifecycle, date semantics, teacher authorization, Student/Parent visibility (Phase 1) |
+| [CALENDAR.md](CALENDAR.md) | Calendar as a projection layer, Day Status vs Activities, `SchoolCalendarEntry`, role-aware aggregation, Annual/Agenda views, links (Kilometer 1/1.1/1.2) |
 | [ASSESSMENT_FRAMEWORK.md](ASSESSMENT_FRAMEWORK.md) | Framework/grading-scale configuration, the guided wizard (Phase 3D-1) |
 | [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md) | Marks entry, publishing, calculation engine, Report Card (Phase 3D-2/3/4) |
 | [CERTIFICATES.md](CERTIFICATES.md) | Certificate model, issuance, display |
@@ -1207,4 +1274,4 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | [TESTING.md](TESTING.md) | Verification practice, seeded demo accounts |
 | [DEMO_DATA.md](DEMO_DATA.md) | The full demo/sample environment: schools, accounts, login info, seed/reset/verify commands |
 
-**Note on the prior technical PDF**: `docs/MEGA_EDU_Technical_Documentation.pdf` predates Phases 3A–3D and the guided wizard/Class Overview work (last touched 2026-08-28). This Markdown document supersedes it as the current technical reference; the PDF has been left in place rather than deleted, since removing it was outside the scope of this task.
+**Note on the generated PDF snapshots**: `docs/MEGA_EDU_Technical_Documentation_YYYY-MM-DD.pdf` (dated snapshots exist for 2026-08-31, 2026-09-01, and 2026-09-05) are generated exports of this Markdown document at a point in time — this Markdown file is the source and the current technical reference; a dated PDF reflects whatever this file said as of its own date and is not updated retroactively. The two most recently dated snapshots (`2026-08-31` and, per current protection policy, any other already-generated dated snapshot) are treated as protected artifacts and must never be regenerated, modified, or replaced as a side effect of editing this source file — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md). As of this edit, no dated snapshot yet reflects Calendar (Kilometer 1/1.1/1.2) or My Profile (Kilometer 1) — regenerating a new dated snapshot from this file is a separate, explicitly-authorized action, not implied by updating the source.

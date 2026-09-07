@@ -1,7 +1,7 @@
 # Calendar
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-07 (Calendar — Kilometer 1.1), against the current codebase.
+> Last verified: 2026-09-07 (Calendar — Kilometer 1.2), against the current codebase.
 
 ## The fundamental concept ✅
 
@@ -66,6 +66,7 @@ School-Admin-only write path (`POST`/`PATCH /api/schools/[id]/school-calendar[/e
 Two deliberately separate concepts, never collapsed into one:
 
 - **Day Status** — "what kind of day is this?" One resolved value per date (`SPECIAL_CLOSURE | EXAMINATION | VACATION | PUBLIC_HOLIDAY | WEEKLY_HOLIDAY`, or none = a regular day), computed by `resolveDayStatuses(schoolId, window)` (`src/lib/schoolCalendar.ts`) from `SchoolCalendarEntry` ranges, `GeneralCalendarEntry` rows where `type === "NATIONAL_HOLIDAY"` only, and a computed weekly holiday (Saturday, hardcoded — no `School` field, no per-school configuration in this kilometer). **`OBSERVANCE`/`MEGA_WIDE_EVENT` General Calendar entries never set a Day Status** — an observance never implies school is closed. Controls only the Annual view's cell background.
+- **Color families (Kilometer 1.2)** — the original K1.1 palette (several pale, near-identical neutrals) proved too subtle in a dense annual grid; each status now gets its own genuinely distinct color family, not just a different shade: Public Holiday → blue (`bg-blue-100`), Vacation → green/emerald (`bg-emerald-100`), Examination → amber/orange (`bg-amber-200`), Weekly Holiday → slate/gray (`bg-slate-100`, the lightest of the four since it recurs every week), Special Closure → rose/red (`bg-rose-100`). A Vacation/Examination range renders as one continuous rounded band across its date span, computed purely from neighboring dates in the already-resolved map — no separate range metadata is stored. The legend (see Views below) uses the same colors as circular swatches, never a separate palette of its own.
 - **Activities** — "what happens on this day?" The existing `CalendarItem[]` projection, unchanged in shape, now including `SchoolCalendarEntry`-sourced items too.
 
 Overlapping statuses resolve to exactly **one** dominant value via a fixed priority order (`SPECIAL_CLOSURE > EXAMINATION > VACATION > PUBLIC_HOLIDAY > WEEKLY_HOLIDAY`) — no blended/dual-color treatment. A Parent whose linked children attend different schools gets each school's statuses resolved independently and then merged with that same priority (`mergeDayStatuses()`).
@@ -112,7 +113,7 @@ School Admin/Teacher reach Calendar via `/dashboard/schools/[schoolId]/calendar`
 
 ## Views ✅
 
-**Annual** (default) — 12 static month cards (`CalendarAnnual.tsx`), computed with `Date.UTC`-based grid math (`src/lib/monthGrid.ts`), never a manually-constructed date. Each cell shows the Day Status background (see above) plus the existing per-item number/dot activity treatment on top. A restrained, always-visible legend explains the four Day Status colors. **Agenda** — the original chronological list (`CalendarAgenda.tsx`, unchanged), kept to its own concise ~30-day upcoming window (`CalendarView.tsx`) regardless of how wide the Annual view's shared fetch is — both views render from the exact same fetched `CalendarItem[]`, no second query. Neither is an interactive drag/drop scheduling grid — both stay read-only, matching the "educational calendar, not a generic calendar platform" goal. All-day items show no time; timed items show an explicit `Asia/Kathmandu`-anchored time, matching `TeacherTodayPanel`'s already-proven convention.
+**Annual** (default) — 12 static month cards (`CalendarAnnual.tsx`), computed with `Date.UTC`-based grid math (`src/lib/monthGrid.ts`), never a manually-constructed date. Each cell shows the Day Status background (see "Color families" above) plus the existing per-item number/dot activity treatment on top. A restrained, always-visible legend (circular color swatches, matching the cell colors exactly) explains the four Day Status colors. **Agenda** — the original chronological list (`CalendarAgenda.tsx`, unchanged), kept to its own concise ~30-day upcoming window (`CalendarView.tsx`) regardless of how wide the Annual view's shared fetch is — both views render from the exact same fetched `CalendarItem[]`, no second query. Neither is an interactive drag/drop scheduling grid — both stay read-only, matching the "educational calendar, not a generic calendar platform" goal. All-day items show no time; timed items show an explicit `Asia/Kathmandu`-anchored time, matching `TeacherTodayPanel`'s already-proven convention.
 
 ## Timezone discipline ✅
 

@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-30 (Phase 3D-2/3/4 — Assessment Results, Publishing, Report Cards), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-09-07 (Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -20,8 +20,12 @@ All routes are ✅ implemented. "Auth" means the caller must be logged in (`getS
 
 | Method | Endpoint | Purpose | Auth | Authz | Notes |
 |---|---|---|---|---|---|
-| `POST` | `/api/teacher/join-school` | Affiliate/re-affiliate a teacher with a school | ✅ | inline (own `Teacher` row) | Resets `approved: false` |
-| `POST` | `/api/student/join-school` | Affiliate/re-affiliate a student | ✅ | inline | Resets `approved: false` |
+| `POST` | `/api/teacher/join-school` | JOIN — creates a new `PENDING` `TeacherSchoolAffiliation` | ✅ | inline (own `Teacher` row) | Resets `approved: false`; does not touch any other affiliation the teacher already has elsewhere |
+| `POST` | `/api/teacher/leave-school` | LEAVE — ends the teacher's current `ACTIVE` affiliation at a school | ✅ | inline (own `Teacher` row) | `status → ENDED`, `endDate` set to now; other affiliations at other schools untouched |
+| `POST` | `/api/teacher/transfer-school` | TRANSFER — ends the old affiliation and creates a new `PENDING` one atomically | ✅ | inline (own `Teacher` row) | Single transaction; throws `AffiliationError` (never returns `{error}`) so a failure can never leave a half-applied transfer |
+| `POST` | `/api/student/join-school` | JOIN — creates a new `PENDING` `StudentSchoolAffiliation` | ✅ | inline | Resets `approved: false` |
+| `POST` | `/api/student/leave-school` | LEAVE — ends the student's current `ACTIVE` affiliation at a school | ✅ | inline | `status → ENDED`, `endDate` set to now |
+| `POST` | `/api/student/transfer-school` | TRANSFER — ends the old affiliation and creates a new `PENDING` one atomically | ✅ | inline | Same atomic-with-rollback shape as the teacher route above |
 | `POST` | `/api/parent/link-child` | Link an additional child by email | ✅ | inline (own `Parent` row) | Idempotent — `alreadyLinked: true` |
 | `POST` | `/api/schools/create-for-admin` | Create a school for an already-registered `SCHOOL_ADMIN` role holder with no school yet | ✅ | inline (`roles.includes`) | `409` if already administers one |
 | `POST` | `/api/organizations/create-for-admin` | Same, for `ORGANIZATION_ADMIN` | ✅ | inline | `409` if already administers one |
@@ -188,6 +192,11 @@ Auth: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})`
 |---|---|---|---|---|---|
 | `POST` | `/api/interests` | Add a self-declared interest | ✅ | inline (own `User`) | Idempotent — `alreadyExists: true` |
 | `DELETE` | `/api/interests/[id]` | Remove an interest | ✅ | inline (must own it) | `404` if not owned |
+| `GET`/`POST`/`DELETE` | `/api/user/avatar` | Read/upload/remove the caller's own MEGA ID photo | ✅ | inline (own `User`, `userId` from session only) | POST validates PNG/JPEG/WebP, ≤2MB; old file deleted only after the new one is saved and the DB row updated (never before) |
+| `PATCH` | `/api/me/address` | Upsert the caller's own Current or Permanent address | ✅ | inline (own `User`, `userId` from session only) | `label` must be `CURRENT`/`PERMANENT`; validates the Province→District→LocalLevel→Ward chain (`src/lib/address.ts`); the same record a School Admin correcting this person's file (Student/Teacher detail pages) reads and writes, not a separate copy |
+| `POST` | `/api/user/password` | Change the caller's own password | ✅ | inline (own `User`, `userId` from session only) | Requires current password (`bcrypt.compare`) + a new password ≥8 chars; **rejects demo accounts (`@megaedu.local`) with `403`, checked server-side before any hashing** — not merely hidden in the UI; touches only `User.passwordHash`, nothing else on `User`/`Teacher`/`Student`/`Parent`/any affiliation table |
+
+My Profile (My Profile K1, `/dashboard/profile`) reads its "My Institutional Relationships" section directly via server-rendered Prisma queries scoped to the session's own `userId` — there is no dedicated API route for it, matching the same convention Calendar pages already use (see "No API route exists for reading Calendar data" above).
 
 ## Notifications
 
@@ -198,4 +207,4 @@ Auth: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})`
 
 ## Not implemented / not applicable
 
-No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`/`Subject`/`TeachingUnit`/`UnitTest`, deactivating a school/organization (`isActive` is read but never set by any route), section-level analytics/reporting, copying a `GradeSubject` offering or `TeachingPlan`/`TeachingUnit` set forward from a prior session (each session is configured from scratch, deliberately), teaching hierarchy (primary/assistant/substitute teacher, for either `TeacherAcademicAssignment` or `ClassTeacherAssignment`), retesting a `UnitTestResult`, homework/assignments, examinations beyond Unit/Chapter Tests, report cards, analytics, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
+No routes exist for: deleting a `User`/`School`/`Organization`/`Course`/`Section`/`Subject`/`TeachingUnit`/`UnitTest`, deactivating a school/organization (`isActive` is read but never set by any route), section-level analytics/reporting, copying a `GradeSubject` offering or `TeachingPlan`/`TeachingUnit` set forward from a prior session (each session is configured from scratch, deliberately), teaching hierarchy (primary/assistant/substitute teacher, for either `TeacherAcademicAssignment` or `ClassTeacherAssignment`), retesting a `UnitTestResult`, examinations beyond Unit/Chapter Tests (Homework and Report Cards are both implemented — see "Schools — Homework" and "Schools — Assessment Results, Publishing, Report Cards" above), forgot-password/account recovery, analytics, payment processing, PDF certificate export, QR code generation, or grade-certificate issuance. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
