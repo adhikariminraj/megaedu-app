@@ -146,8 +146,15 @@ model School {
   addresses Address[]
 
   // Institutional affiliation history — see TeacherSchoolAffiliation /
-  // StudentSchoolAffiliation below. Phase 1 schema foundation only:
-  // nothing reads or writes these yet.
+  // StudentSchoolAffiliation below. Live and authoritative as of Phase
+  // 3 (src/lib/affiliation.ts's JOIN/LEAVE/TRANSFER) — read by
+  // src/lib/institutionalContext.ts and My Profile's institutional
+  // relationships section (My Profile K1); written by
+  // join-school/leave-school/transfer-school and the registration/
+  // approval routes. Teacher.schoolId/Student.schoolId (below) remain
+  // in sync only for the single-open-affiliation case — see
+  // syncTeacherBridgeFields()/syncStudentBridgeFields() for exactly
+  // when they stop being trustworthy on their own.
   teacherAffiliations TeacherSchoolAffiliation[]
   studentAffiliations StudentSchoolAffiliation[]
 
@@ -281,9 +288,14 @@ model Teacher {
   familyContacts FamilyContact[]
 
   // Institutional relationship/history — see TeacherSchoolAffiliation
-  // below. Phase 1 schema foundation only: schoolId/approved/position/
-  // subjects above remain the live, unchanged, transitional source of
-  // truth for now; nothing reads or writes this relation yet.
+  // below. This is the authoritative relationship layer, live since
+  // Phase 3 (src/lib/affiliation.ts) — schoolId/approved/position/
+  // subjects above are a convenience bridge synced from it for the
+  // single-open-affiliation case only (see syncTeacherBridgeFields()),
+  // never the source of truth. My Profile's institutional relationships
+  // section (My Profile K1) reads this relation directly, not the
+  // bridge fields, precisely so a Teacher with 2+ simultaneous
+  // affiliations is shown correctly.
   schoolAffiliations TeacherSchoolAffiliation[]
 
   @@index([schoolId])
@@ -337,9 +349,12 @@ model Student {
   familyContacts FamilyContact[]
 
   // Institutional relationship/history — see StudentSchoolAffiliation
-  // below. Phase 1 schema foundation only: schoolId/approved above
-  // remain the live, unchanged, transitional source of truth for now;
-  // nothing reads or writes this relation yet.
+  // below. This is the authoritative relationship layer, live since
+  // Phase 3 (src/lib/affiliation.ts) — schoolId/approved above are a
+  // convenience bridge synced from it for the single-open-affiliation
+  // case only (see syncStudentBridgeFields()), never the source of
+  // truth. My Profile's institutional relationships section (My
+  // Profile K1) reads this relation directly, including ENDED history.
   schoolAffiliations StudentSchoolAffiliation[]
 
   @@index([schoolId])
