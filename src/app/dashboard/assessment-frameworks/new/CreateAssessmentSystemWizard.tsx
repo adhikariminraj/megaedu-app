@@ -15,15 +15,19 @@ type AssessmentRow = {
   entryMode: "MARKS" | "GRADE" | "DESCRIPTIVE";
   showAdvanced: boolean;
 };
-type LevelRow = { label: string; minPercent: string; maxPercent: string; description: string };
+type LevelRow = { label: string; minPercent: string; maxPercent: string; gradePoint: string; description: string };
 
+// gradePoint is optional (matches GradingScaleBand.gradePoint: Float? —
+// "null where GPA math doesn't apply") but the standard preset ships
+// real values so a school picking it gets working GPA immediately,
+// without a separate trip to Advanced management to fill them in.
 const STANDARD_LEVELS: LevelRow[] = [
-  { label: "A+", minPercent: "90", maxPercent: "100", description: "Outstanding" },
-  { label: "A", minPercent: "80", maxPercent: "90", description: "Excellent" },
-  { label: "B+", minPercent: "70", maxPercent: "80", description: "Very Good" },
-  { label: "B", minPercent: "60", maxPercent: "70", description: "Good" },
-  { label: "C", minPercent: "40", maxPercent: "60", description: "Acceptable" },
-  { label: "D", minPercent: "0", maxPercent: "40", description: "Needs Improvement" },
+  { label: "A+", minPercent: "90", maxPercent: "100", gradePoint: "4.0", description: "Outstanding" },
+  { label: "A", minPercent: "80", maxPercent: "90", gradePoint: "3.6", description: "Excellent" },
+  { label: "B+", minPercent: "70", maxPercent: "80", gradePoint: "3.2", description: "Very Good" },
+  { label: "B", minPercent: "60", maxPercent: "70", gradePoint: "2.8", description: "Good" },
+  { label: "C", minPercent: "40", maxPercent: "60", gradePoint: "2.0", description: "Acceptable" },
+  { label: "D", minPercent: "0", maxPercent: "40", gradePoint: "1.0", description: "Needs Improvement" },
 ];
 
 let rowKeyCounter = 0;
@@ -96,10 +100,10 @@ export default function CreateAssessmentSystemWizard({
 
   function startLevels(source: "STANDARD" | "CUSTOM") {
     setGradeSource(source);
-    setLevels(source === "STANDARD" ? STANDARD_LEVELS.map((l) => ({ ...l })) : [{ label: "", minPercent: "", maxPercent: "", description: "" }]);
+    setLevels(source === "STANDARD" ? STANDARD_LEVELS.map((l) => ({ ...l })) : [{ label: "", minPercent: "", maxPercent: "", gradePoint: "", description: "" }]);
   }
   function addLevel() {
-    setLevels((rows) => [...rows, { label: "", minPercent: "", maxPercent: "", description: "" }]);
+    setLevels((rows) => [...rows, { label: "", minPercent: "", maxPercent: "", gradePoint: "", description: "" }]);
   }
   function updateLevel(i: number, patch: Partial<LevelRow>) {
     setLevels((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -162,6 +166,7 @@ export default function CreateAssessmentSystemWizard({
                 minPercent: Number(l.minPercent),
                 maxPercent: Number(l.maxPercent),
                 label: l.label.trim(),
+                gradePoint: l.gradePoint.trim() === "" ? null : Number(l.gradePoint),
                 description: l.description.trim() || null,
               })),
             }),
@@ -487,15 +492,19 @@ export default function CreateAssessmentSystemWizard({
 
               {(gradeSource === "STANDARD" || gradeSource === "CUSTOM") && (
                 <div>
-                  <div className="grid grid-cols-[1fr_auto_auto_1fr_auto] gap-2 px-1 py-1 text-xs font-semibold text-slate-500">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_1fr_auto] gap-2 px-1 py-1 text-xs font-semibold text-slate-500">
                     <span>Grade</span>
                     <span>From %</span>
                     <span>To %</span>
+                    <span>Grade Point</span>
                     <span>Meaning</span>
                     <span />
                   </div>
+                  <p className="text-xs text-slate-400 px-1 mb-1">
+                    Grade Point is optional — leave it blank if this grading system doesn&apos;t use GPA.
+                  </p>
                   {levels.map((l, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_auto_auto_1fr_auto] gap-2 px-1 py-1 items-center">
+                    <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_1fr_auto] gap-2 px-1 py-1 items-center">
                       <input
                         value={l.label}
                         onChange={(e) => updateLevel(i, { label: e.target.value })}
@@ -515,6 +524,14 @@ export default function CreateAssessmentSystemWizard({
                         type="number"
                         placeholder="100"
                         className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-16"
+                      />
+                      <input
+                        value={l.gradePoint}
+                        onChange={(e) => updateLevel(i, { gradePoint: e.target.value })}
+                        type="number"
+                        step="0.1"
+                        placeholder="4.0"
+                        className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-20"
                       />
                       <input
                         value={l.description}

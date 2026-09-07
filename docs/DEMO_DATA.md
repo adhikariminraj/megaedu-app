@@ -95,6 +95,8 @@ The exact current roster (names, emails, section placements) is printed to the c
 
 **Mark Sheet demo scenario** — a student with `Student.userId: null` (no MEGA User account at all), placed in Class 9 Section A, published in all six subjects, and given a **current-session** Promoted decision into a newly-added "Class 10" `SchoolGrade` (via the real, audited `recordGradeDecision()`) — proves Mark Sheet issuance never requires digital-account presence. Demo Student's own current-session `REPEATED` decision (already present in the roster setup) is paired with the same full-publication treatment, covering the Not-Promoted outcome via a real, login-accessible account. See [MARK_SHEET.md](MARK_SHEET.md).
 
+**Co-Scholastic demo scenario** — four areas (Work Education, Art Education, Health & Physical Education, Discipline) on a dedicated 3-band scale, configured annual-only for Class 9, with real annual grades entered for both Mark Sheet demo students above — so the Report Card's Co-Scholastic section and the Mark Sheet's frozen Co-Scholastic snapshot both have real data to show. See [CO_SCHOLASTIC.md](CO_SCHOLASTIC.md).
+
 **Attendance** — 10 school days for Class 9 (A–D), 5 for Class 6 and Himalayan, a realistic present/absent/late/excused mix, including one corrected record with a real `AttendanceAudit` row.
 
 **Evaluations** — 9 total (5 general, 4 subject-specific), spanning private / shared-with-student-only / shared-with-parent-only / shared-with-both, including one post-share correction (`StudentEvaluationAudit`).

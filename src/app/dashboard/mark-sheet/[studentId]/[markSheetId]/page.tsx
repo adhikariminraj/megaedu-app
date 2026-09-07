@@ -49,6 +49,8 @@ export default async function MarkSheetDocumentPage({
     where: { id: params.markSheetId },
     include: {
       subjects: { orderBy: { order: "asc" } },
+      gradingBandSnapshots: { orderBy: { order: "asc" } },
+      coScholasticResults: { orderBy: { order: "asc" } },
       school: { select: { logoUrl: true } },
     },
   });
@@ -164,6 +166,22 @@ export default async function MarkSheetDocumentPage({
           </p>
         )}
 
+        {markSheet.coScholasticResults.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-xs text-slate-500 uppercase tracking-wide mb-2">Co-Scholastic Areas</h3>
+            <table className="w-full text-sm border-collapse">
+              <tbody>
+                {markSheet.coScholasticResults.map((c) => (
+                  <tr key={c.id} className="border-b border-slate-200">
+                    <td className="py-1.5">{c.areaNameSnapshot}</td>
+                    <td className="py-1.5 text-right font-medium">{c.gradeLabelSnapshot}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div className="border-2 border-slate-800 rounded-xl p-4 mb-8 text-center">
           <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Final Result</p>
           <p className="text-lg font-bold text-slate-800">{outcomeLabel}</p>
@@ -175,6 +193,43 @@ export default async function MarkSheetDocumentPage({
             </p>
           )}
         </div>
+
+        {markSheet.gradingBandSnapshots.length > 0 &&
+          Object.entries(
+            markSheet.gradingBandSnapshots.reduce<Record<string, typeof markSheet.gradingBandSnapshots>>((acc, b) => {
+              (acc[b.gradingScaleNameSnapshot] ||= []).push(b);
+              return acc;
+            }, {})
+          ).map(([scaleName, bands]) => (
+            <div key={scaleName} className="mb-8">
+              <h3 className="text-xs text-slate-500 uppercase tracking-wide mb-2">Grading Criteria — {scaleName}</h3>
+              <p className="text-xs text-slate-400 mb-2">
+                Frozen as it applied at issuance — never re-read from the school&apos;s current grading configuration.
+              </p>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-300 text-left text-slate-500">
+                    <th className="py-1">Range</th>
+                    <th className="py-1">Grade</th>
+                    {bands.some((b) => b.gradePoint !== null) && <th className="py-1">Grade Point</th>}
+                    {bands.some((b) => b.description) && <th className="py-1">Meaning</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {bands.map((b) => (
+                    <tr key={b.id} className="border-b border-slate-100">
+                      <td className="py-1">
+                        {b.minPercent} – {b.maxPercent}
+                      </td>
+                      <td className="py-1 font-medium">{b.label}</td>
+                      {bands.some((x) => x.gradePoint !== null) && <td className="py-1">{b.gradePoint ?? "—"}</td>}
+                      {bands.some((x) => x.description) && <td className="py-1">{b.description ?? "—"}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
 
         <div className="grid grid-cols-2 gap-4 text-sm pt-6 border-t border-slate-300">
           <div>

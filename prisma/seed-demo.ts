@@ -1578,6 +1578,82 @@ async function main() {
   }
   console.log(`SchoolCalendarEntry demo data seeded: ${schoolCalendarDemoEntries.length} entries for Sunrise Academy.`);
 
+  // ---------------------------------------------------------------------
+  // Co-Scholastic demo scenario — Class 9, the four areas real school
+  // samples showed (Work Education, Art Education, Health & Physical
+  // Education, Discipline), on a dedicated 3-point scale (co-scholastic
+  // grades reuse GradingScale purely for its label list — the
+  // percent ranges are unused metadata for this axis, never looked up
+  // automatically). Annual-only for Class 9 (no CoScholasticPeriod rows)
+  // — matches the real Class IX example's shape. Entered for the two
+  // students who already have issuable Mark Sheets (userless student +
+  // Demo Student), so both the Report Card block and the Mark Sheet
+  // annual snapshot have real data to show.
+  // ---------------------------------------------------------------------
+  const coScholasticScale = await prisma.gradingScale.upsert({
+    where: { schoolId_name: { schoolId: sunrise.id, name: "Co-Scholastic Grades" } },
+    update: {},
+    create: { schoolId: sunrise.id, name: "Co-Scholastic Grades" },
+  });
+  const coScholasticBands = [
+    { label: "A", minPercent: 67, maxPercent: 100, order: 0, description: "Excellent" },
+    { label: "B", minPercent: 34, maxPercent: 67, order: 1, description: "Good" },
+    { label: "C", minPercent: 0, maxPercent: 34, order: 2, description: "Satisfactory" },
+  ];
+  for (const b of coScholasticBands) {
+    const existingBand = await prisma.gradingScaleBand.findFirst({
+      where: { gradingScaleId: coScholasticScale.id, label: b.label },
+    });
+    if (!existingBand) {
+      await prisma.gradingScaleBand.create({ data: { gradingScaleId: coScholasticScale.id, ...b } });
+    }
+  }
+
+  const coScholasticAreaNames = ["Work Education", "Art Education", "Health & Physical Education", "Discipline"];
+  const coScholasticAreas = [];
+  for (let i = 0; i < coScholasticAreaNames.length; i++) {
+    const area = await prisma.coScholasticArea.upsert({
+      where: { schoolId_name: { schoolId: sunrise.id, name: coScholasticAreaNames[i] } },
+      update: {},
+      create: { schoolId: sunrise.id, name: coScholasticAreaNames[i], order: i },
+    });
+    coScholasticAreas.push(area);
+  }
+
+  await prisma.coScholasticGradeSetting.upsert({
+    where: { schoolGradeId_academicSessionId: { schoolGradeId: class9.id, academicSessionId: activeSession.id } },
+    update: {},
+    create: { schoolId: sunrise.id, schoolGradeId: class9.id, academicSessionId: activeSession.id, gradingScaleId: coScholasticScale.id },
+  });
+
+  const coScholasticGrades: Record<string, string> = {
+    "Work Education": "A",
+    "Art Education": "B",
+    "Health & Physical Education": "A",
+    Discipline: "A",
+  };
+  for (const studentId of [userlessStudent.id, demoStudent.id]) {
+    for (const area of coScholasticAreas) {
+      const existing = await prisma.coScholasticResult.findFirst({
+        where: { studentId, areaId: area.id, coScholasticPeriodId: null },
+      });
+      if (!existing) {
+        await prisma.coScholasticResult.create({
+          data: {
+            studentId,
+            areaId: area.id,
+            academicSessionId: activeSession.id,
+            coScholasticPeriodId: null,
+            gradeLabel: coScholasticGrades[area.name],
+            evaluatedByUserId: schoolAdminUser.id,
+            evaluatedAt: new Date("2027-03-01"),
+          },
+        });
+      }
+    }
+  }
+  console.log(`Co-Scholastic demo data ready: 4 areas, annual grades for the userless Mark Sheet demo student and Demo Student.`);
+
   console.log("\nDemo data seeding complete.");
 }
 

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fetchAssessmentResults, computeUnweightedGPA } from "@/lib/assessmentResults";
 import { resolveCurrentPlacement, GRADE_HISTORY_STATUSES } from "@/lib/gradeHistory";
+import { fetchCoScholasticForStudent } from "@/lib/coScholastic";
 
 /**
  * Mark Sheet — the formal, immutable, issued ANNUAL result document.
@@ -23,6 +24,24 @@ export type MarkSheetEligibility =
   | { eligible: true; schoolName: string; sessionName: string; gradeDisplayName: string; sectionName: string | null; outcomeStatus: string; subjectCount: number; gpa: number | null }
   | { eligible: false; reason: string };
 
+type GradingBandSnapshotInput = {
+  gradingScaleNameSnapshot: string;
+  minPercent: number;
+  maxPercent: number;
+  label: string;
+  gradePoint: number | null;
+  isPassing: boolean | null;
+  description: string | null;
+  order: number;
+};
+
+type CoScholasticSnapshotInput = {
+  areaId: string;
+  areaNameSnapshot: string;
+  gradeLabelSnapshot: string;
+  order: number;
+};
+
 type SnapshotResult = {
   placement: NonNullable<Awaited<ReturnType<typeof resolveCurrentPlacement>>>;
   school: { id: string; name: string };
@@ -30,6 +49,8 @@ type SnapshotResult = {
   outcomeGradeDisplayName: string | null;
   subjects: Awaited<ReturnType<typeof fetchAssessmentResults>>["subjects"];
   gpa: number | null;
+  gradingBands: GradingBandSnapshotInput[];
+  coScholastic: CoScholasticSnapshotInput[];
 };
 
 /**
@@ -98,6 +119,52 @@ async function gatherSnapshot(
     };
   }
 
+  // Grading-criteria snapshot — a verbatim, frozen copy of every
+  // distinct GradingScale's bands actually in play for this student's
+  // subjects, grouped by scale name. Resolved independently of
+  // fetchAssessmentResults() (no change to the calculation engine) via
+  // each subject's own frameworkId, already exposed on SubjectResult.
+  // Frameworks with no scale (marks-only) contribute nothing here.
+  const frameworkIds = [...new Set(subjects.map((s) => s.frameworkId))];
+  const frameworks = await prisma.assessmentFramework.findMany({
+    where: { id: { in: frameworkIds } },
+    include: { gradingScale: { include: { bands: { orderBy: { order: "asc" } } } } },
+  });
+  const scalesById = new Map<string, (typeof frameworks)[number]["gradingScale"]>();
+  for (const fw of frameworks) {
+    if (fw.gradingScale) scalesById.set(fw.gradingScale.id, fw.gradingScale);
+  }
+  const gradingBands: GradingBandSnapshotInput[] = [];
+  let bandOrder = 0;
+  for (const scale of scalesById.values()) {
+    if (!scale) continue;
+    for (const band of scale.bands) {
+      gradingBands.push({
+        gradingScaleNameSnapshot: scale.name,
+        minPercent: band.minPercent,
+        maxPercent: band.maxPercent,
+        label: band.label,
+        gradePoint: band.gradePoint,
+        isPassing: band.isPassing,
+        description: band.description,
+        order: bandOrder++,
+      });
+    }
+  }
+
+  // Co-Scholastic — annual (coScholasticPeriodId: null) results only,
+  // never derived from period entries (see CoScholasticResult's own
+  // model comment). Optional/best-effort: never blocks Issue.
+  const coScholasticAreas = await fetchCoScholasticForStudent(studentId, schoolId, placement.schoolGradeId, academicSessionId);
+  const coScholastic: CoScholasticSnapshotInput[] = coScholasticAreas
+    .filter((a) => a.annualGradeLabel !== null)
+    .map((a, index) => ({
+      areaId: a.areaId,
+      areaNameSnapshot: a.areaName,
+      gradeLabelSnapshot: a.annualGradeLabel!,
+      order: index,
+    }));
+
   return {
     ok: true,
     data: {
@@ -107,6 +174,8 @@ async function gatherSnapshot(
       outcomeGradeDisplayName,
       subjects,
       gpa,
+      gradingBands,
+      coScholastic,
     },
   };
 }
@@ -217,6 +286,8 @@ async function writeMarkSheetVersion(
               gradePoint: s.grade?.gradePoint ?? null,
             })),
           },
+          gradingBandSnapshots: { create: data.gradingBands },
+          coScholasticResults: { create: data.coScholastic },
         },
       });
 

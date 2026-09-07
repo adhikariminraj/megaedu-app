@@ -78,6 +78,8 @@ model User {
   assessmentResultsPublished      AssessmentResultPublication[]    @relation("AssessmentResultPublicationPublishedBy")
 
   markSheetsIssued MarkSheet[] @relation("MarkSheetIssuedBy")
+
+  coScholasticResultsEvaluated CoScholasticResult[] @relation("CoScholasticResultEvaluatedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -140,6 +142,8 @@ model School {
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   schoolCalendarEntries          SchoolCalendarEntry[]
   markSheets                     MarkSheet[]
+  coScholasticAreas              CoScholasticArea[]
+  coScholasticGradeSettings      CoScholasticGradeSetting[]
 
   // Structured address (label "OFFICIAL") — see Address below. The
   // legacy free-text location/district fields above stay in place
@@ -344,6 +348,7 @@ model Student {
   assessmentComponentResults   AssessmentComponentResult[]
   assessmentResultPublications AssessmentResultPublication[]
   markSheets                   MarkSheet[]
+  coScholasticResults          CoScholasticResult[]
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Structurally unrelated to `parents` (
@@ -555,6 +560,9 @@ model AcademicSession {
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   homework                       Homework[]
   markSheets                     MarkSheet[]
+  coScholasticPeriods            CoScholasticPeriod[]
+  coScholasticGradeSettings      CoScholasticGradeSetting[]
+  CoScholasticResult             CoScholasticResult[]
 
   @@index([schoolId])
 }
@@ -593,6 +601,8 @@ model SchoolGrade {
   studentEvaluations             StudentEvaluation[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   homework                       Homework[]
+  coScholasticPeriods            CoScholasticPeriod[]
+  coScholasticGradeSettings      CoScholasticGradeSetting[]
 
   @@unique([schoolId, gradeReferenceId])
   @@index([schoolId])
@@ -1344,8 +1354,9 @@ model GradingScale {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  bands      GradingScaleBand[]
-  frameworks AssessmentFramework[]
+  bands                     GradingScaleBand[]
+  frameworks                AssessmentFramework[]
+  coScholasticGradeSettings CoScholasticGradeSetting[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -1629,7 +1640,9 @@ model MarkSheet {
 
   createdAt DateTime @default(now())
 
-  subjects MarkSheetSubject[]
+  subjects             MarkSheetSubject[]
+  gradingBandSnapshots MarkSheetGradingBandSnapshot[]
+  coScholasticResults  MarkSheetCoScholasticResult[]
 
   @@unique([studentId, academicSessionId, version])
   @@index([studentId])
@@ -1668,6 +1681,182 @@ model MarkSheetSubject {
 
   @@unique([markSheetId, gradeSubjectId])
   @@index([markSheetId])
+}
+
+// A verbatim, frozen copy of the GradingScaleBand rows that applied to
+// this Mark Sheet's subjects, captured at Issue time. Exists because
+// GradingScaleBand.label/description remain editable even after a
+// scale's numeric bands lock (once any published result uses it) — a
+// live re-render of "today's" GradingScale on an old, immutable Mark
+// Sheet could show wording that never matched what was true at
+// issuance, even though MarkSheetSubject.gradeLabel itself is already
+// a safe, frozen string. Grouped by gradingScaleNameSnapshot so a
+// student whose subjects used more than one scale gets one clearly
+// separate, correctly-labeled table per scale, never a merged or
+// ambiguous one. Entirely immutable after creation, same as
+// MarkSheetSubject — nothing ever updates a row here.
+model MarkSheetGradingBandSnapshot {
+  id          String    @id @default(cuid())
+  markSheetId String
+  markSheet   MarkSheet @relation(fields: [markSheetId], references: [id], onDelete: Cascade)
+
+  gradingScaleNameSnapshot String
+  minPercent               Float
+  maxPercent               Float
+  label                    String
+  gradePoint               Float?
+  isPassing                Boolean?
+  description              String?
+  order                    Int
+
+  createdAt DateTime @default(now())
+
+  @@index([markSheetId])
+}
+
+// The frozen, annual (never period-scoped — see CoScholasticResult's
+// own model comment on why no aggregation exists) co-scholastic grade
+// per area, captured at Issue time alongside MarkSheetSubject in the
+// same transaction. Optional/best-effort: a missing entry for an area
+// never blocks Issue (Rosebud's own real annual document has no
+// co-scholastic section at all and is still a complete, valid annual
+// result). areaId is a plain informational scalar, never a Prisma
+// relation — the same reasoning as MarkSheetSubject.gradeSubjectId:
+// CoScholasticArea's own real deactivate-only lifecycle is never
+// blocked by a permanent reference, and areaNameSnapshot is always the
+// sole source for display. Entirely immutable after creation.
+model MarkSheetCoScholasticResult {
+  id          String    @id @default(cuid())
+  markSheetId String
+  markSheet   MarkSheet @relation(fields: [markSheetId], references: [id], onDelete: Cascade)
+
+  areaId             String
+  areaNameSnapshot   String
+  gradeLabelSnapshot String
+  order              Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([markSheetId, areaId])
+  @@index([markSheetId])
+}
+
+// ============================================================
+// CO-SCHOLASTIC — a second, parallel, non-numeric evaluation axis
+// (Work Education, Art, Health & Physical Education, Discipline, etc.),
+// structurally independent of the scholastic AssessmentFramework chain.
+// See docs/CO_SCHOLASTIC.md. No calculation engine exists or is needed
+// here — grades are ordinal labels, never aggregated across periods
+// (real evidence: two real report-card samples show period grades
+// side-by-side, never combined; there is no defined rule for
+// "Term I: A + Term II: B -> Annual: ?"). The annual/final grade is
+// always independently entered (coScholasticPeriodId: null on
+// CoScholasticResult), never derived.
+// ============================================================
+
+// A school-wide, reusable catalog entry ("Work Education", "Art
+// Education") — deliberately scale-agnostic, mirroring Subject. A
+// grading scale is NOT owned here: real evidence (Modern Indian School)
+// shows the SAME four areas graded on a 3-point scale for one grade and
+// a 5-point scale for another, in the SAME school — see
+// CoScholasticGradeSetting below for where the scale actually lives.
+model CoScholasticArea {
+  id        String   @id @default(cuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  name      String
+  isActive  Boolean  @default(true)
+  order     Int
+  createdAt DateTime @default(now())
+
+  results CoScholasticResult[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+}
+
+// Whether a grade uses period-scoped co-scholastic evaluation at all,
+// scoped to (schoolGrade, academicSession) — deliberately NOT owned by
+// any subject's AssessmentFramework, since co-scholastic cuts across
+// every subject for a grade, not one. Zero rows for a grade+session
+// means "evaluated once, annually" (Modern Indian Class IX's shape);
+// rows named "Term I"/"Term II" mean "evaluated per period" (Class
+// IV's shape) — the same "framework may define zero periods" idiom
+// AssessmentPeriod already uses, decoupled from any one subject.
+model CoScholasticPeriod {
+  id                String          @id @default(cuid())
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  name              String
+  order             Int
+  createdAt         DateTime        @default(now())
+
+  results CoScholasticResult[]
+
+  @@unique([schoolGradeId, academicSessionId, name])
+  @@index([schoolGradeId])
+  @@index([academicSessionId])
+}
+
+// The grading-scale ownership for co-scholastic, resolved at exactly
+// (school, grade, session) — one scale governs every CoScholasticArea
+// for that grade that session, matching the real evidence (both
+// examples use one uniform scale across all four areas within a
+// grade) without inventing unevidenced per-area granularity. Reuses
+// GradingScale/GradingScaleBand unchanged — a 3-point and a 5-point
+// scale are just two ordinary GradingScale rows; no new scale
+// mechanism.
+model CoScholasticGradeSetting {
+  id                String          @id @default(cuid())
+  schoolId          String
+  school            School          @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+  schoolGradeId     String
+  schoolGrade       SchoolGrade     @relation(fields: [schoolGradeId], references: [id])
+  gradingScaleId    String
+  gradingScale      GradingScale    @relation(fields: [gradingScaleId], references: [id])
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([schoolGradeId, academicSessionId])
+  @@index([schoolId])
+  @@index([academicSessionId])
+}
+
+// One student's grade for one area, for one scope. coScholasticPeriodId
+// has exactly one meaning, the same nullable-discriminator idiom
+// AssessmentComponent.periodId already uses: null = the full-session/
+// annual entry for this area; a real id = scoped to that specific
+// CoScholasticPeriod. The NULL≠NULL gap on the unique constraint below
+// (two null-period rows for the same student+area would not collide at
+// the DB level) is the same, already-documented SQLite limitation this
+// schema already works around elsewhere (AssessmentComponent,
+// AssessmentFrameworkAssignment, StudentEvaluation) — closed by an
+// app-level pre-check before create, not a new problem.
+model CoScholasticResult {
+  id                   String              @id @default(cuid())
+  studentId            String
+  student              Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  areaId               String
+  area                 CoScholasticArea    @relation(fields: [areaId], references: [id])
+  academicSessionId    String
+  academicSession      AcademicSession     @relation(fields: [academicSessionId], references: [id])
+  coScholasticPeriodId String?
+  coScholasticPeriod   CoScholasticPeriod? @relation(fields: [coScholasticPeriodId], references: [id])
+  gradeLabel           String
+  evaluatedByUserId    String?
+  evaluatedBy          User?               @relation("CoScholasticResultEvaluatedBy", fields: [evaluatedByUserId], references: [id])
+  evaluatedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@unique([studentId, areaId, coScholasticPeriodId])
+  @@index([studentId])
+  @@index([areaId])
+  @@index([academicSessionId])
 }
 
 // ============================================================

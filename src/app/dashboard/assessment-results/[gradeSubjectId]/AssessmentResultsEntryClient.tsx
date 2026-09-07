@@ -46,6 +46,12 @@ export default function AssessmentResultsEntryClient({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Cells (componentId:studentId) explicitly put into "editing a
+  // correction" mode via the Correct -> button below. A published cell's
+  // inputs stay disabled until its key is in this set — entering
+  // correction mode is a deliberate action, not an implicit side effect
+  // of a published result simply existing.
+  const [correcting, setCorrecting] = useState<Set<string>>(new Set());
 
   const resultByKey = new Map(results.map((r) => [`${r.componentId}:${r.studentId}`, r]));
   const publicationByStudentId = new Map(students.map((s) => [s.studentId, s.publicationStatus]));
@@ -114,8 +120,34 @@ export default function AssessmentResultsEntryClient({
     if (result) setNotice(`Published ${result.published} student(s)${result.skipped ? `, ${result.skipped} not eligible/already published` : ""}.`);
   }
 
+  function startCorrecting(componentId: string, studentId: string) {
+    setCorrecting((prev) => new Set(prev).add(`${componentId}:${studentId}`));
+  }
+
+  function cancelCorrecting(componentId: string, studentId: string) {
+    const key = `${componentId}:${studentId}`;
+    // Revert any typed-but-unsaved edit back to the last known-good
+    // (already-published) value before leaving edit mode.
+    const existing = resultByKey.get(key);
+    setEntries((prev) => ({
+      ...prev,
+      [key]: {
+        status: existing?.status ?? "PENDING",
+        marksObtained: existing?.marksObtained?.toString() ?? "",
+        gradeLabel: existing?.gradeLabel ?? "",
+        remarks: existing?.remarks ?? "",
+      },
+    }));
+    setCorrecting((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
+
   async function correctResult(resultId: string, componentId: string, studentId: string) {
-    const e = entries[`${componentId}:${studentId}`];
+    const key = `${componentId}:${studentId}`;
+    const e = entries[key];
     const component = framework.components.find((c) => c.id === componentId)!;
     const result = await call(`/api/schools/${schoolId}/assessment-results/${resultId}`, {
       method: "PATCH",
@@ -127,7 +159,14 @@ export default function AssessmentResultsEntryClient({
         remarks: e.remarks || undefined,
       }),
     });
-    if (result) setNotice(result.audited ? "Correction saved and audited (subject already published)." : "Correction saved.");
+    if (result) {
+      setNotice(result.audited ? "Correction saved and audited (subject already published)." : "Correction saved.");
+      setCorrecting((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   }
 
   const componentsByPeriod = new Map<string | null, Component[]>();
@@ -152,6 +191,12 @@ export default function AssessmentResultsEntryClient({
             const e = entries[key];
             const existing = resultByKey.get(key);
             const isPublished = publicationByStudentId.get(s.studentId) === "PUBLISHED";
+            const isCorrecting = correcting.has(key);
+            // Locked (read-only) only while published AND not actively
+            // being corrected — entering correction mode is a deliberate
+            // action (see startCorrecting()), never an implicit side
+            // effect of a published result simply existing.
+            const locked = isPublished && !isCorrecting;
             return (
               <div key={s.studentId} className="flex items-center gap-2 text-sm">
                 <span className="w-32 truncate">{s.name}</span>
@@ -159,7 +204,7 @@ export default function AssessmentResultsEntryClient({
                   value={e.status}
                   onChange={(ev) => setEntry(component.id, s.studentId, { status: ev.target.value })}
                   className="border border-slate-300 rounded px-1 py-1 text-xs"
-                  disabled={isPublished}
+                  disabled={locked}
                 >
                   <option value="PENDING">PENDING</option>
                   <option value="EVALUATED">EVALUATED</option>
@@ -172,7 +217,7 @@ export default function AssessmentResultsEntryClient({
                     onChange={(ev) => setEntry(component.id, s.studentId, { marksObtained: ev.target.value })}
                     placeholder={`0-${component.maxMarks}`}
                     className="border border-slate-300 rounded px-1 py-1 text-xs w-20"
-                    disabled={isPublished}
+                    disabled={locked}
                   />
                 )}
                 {e.status === "EVALUATED" && component.entryMode === "GRADE" && (
@@ -180,7 +225,7 @@ export default function AssessmentResultsEntryClient({
                     value={e.gradeLabel}
                     onChange={(ev) => setEntry(component.id, s.studentId, { gradeLabel: ev.target.value })}
                     className="border border-slate-300 rounded px-1 py-1 text-xs"
-                    disabled={isPublished}
+                    disabled={locked}
                   >
                     <option value="">Grade…</option>
                     {framework.gradingScaleBands.map((b) => (
@@ -196,13 +241,23 @@ export default function AssessmentResultsEntryClient({
                     onChange={(ev) => setEntry(component.id, s.studentId, { remarks: ev.target.value })}
                     placeholder="Remarks"
                     className="border border-slate-300 rounded px-1 py-1 text-xs flex-1"
-                    disabled={isPublished}
+                    disabled={locked}
                   />
                 )}
-                {isPublished && existing && (
-                  <button onClick={() => correctResult(existing.id, component.id, s.studentId)} className="text-xs text-amber-600 font-medium">
+                {isPublished && existing && !isCorrecting && (
+                  <button onClick={() => startCorrecting(component.id, s.studentId)} className="text-xs text-amber-600 font-medium">
                     Published — Correct →
                   </button>
+                )}
+                {isPublished && existing && isCorrecting && (
+                  <>
+                    <button onClick={() => correctResult(existing.id, component.id, s.studentId)} className="text-xs text-mega-green font-semibold">
+                      Save Correction
+                    </button>
+                    <button onClick={() => cancelCorrecting(component.id, s.studentId)} className="text-xs text-slate-400">
+                      Cancel
+                    </button>
+                  </>
                 )}
               </div>
             );

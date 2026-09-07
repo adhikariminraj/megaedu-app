@@ -23,6 +23,12 @@ Two new, additive models — `MarkSheet` (header) + `MarkSheetSubject` (per-subj
 
 **No `FinalAnnualResult`, `MarkSheetVersion`, `MarkSheetIssuer`, `MarkSheetResultPeriod`, `Examination`, `Signatory`, or `PromotionRule` model** — each was evaluated and rejected as unnecessary for this kilometer; see the design audit trail for the reasoning behind each.
 
+**`MarkSheetGradingBandSnapshot`** (Co-Scholastic kilometer) — a verbatim, frozen copy of every distinct `GradingScaleBand` row actually used by the student's subjects, captured at Issue time. Exists because `GradingScaleBand.label`/`description` remain editable even after a scale's numeric bands lock — a live re-render of "today's" `GradingScale` on an old, immutable Mark Sheet could show wording that never matched what was true at issuance. Grouped by `gradingScaleNameSnapshot`, so a student whose subjects used more than one scale gets one clearly separate, correctly-labeled table per scale.
+
+**`MarkSheetCoScholasticResult`** (Co-Scholastic kilometer) — the frozen, annual co-scholastic grade per area, same immutability shape as `MarkSheetSubject`. Optional/best-effort — a missing entry never blocks Issue. See [CO_SCHOLASTIC.md](CO_SCHOLASTIC.md).
+
+**Verified directly** (not just inferred): issued a Mark Sheet, then simulated a live edit to a `GradingScaleBand`'s `gradePoint`/`description` and a live edit to the student's `CoScholasticResult` grade — re-read the already-issued Mark Sheet's snapshot rows and confirmed both were completely unaffected.
+
 ## Versioning and correction ✅
 
 A correction never edits an issued row. It creates a new `MarkSheet` row (`version + 1`, `status: "ISSUED"`, `correctionReason` set) and marks the prior row `status: "SUPERSEDED"` with a forward pointer (`supersededByMarkSheetId`) — both in one transaction. Superseded rows are never deleted and remain permanently viewable (clearly labeled).

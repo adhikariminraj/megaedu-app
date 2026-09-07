@@ -44,6 +44,15 @@ The certificate visual design is finished and approved as an in-browser preview;
 ### Grade-certificate issuance doesn't exist 🔭
 `Certificate.gradeHistoryId` is a reserved, unlinked column. No `issueGradeCertificate()` function exists, even though `GradeHistory` (its intended data source) is now fully built. This was a deliberate Phase 2 scope exclusion, not an oversight.
 
+### Certificate architecture remains narrowly tied to MEGA Academy course completion 🔭
+Reaffirmed as an explicit, retained future milestone (Report Card/Certificate product audit, 2026-09-07) — not touched by the Co-Scholastic/Mark Sheet-snapshot kilometer, since none of that work's real-school evidence bore on Certificates. Still missing: school issuance (`issuerType: SCHOOL`), joint MEGA+school issuance (`JOINT`), achievement/participation/completion credential types beyond course completion, userless institutional-learner issuance (`Certificate.recipientUserId` requires a `User`, unlike Mark Sheet's `Student.id` identity), revocation/status (no field exists), and verification/QR. Explicitly not implemented in this kilometer — named here so it stays on the roadmap rather than disappearing because recent work happened to focus on academic-report documents instead.
+
+### Co-Scholastic has no publication/visibility gate 🔭
+Unlike scholastic `AssessmentComponentResult`, a `CoScholasticResult` is visible to Student/Parent as soon as it's entered — the same simplicity `Attendance` already has. A deliberate Kilometer 1 scope decision (the approved architecture never specified a `CoScholasticResultPublication` model), not an oversight. See [CO_SCHOLASTIC.md](CO_SCHOLASTIC.md).
+
+### Co-Scholastic Class Teacher entry is not section-scoped 🔭
+Any Class Teacher assigned to a grade (grade-wide or section-specific) may enter Co-Scholastic results for the grade's entire roster in Kilometer 1 — student-list filtering by the teacher's specific section is not enforced. A deliberate V1 simplification, not a security gap (the same authority level already exists for other class-wide actions).
+
 ## Phase 2 (Academic Sessions & Grades) — role visibility gaps
 
 ### Teachers and Students have no dashboard visibility into Phase 2 grade-placement data 🔭

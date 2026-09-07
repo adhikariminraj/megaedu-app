@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { resolveFrameworkAssignment } from "@/lib/assessmentFramework";
 import { fetchAcademicProgress } from "@/lib/academicProgress";
 import { resolveCurrentPlacement } from "@/lib/gradeHistory";
+import { fetchCoScholasticForStudent } from "@/lib/coScholastic";
 
 export const RESULT_STATUSES = ["PENDING", "EVALUATED", "ABSENT"] as const;
 export type ResultStatus = (typeof RESULT_STATUSES)[number];
@@ -361,7 +362,7 @@ export async function fetchAssessmentResults(
 }
 
 export type ReportCard = {
-  student: { id: string; name: string; email: string | null };
+  student: { id: string; name: string; email: string | null; photoUrl: string | null };
   school: { name: string } | null;
   academicSession: { name: string } | null;
   grade: { displayName: string; sectionName: string | null } | null;
@@ -369,13 +370,21 @@ export type ReportCard = {
   gpa: number | null;
   attendance: Awaited<ReturnType<typeof fetchAcademicProgress>>["attendance"];
   evaluations: Awaited<ReturnType<typeof fetchAcademicProgress>>["evaluations"];
+  parentNames: { father: string | null; mother: string | null };
+  coScholastic: Awaited<ReturnType<typeof fetchCoScholasticForStudent>>;
+  /** Live — read fresh every render, unlike Mark Sheet's frozen snapshot (see MARK_SHEET.md). */
+  gradingScales: { name: string; bands: { minPercent: number; maxPercent: number; label: string; gradePoint: number | null; description: string | null }[] }[];
 };
 
 /**
  * Assembles a live Report Card view — NOT a persisted snapshot, unlike
  * Certificate. Report cards must reflect corrections made after
  * publication (see correctComponentResult()), so freezing one into a
- * stored row at some past moment would contradict that design.
+ * stored row at some past moment would contradict that design. The
+ * same liveness applies to the new gradingScales field: unlike Mark
+ * Sheet's MarkSheetGradingBandSnapshot, a Report Card is explicitly
+ * defined as always-current, so reading today's GradingScale live here
+ * is correct behavior, not a bug.
  * Reuses fetchAcademicProgress() for attendance/evaluations rather
  * than re-querying them — the identical audience-filtered data a
  * Student/Parent/Staff already sees elsewhere in the app.
@@ -396,18 +405,50 @@ export async function buildReportCard(
 
   const placement = student.schoolId ? await resolveCurrentPlacement(studentId, student.schoolId) : null;
 
-  const [progress, assessment] = await Promise.all([
+  const [progress, assessment, parentContacts, coScholastic] = await Promise.all([
     fetchAcademicProgress(studentId, student.schoolId, audience),
     fetchAssessmentResults(studentId, student.schoolId, audience),
+    prisma.familyContact.findMany({
+      where: { studentId, relationship: { in: ["FATHER", "MOTHER"] }, isActive: true },
+    }),
+    placement && student.schoolId
+      ? fetchCoScholasticForStudent(studentId, student.schoolId, placement.schoolGradeId, placement.academicSessionId)
+      : Promise.resolve([]),
   ]);
 
+  const frameworkIds = [...new Set(assessment.subjects.map((s) => s.frameworkId))];
+  const frameworks = frameworkIds.length
+    ? await prisma.assessmentFramework.findMany({
+        where: { id: { in: frameworkIds } },
+        include: { gradingScale: { include: { bands: { orderBy: { order: "asc" } } } } },
+      })
+    : [];
+  const scalesById = new Map<string, (typeof frameworks)[number]["gradingScale"]>();
+  for (const fw of frameworks) if (fw.gradingScale) scalesById.set(fw.gradingScale.id, fw.gradingScale);
+
   return {
-    student: { id: student.id, name: student.fullName, email: student.user?.email ?? null },
+    student: {
+      id: student.id,
+      name: student.fullName,
+      email: student.user?.email ?? null,
+      photoUrl: student.user?.avatarUrl ?? null,
+    },
     school: student.school ? { name: student.school.name } : null,
     academicSession: placement ? { name: placement.academicSession.name } : null,
     grade: placement ? { displayName: placement.schoolGrade.displayName, sectionName: placement.section?.name ?? null } : null,
     subjects: assessment.subjects,
     gpa: assessment.gpa,
+    parentNames: {
+      father: parentContacts.find((c) => c.relationship === "FATHER")?.fullName ?? null,
+      mother: parentContacts.find((c) => c.relationship === "MOTHER")?.fullName ?? null,
+    },
+    coScholastic,
+    gradingScales: [...scalesById.values()]
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => ({
+        name: s.name,
+        bands: s.bands.map((b) => ({ minPercent: b.minPercent, maxPercent: b.maxPercent, label: b.label, gradePoint: b.gradePoint, description: b.description })),
+      })),
     attendance: progress.attendance,
     evaluations: progress.evaluations,
   };

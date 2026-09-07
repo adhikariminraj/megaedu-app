@@ -46,15 +46,39 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
   const reportCard = await buildReportCard(student.id, audience);
   if (!reportCard) notFound();
 
+  // Term-side-by-side layout: the union of every distinct period name
+  // across subjects, in first-seen order — different subjects may use
+  // different frameworks with different period sets, so a subject with
+  // no entry for a given column simply shows "—", never a guessed value.
+  const periodNames: string[] = [];
+  for (const s of reportCard.subjects) {
+    for (const p of s.periods) if (!periodNames.includes(p.name)) periodNames.push(p.name);
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
-      <p className="text-sm text-slate-400 mb-1">{reportCard.school?.name}</p>
-      <h1 className="text-2xl font-bold text-slate-800 mb-1">Report Card — {reportCard.student.name}</h1>
-      <p className="text-sm text-slate-500 mb-8">
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <p className="text-sm text-slate-400 mb-1">{reportCard.school?.name}</p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-1">Report Card — {reportCard.student.name}</h1>
+        </div>
+        {reportCard.student.photoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={reportCard.student.photoUrl} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-200" />
+        )}
+      </div>
+      <p className="text-sm text-slate-500 mb-1">
         {reportCard.grade
           ? `${reportCard.grade.displayName}${reportCard.grade.sectionName ? ` — Section ${reportCard.grade.sectionName}` : ""} · ${reportCard.academicSession?.name}`
           : "No current grade placement"}
       </p>
+      {(reportCard.parentNames.father || reportCard.parentNames.mother) && (
+        <p className="text-xs text-slate-400 mb-1">
+          {reportCard.parentNames.father && `Father: ${reportCard.parentNames.father}`}
+          {reportCard.parentNames.father && reportCard.parentNames.mother && " · "}
+          {reportCard.parentNames.mother && `Mother: ${reportCard.parentNames.mother}`}
+        </p>
+      )}
       <p className="text-xs text-slate-400 mb-8">
         This is a live, always-current view. For the formal, officially issued annual result, see{" "}
         <Link href={`/dashboard/mark-sheet/${reportCard.student.id}`} className="text-mega-blue font-medium">
@@ -62,7 +86,7 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
         </Link>
       </p>
 
-      <div className="border border-slate-200 rounded-xl p-5 mb-8">
+      <div className="border border-slate-200 rounded-xl p-5 mb-8 overflow-x-auto">
         <h3 className="font-semibold text-slate-800 mb-1">Subject Results</h3>
         <p className="text-xs text-slate-400 mb-4">
           {audience === "STAFF" ? "All results, published or draft." : "Published results only."}
@@ -70,8 +94,47 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
         </p>
         {reportCard.subjects.length === 0 ? (
           <p className="text-sm text-slate-400">No results available yet.</p>
+        ) : periodNames.length > 0 ? (
+          <table className="w-full text-sm border-collapse min-w-[500px]">
+            <thead>
+              <tr className="border-b-2 border-slate-800 text-left text-xs text-slate-500">
+                <th className="py-1.5">Subject</th>
+                {periodNames.map((name) => (
+                  <th key={name} className="py-1.5 text-right">
+                    {name}
+                  </th>
+                ))}
+                <th className="py-1.5 text-right">Total</th>
+                <th className="py-1.5 text-right">Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reportCard.subjects.map((s) => (
+                <tr key={s.gradeSubjectId} className="border-b border-slate-100">
+                  <td className="py-1.5">
+                    {s.subjectName}
+                    {audience === "STAFF" && s.publicationStatus !== "PUBLISHED" && (
+                      <span className="ml-1 text-xs font-semibold text-amber-600">(DRAFT)</span>
+                    )}
+                  </td>
+                  {periodNames.map((name) => {
+                    const p = s.periods.find((pp) => pp.name === name);
+                    return (
+                      <td key={name} className="py-1.5 text-right text-slate-600">
+                        {p ? (p.result.percentage !== null ? `${p.result.percentage.toFixed(1)}%` : "—") : "—"}
+                      </td>
+                    );
+                  })}
+                  <td className="py-1.5 text-right">
+                    {s.subjectTotal.percentage !== null ? `${s.subjectTotal.percentage.toFixed(1)}%` : "—"}
+                  </td>
+                  <td className="py-1.5 text-right font-medium">{s.grade?.label ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {reportCard.subjects.map((s) => (
               <div key={s.gradeSubjectId} className="border border-slate-100 rounded-lg px-3 py-2">
                 <div className="flex items-center justify-between">
@@ -92,22 +155,54 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
                   {s.grade ? ` — ${s.grade.label}` : ""}
                   {s.grade?.gradePoint !== null && s.grade?.gradePoint !== undefined ? ` (${s.grade.gradePoint} GPA)` : ""}
                 </p>
-                {s.periods.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {s.periods.map((p) => (
-                      <p key={p.periodId} className="text-xs text-slate-500">
-                        {p.name}: {p.result.totalObtained}/{p.result.totalMax}
-                        {p.result.percentage !== null ? ` (${p.result.percentage.toFixed(1)}%)` : " — incomplete"}
-                        {p.grade ? ` — ${p.grade.label}` : ""}
-                      </p>
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {reportCard.coScholastic.length > 0 && (
+        <div className="border border-slate-200 rounded-xl p-5 mb-8">
+          <h3 className="font-semibold text-slate-800 mb-3">Co-Scholastic Areas</h3>
+          <div className="space-y-1">
+            {reportCard.coScholastic.map((c) => (
+              <div key={c.areaId} className="flex items-center justify-between text-sm">
+                <span className="text-slate-700">{c.areaName}</span>
+                <span className="text-slate-500">
+                  {c.periodGrades.length > 0
+                    ? c.periodGrades.map((p) => `${p.periodName}: ${p.gradeLabel ?? "—"}`).join(" · ")
+                    : c.annualGradeLabel ?? "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {reportCard.gradingScales.length > 0 && (
+        <details className="border border-slate-200 rounded-xl p-5 mb-8">
+          <summary className="font-semibold text-slate-800 cursor-pointer">Grading Criteria</summary>
+          {reportCard.gradingScales.map((scale) => (
+            <div key={scale.name} className="mt-3">
+              <p className="text-xs text-slate-500 mb-1">{scale.name}</p>
+              <table className="w-full text-xs border-collapse">
+                <tbody>
+                  {scale.bands.map((b) => (
+                    <tr key={b.label} className="border-b border-slate-100">
+                      <td className="py-1 text-slate-500">
+                        {b.minPercent}–{b.maxPercent}
+                      </td>
+                      <td className="py-1 font-medium">{b.label}</td>
+                      {b.gradePoint !== null && <td className="py-1 text-slate-500">{b.gradePoint}</td>}
+                      {b.description && <td className="py-1 text-slate-500">{b.description}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </details>
+      )}
 
       {reportCard.evaluations.length > 0 && (
         <div className="border border-slate-200 rounded-xl p-5 mb-8">
