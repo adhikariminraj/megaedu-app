@@ -26,6 +26,55 @@ export type GradeHistoryStatus = (typeof GRADE_HISTORY_STATUSES)[number];
  */
 export const CURRENT_ROSTER_STATUSES: GradeHistoryStatus[] = ["ENROLLED", "COMPLETED", "REPEATED"];
 
+/**
+ * Mark Sheet Phase 0 fix — the single, correctly-scoped way to resolve a
+ * student's current-session grade placement. Replaces the pattern
+ * previously duplicated in fetchAssessmentResults(), buildReportCard(),
+ * and fetchAcademicProgress() —
+ *   gradeHistory.findFirst({ studentId, academicSession: { status: "ACTIVE" } })
+ * — which had no school scoping and no status filter. A student whose
+ * GradeHistory history touches more than one school (a transfer, or any
+ * school whose own session happens to still be open) could match an
+ * ACTIVE session belonging to a DIFFERENT school entirely, non-
+ * deterministically (no orderBy). Harmless-looking on a live Report
+ * Card; unacceptable the moment a Mark Sheet freezes whatever it finds.
+ *
+ * The fix is scoping, not new infrastructure: AcademicSession already
+ * enforces at most one ACTIVE row per school (app-level, see its own
+ * model comment), so once schoolId is part of the query, "the" ACTIVE
+ * session for that school is genuinely unique — and @@unique([studentId,
+ * academicSessionId]) then makes the GradeHistory row unique too. This
+ * is deterministic by construction, not by luck.
+ *
+ * Filtered to CURRENT_ROSTER_STATUSES (ENROLLED/COMPLETED/REPEATED) —
+ * the same definition this schema already uses everywhere else for "is
+ * this student still genuinely part of this grade this session." A
+ * TRANSFERRED/LEFT row means the student has left THIS school, so this
+ * correctly returns null for them here rather than a stale placement.
+ *
+ * schoolId is required, never inferred — callers pass whichever school
+ * context they already trust for the surrounding page/action (a URL-
+ * scoped schoolId, or the Student.schoolId bridge field already relied
+ * on for authorization throughout this codebase). This function does no
+ * authorization itself.
+ */
+export async function resolveCurrentPlacement(
+  studentId: string,
+  schoolId: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx || prisma;
+  return client.gradeHistory.findFirst({
+    where: {
+      studentId,
+      status: { in: CURRENT_ROSTER_STATUSES },
+      academicSession: { schoolId, status: "ACTIVE" },
+    },
+    include: { academicSession: true, schoolGrade: true, section: true },
+    orderBy: { enrolledAt: "desc" },
+  });
+}
+
 type RecordGradeDecisionInput = {
   gradeHistoryId: string;
   newStatus: GradeHistoryStatus;

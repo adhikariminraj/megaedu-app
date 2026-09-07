@@ -49,14 +49,18 @@ async function main() {
     where: { schoolGradeId: class9.id, academicSessionId: activeSession.id, status: { in: CURRENT_ROSTER_STATUSES as any } },
     include: { student: { include: { user: true } }, section: true },
   });
-  check("Class 9 current roster has 34 students", roster.length === 34);
+  // 35, not 34 — the Mark Sheet Kilometer 1 demo scenario added one more
+  // student (Section A), with no MEGA User account at all, specifically to
+  // prove Mark Sheet issuance never requires digital-account presence. See
+  // seed-demo.ts's "Mark Sheet Kilometer 1 demo scenario" section.
+  check("Class 9 current roster has 35 students", roster.length === 35);
   const bySection: Record<string, number> = {};
   for (const r of roster) {
     const key = r.section?.name ?? "Unassigned";
     bySection[key] = (bySection[key] ?? 0) + 1;
   }
   console.log("  Section breakdown:", JSON.stringify(bySection));
-  check("Sections A-D each have 8 students", ["A", "B", "C", "D"].every((s) => bySection[s] === 8));
+  check("Section A has 9 students (includes the userless Mark Sheet demo student), B-D have 8", bySection["A"] === 9 && ["B", "C", "D"].every((s) => bySection[s] === 8));
   check("2 students are Unassigned", bySection["Unassigned"] === 2);
 
   // --- Repeated / Regular / Newly-enrolled badge logic (mirrors the app's own derivation) ---
@@ -77,13 +81,13 @@ async function main() {
   const scored: { name: string; score: number }[] = [];
   const rawPercentages: number[] = [];
   for (const r of roster) {
-    const { subjects, gpa } = await fetchAssessmentResults(r.studentId, "STUDENT");
+    const { subjects, gpa } = await fetchAssessmentResults(r.studentId, sunrise.id, "STUDENT");
     if (subjects.length === 0) continue;
     const score = typeof gpa === "number" ? gpa : computeUnweightedAveragePercentage(subjects);
     if (typeof score === "number") scored.push({ name: r.student.fullName, score });
     for (const subj of subjects) if (typeof subj.subjectTotal.percentage === "number") rawPercentages.push(subj.subjectTotal.percentage);
   }
-  check("All 34 students have at least one published subject", scored.length === 34);
+  check("All 35 students have at least one published subject", scored.length === 35);
   scored.sort((a, b) => b.score - a.score);
   console.log("  Top 5 (via real calculation engine):", scored.slice(0, 5).map((s) => `${s.name} (${s.score.toFixed(2)})`).join(", "));
   // NOTE: GPA is intentionally coarse (only 6 possible values, since it's an
@@ -100,7 +104,12 @@ async function main() {
   const itSubject = await prisma.gradeSubject.findFirstOrThrow({ where: { schoolGradeId: class9.id, subject: { name: "IT" } } });
   const itPublications = await prisma.assessmentResultPublication.count({ where: { gradeSubjectId: itSubject.id } });
   const itResults = await prisma.assessmentComponentResult.count({ where: { gradeSubjectId: itSubject.id } });
-  check("IT has entered results but zero publications (draft state)", itResults > 0 && itPublications === 0);
+  // 2 publications, not 0 — the Mark Sheet demo scenario deliberately
+  // published IT for Demo Student and the userless student (making both
+  // fully Mark-Sheet-eligible) while leaving the original 3 students'
+  // entries unpublished, so both "draft" and "published" states are real
+  // and present simultaneously.
+  check("IT has both published (2) and unpublished entered results (draft/issued mix)", itResults > 0 && itPublications === 2);
 
   // --- Data integrity: no orphaned FK references --------------------------
   const allResults = await prisma.assessmentComponentResult.findMany({ select: { studentId: true, componentId: true, assignmentId: true, gradeSubjectId: true } });

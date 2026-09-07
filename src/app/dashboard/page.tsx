@@ -321,8 +321,8 @@ export default async function DashboardPage() {
       },
     });
     if (student) {
-      const progress = await fetchAcademicProgress(student.id, "STUDENT");
-      const assessment = await fetchAssessmentResults(student.id, "STUDENT");
+      const progress = await fetchAcademicProgress(student.id, student.schoolId, "STUDENT");
+      const assessment = await fetchAssessmentResults(student.id, student.schoolId, "STUDENT");
       const todaysHomework = await fetchTodaysHomework(student.id);
       let interestsLocked = false;
       if (student.schoolId) {
@@ -370,9 +370,9 @@ export default async function DashboardPage() {
       const childrenWithProgress = await Promise.all(
         parent.children.map(async (c) => ({
           ...c,
-          progress: await fetchAcademicProgress(c.student.id, "PARENT"),
+          progress: await fetchAcademicProgress(c.student.id, c.student.schoolId, "PARENT"),
           meetings: await fetchMeetingsForStudent(c.student.id, "PARENT"),
-          assessment: await fetchAssessmentResults(c.student.id, "PARENT"),
+          assessment: await fetchAssessmentResults(c.student.id, c.student.schoolId, "PARENT"),
           // Reuses the exact same shared function the Student branch
           // above calls for their own view — never a separate
           // parent-specific visibility algorithm (see src/lib/homework.ts).

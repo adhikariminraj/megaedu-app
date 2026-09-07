@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { AttendanceRow, ProgressRow, TestResultRow, EvaluationRow } from "@/components/AcademicProgressPanel";
 import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
 import { formatKathmanduTime } from "@/lib/calendar";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 
 /**
  * The Phase 3B/3C academic summary (attendance, teaching progress, test
@@ -28,9 +29,15 @@ import { formatKathmanduTime } from "@/lib/calendar";
  * Parent may legitimately see different evaluations), so this function
  * is always called once per intended audience, never shared between a
  * Student's own view and a Parent's view of that same child.
+ *
+ * schoolId scopes the current-placement lookup used for Teaching
+ * Progress (see resolveCurrentPlacement() in src/lib/gradeHistory.ts) —
+ * pass null only when no school context is available at all, in which
+ * case Teaching Progress is correctly empty rather than guessed.
  */
 export async function fetchAcademicProgress(
   studentId: string,
+  schoolId: string | null,
   audience: "STUDENT" | "PARENT" | "STAFF"
 ): Promise<{
   attendance: AttendanceRow[];
@@ -51,10 +58,7 @@ export async function fetchAcademicProgress(
       orderBy: { date: "desc" },
       take: 15,
     }),
-    prisma.gradeHistory.findFirst({
-      where: { studentId, academicSession: { status: "ACTIVE" } },
-      include: { schoolGrade: true, section: true },
-    }),
+    schoolId ? resolveCurrentPlacement(studentId, schoolId) : Promise.resolve(null),
     prisma.unitTestResult.findMany({
       where: { studentId },
       include: { unitTest: { include: { unit: { include: { subject: true } } } } },

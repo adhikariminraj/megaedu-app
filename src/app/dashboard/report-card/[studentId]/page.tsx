@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -53,6 +54,12 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
         {reportCard.grade
           ? `${reportCard.grade.displayName}${reportCard.grade.sectionName ? ` — Section ${reportCard.grade.sectionName}` : ""} · ${reportCard.academicSession?.name}`
           : "No current grade placement"}
+      </p>
+      <p className="text-xs text-slate-400 mb-8">
+        This is a live, always-current view. For the formal, officially issued annual result, see{" "}
+        <Link href={`/dashboard/mark-sheet/${reportCard.student.id}`} className="text-mega-blue font-medium">
+          Mark Sheets →
+        </Link>
       </p>
 
       <div className="border border-slate-200 rounded-xl p-5 mb-8">

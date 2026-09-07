@@ -76,6 +76,8 @@ model User {
   assessmentResultsEvaluated      AssessmentComponentResult[]      @relation("AssessmentComponentResultEvaluatedBy")
   assessmentComponentResultAudits AssessmentComponentResultAudit[] @relation("AssessmentComponentResultAuditChangedBy")
   assessmentResultsPublished      AssessmentResultPublication[]    @relation("AssessmentResultPublicationPublishedBy")
+
+  markSheetsIssued MarkSheet[] @relation("MarkSheetIssuedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -137,6 +139,7 @@ model School {
   gradingScales                  GradingScale[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   schoolCalendarEntries          SchoolCalendarEntry[]
+  markSheets                     MarkSheet[]
 
   // Structured address (label "OFFICIAL") — see Address below. The
   // legacy free-text location/district fields above stay in place
@@ -340,6 +343,7 @@ model Student {
   parentTeacherMeetings        ParentTeacherMeeting[]
   assessmentComponentResults   AssessmentComponentResult[]
   assessmentResultPublications AssessmentResultPublication[]
+  markSheets                   MarkSheet[]
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Structurally unrelated to `parents` (
@@ -550,6 +554,7 @@ model AcademicSession {
   parentTeacherMeetings          ParentTeacherMeeting[]
   assessmentFrameworkAssignments AssessmentFrameworkAssignment[]
   homework                       Homework[]
+  markSheets                     MarkSheet[]
 
   @@index([schoolId])
 }
@@ -1517,6 +1522,152 @@ model AssessmentResultPublication {
 
   @@unique([gradeSubjectId, studentId])
   @@index([studentId])
+}
+
+// ============================================================
+// MARK SHEET — the formal, immutable, issued annual academic result
+// document. See docs/MARK_SHEET.md.
+//
+// Distinct from the Report Card: the Report Card (buildReportCard(),
+// /dashboard/report-card/[studentId]) is a live, periodic, always-
+// current projection of assessment data, including attendance and
+// remarks. A Mark Sheet is issued exactly once (per version) at the
+// END of an AcademicSession, represents the FINAL ANNUAL result only,
+// and never changes — a later correction creates a new version rather
+// than editing this row. No FinalAnnualResult model exists or is
+// needed: the final result is formed live, at Issue time, by the
+// existing calculation engine (fetchAssessmentResults()/
+// computeSubjectResultFromParts(), src/lib/assessmentResults.ts) and
+// the existing GradeHistory promotion decision (recordGradeDecision(),
+// src/lib/gradeHistory.ts) — Issue only freezes both into this row and
+// its MarkSheetSubject children. See issueMarkSheet() in
+// src/lib/markSheet.ts, the only code path allowed to create one.
+//
+// Identity is Student.id, never User.id — a Student with no User
+// account (Student.userId null) can still receive a Mark Sheet;
+// studentMegaIdSnapshot is simply left null in that case, never
+// fabricated. studentId/schoolId/academicSessionId are live FKs used
+// only for identity/scoping/indexing — every DISPLAYED value is a
+// separate *Snapshot field, frozen at issuance, so a later school
+// rename, student name change, or grade-label edit can never alter an
+// already-issued document (the same principle already proven by
+// Certificate.*NameSnapshot).
+// ============================================================
+
+// One version of one issued Mark Sheet, for one Student, one
+// AcademicSession. A correction never edits this row — it creates a
+// new MarkSheet row (version + 1) and marks this one SUPERSEDED,
+// linked forward via supersededByMarkSheetId. Old versions are never
+// deleted; they remain permanently retrievable (see docs/MARK_SHEET.md
+// for the full correction/versioning flow and its concurrency design).
+model MarkSheet {
+  id                String          @id @default(cuid())
+  studentId         String
+  student           Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schoolId          String
+  school            School          @relation(fields: [schoolId], references: [id])
+  academicSessionId String
+  academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
+
+  // Versioning — see model-level comment. Uniqueness on
+  // (studentId, academicSessionId, version) is the DB-level integrity
+  // net: it makes a duplicate version number for the same student's
+  // same session physically impossible to insert, which also doubles
+  // as the concurrency guard for two simultaneous Issue/correction
+  // attempts (the losing transaction's insert fails outright, never
+  // silently creating a competing version). "Only one non-SUPERSEDED
+  // version at a time" is enforced app-level via an optimistic-lock
+  // update when superseding (see issueMarkSheet()/correctMarkSheet())
+  // — the same "app-level, not DB-level" idiom already used throughout
+  // this schema (AcademicSession, TeacherSchoolAffiliation) for a rule
+  // SQLite's lack of partial unique indexes can't express directly.
+  version Int    @default(1)
+  status  String @default("ISSUED") // "ISSUED" | "SUPERSEDED"
+
+  issuedAt                    DateTime @default(now())
+  issuedByUserId              String
+  issuedBy                    User     @relation("MarkSheetIssuedBy", fields: [issuedByUserId], references: [id])
+  issuerNameSnapshot          String
+  schoolNameSnapshot          String
+  academicSessionNameSnapshot String
+  gradeDisplayNameSnapshot    String
+  sectionNameSnapshot         String?
+  studentNameSnapshot         String
+  // Null when the Student has no linked User at issuance time —
+  // deliberately never fabricated. See PHASE 10 (userless-student test)
+  // in the implementation this model was built for.
+  studentMegaIdSnapshot       String?
+
+  // The final academic progression outcome, frozen from the ALREADY-
+  // RECORDED GradeHistory decision for this (studentId,
+  // academicSessionId) — never re-decided or auto-calculated here. Uses
+  // the exact same four-way GRADE_HISTORY_STATUSES vocabulary as
+  // GradeHistory.status (src/lib/gradeHistory.ts) rather than
+  // collapsing to a binary Promoted/Not-Promoted, so TRANSFERRED/LEFT
+  // are never misrepresented as "not promoted." outcomeGradeDisplayNameSnapshot
+  // is the destination grade's display name when the decision recorded
+  // one (Promote/Repeat); null for TRANSFERRED/LEFT, which have none.
+  outcomeStatus                   String
+  outcomeGradeDisplayNameSnapshot String?
+
+  // Cross-subject GPA at issuance, when the school's grading system
+  // resolves one (computeUnweightedGPA()) — null for a marks-only or
+  // Pass/Fail school, never forced. Per-subject percentage/grade/point
+  // live on MarkSheetSubject; this is the one document-level number
+  // that has no natural subject-level home.
+  gpaSnapshot Float?
+
+  // Populated only on a version > 1 row — why THIS version exists.
+  correctionReason String?
+
+  // Forward pointer to the version that superseded this one — null
+  // while this is the current version. One-to-one: a given row can be
+  // superseded by exactly one newer version.
+  supersededByMarkSheetId String?    @unique
+  supersededBy            MarkSheet? @relation("MarkSheetSupersession", fields: [supersededByMarkSheetId], references: [id])
+  supersededFrom          MarkSheet? @relation("MarkSheetSupersession")
+
+  createdAt DateTime @default(now())
+
+  subjects MarkSheetSubject[]
+
+  @@unique([studentId, academicSessionId, version])
+  @@index([studentId])
+  @@index([schoolId, academicSessionId])
+  @@index([studentId, academicSessionId, status])
+}
+
+// One subject's frozen final-annual result within one MarkSheet
+// version. Entirely immutable after creation — no route ever updates a
+// MarkSheetSubject row. gradeSubjectId is an informational pointer only
+// (never a Prisma relation, so GradeSubject's own real DELETE route,
+// see its model comment, is never blocked by a permanent reference) —
+// subjectNameSnapshot is always the actual, sole source for display,
+// exactly the principle already proven by Certificate's *Snapshot
+// fields. No pass/fail field here or on MarkSheet — an explicit,
+// approved V1 product decision (see docs/MARK_SHEET.md), not an
+// oversight.
+model MarkSheetSubject {
+  id          String    @id @default(cuid())
+  markSheetId String
+  markSheet   MarkSheet @relation(fields: [markSheetId], references: [id], onDelete: Cascade)
+
+  // Informational only — see model comment. Never joined live for
+  // display.
+  gradeSubjectId      String
+  subjectNameSnapshot String
+  order               Int
+
+  marksObtained Float
+  maximumMarks  Float
+  percentage    Float?
+  gradeLabel    String?
+  gradePoint    Float?
+
+  createdAt DateTime @default(now())
+
+  @@unique([markSheetId, gradeSubjectId])
+  @@index([markSheetId])
 }
 
 // ============================================================

@@ -103,9 +103,9 @@ export default async function StudentProfilePage({ params }: { params: { student
   }
 
   const [progress, meetings, assessment] = await Promise.all([
-    fetchAcademicProgress(student.id, "STAFF"),
+    fetchAcademicProgress(student.id, student.schoolId, "STAFF"),
     fetchMeetingsForStudent(student.id, "STAFF"),
-    fetchAssessmentResults(student.id, "STAFF"),
+    fetchAssessmentResults(student.id, student.schoolId, "STAFF"),
   ]);
 
   const placement = student.gradeHistory[0];
@@ -192,6 +192,10 @@ export default async function StudentProfilePage({ params }: { params: { student
       <p className="text-xs mb-8">
         <Link href={`/dashboard/report-card/${student.id}`} className="text-mega-blue font-medium">
           View full Report Card →
+        </Link>
+        {" · "}
+        <Link href={`/dashboard/students/${student.id}/mark-sheet`} className="text-mega-blue font-medium">
+          Annual Mark Sheet →
         </Link>
       </p>
 

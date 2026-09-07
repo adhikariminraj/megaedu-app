@@ -135,7 +135,7 @@ export default async function GradeRosterPage({
   const scoreByStudentId = new Map<string, { score: number; basis: "GPA" | "PERCENTAGE"; label: string } | null>();
   await Promise.all(
     roster.map(async (r) => {
-      const { subjects, gpa } = await fetchAssessmentResults(r.studentId, "STUDENT");
+      const { subjects, gpa } = await fetchAssessmentResults(r.studentId, schoolId, "STUDENT");
       if (subjects.length === 0) {
         scoreByStudentId.set(r.studentId, null);
         return;

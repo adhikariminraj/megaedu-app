@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { resolveFrameworkAssignment } from "@/lib/assessmentFramework";
 import { fetchAcademicProgress } from "@/lib/academicProgress";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 
 export const RESULT_STATUSES = ["PENDING", "EVALUATED", "ABSENT"] as const;
 export type ResultStatus = (typeof RESULT_STATUSES)[number];
@@ -296,15 +297,21 @@ const frameworkInclude = {
  * Callers are responsible for only ever passing a studentId they've
  * already verified the caller is allowed to see — this function does
  * no authorization itself, same contract as fetchAcademicProgress().
+ *
+ * schoolId scopes the current-placement lookup to one specific school
+ * (see resolveCurrentPlacement() in src/lib/gradeHistory.ts) — required
+ * so a student whose history touches more than one school never
+ * resolves an unrelated school's ACTIVE session. Pass null only when no
+ * school context is available at all (e.g. a not-yet-affiliated
+ * student), in which case this correctly returns no results rather than
+ * guessing.
  */
 export async function fetchAssessmentResults(
   studentId: string,
+  schoolId: string | null,
   audience: "STUDENT" | "PARENT" | "STAFF"
 ): Promise<{ subjects: SubjectResult[]; gpa: number | null }> {
-  const placement = await prisma.gradeHistory.findFirst({
-    where: { studentId, academicSession: { status: "ACTIVE" } },
-    include: { academicSession: true, schoolGrade: true },
-  });
+  const placement = schoolId ? await resolveCurrentPlacement(studentId, schoolId) : null;
   if (!placement) return { subjects: [], gpa: null };
 
   const gradeSubjects = await prisma.gradeSubject.findMany({
@@ -387,14 +394,11 @@ export async function buildReportCard(
   // even for a Student with no linked account. Email has no
   // institutional equivalent; it's simply absent without an account.
 
-  const placement = await prisma.gradeHistory.findFirst({
-    where: { studentId, academicSession: { status: "ACTIVE" } },
-    include: { academicSession: true, schoolGrade: true, section: true },
-  });
+  const placement = student.schoolId ? await resolveCurrentPlacement(studentId, student.schoolId) : null;
 
   const [progress, assessment] = await Promise.all([
-    fetchAcademicProgress(studentId, audience),
-    fetchAssessmentResults(studentId, audience),
+    fetchAcademicProgress(studentId, student.schoolId, audience),
+    fetchAssessmentResults(studentId, student.schoolId, audience),
   ]);
 
   return {

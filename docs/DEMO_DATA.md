@@ -77,7 +77,7 @@ Every account created by `seed-demo.ts` shares one password: **`MegaDemo123!`**.
 
 ### Students and parents (auto-generated)
 
-34 Class 9 students, 12 Class 6 students, and 13 Himalayan Class 8 students, plus 8 parent accounts, are generated with realistic fictional names and predictable emails (`firstname.lastname<n>@megaedu.local`). Names are drawn from a Nepali-context name pool with a **deterministic seeded random generator** — the same script version always produces the same names, marks, and attendance, every time it's run.
+35 Class 9 students (including one purpose-built Mark Sheet demo student with no MEGA User account at all — see below), 12 Class 6 students, and 13 Himalayan Class 8 students, plus 8 parent accounts, are generated with realistic fictional names and predictable emails (`firstname.lastname<n>@megaedu.local`). Names are drawn from a Nepali-context name pool with a **deterministic seeded random generator** — the same script version always produces the same names, marks, and attendance, every time it's run.
 
 The exact current roster (names, emails, section placements) is printed to the console every time you run `npm run db:seed:demo` — that console output is the authoritative, always-current list, rather than a static roster hard-coded into this document that could drift from what a re-seed actually produces.
 
@@ -91,7 +91,9 @@ The exact current roster (names, emails, section placements) is printed to the c
 
 **Assessment system** — three frameworks sharing one grading scale ("Class 9 Assessment Grade Levels," 6 bands A+ through D, each now with a real `gradePoint`/`isPassing` value): "Mathematics Assessment" and "Science Assessment" as **subject-specific overrides** (each subject needs its own framework instance — see the note below), and "Class 9 Assessment" as the grade default (covering IT/English/Nepali/Social Studies). Each has First Term and Second Term periods with 4 components apiece (Unit Test, Home Work, Port Folio, Written Exam).
 
-**Assessment results** — Mathematics and Science: real, varied marks (per-student ability + noise, not uniform) entered and **published** for all 34 Class 9 students, across both terms — GPA and the Top 5 ranking are computed live by the real `computeUnweightedGPA()`/`computeUnweightedAveragePercentage()` engine, not hard-coded. IT: marks entered for 3 students but deliberately **not published**, demonstrating the draft state.
+**Assessment results** — Mathematics and Science: real, varied marks (per-student ability + noise, not uniform) entered and **published** for all 35 Class 9 students, across both terms — GPA and the Top 5 ranking are computed live by the real `computeUnweightedGPA()`/`computeUnweightedAveragePercentage()` engine, not hard-coded. IT: marks entered for 3 students but deliberately **not published**, demonstrating the draft state — plus 2 more (Demo Student and the userless Mark Sheet demo student) published, alongside all four remaining grade-default subjects (English/Nepali/Social Studies/IT), so both are fully Mark-Sheet-eligible while every other student correctly is not.
+
+**Mark Sheet demo scenario** — a student with `Student.userId: null` (no MEGA User account at all), placed in Class 9 Section A, published in all six subjects, and given a **current-session** Promoted decision into a newly-added "Class 10" `SchoolGrade` (via the real, audited `recordGradeDecision()`) — proves Mark Sheet issuance never requires digital-account presence. Demo Student's own current-session `REPEATED` decision (already present in the roster setup) is paired with the same full-publication treatment, covering the Not-Promoted outcome via a real, login-accessible account. See [MARK_SHEET.md](MARK_SHEET.md).
 
 **Attendance** — 10 school days for Class 9 (A–D), 5 for Class 6 and Himalayan, a realistic present/absent/late/excused mix, including one corrected record with a real `AttendanceAudit` row.
 
@@ -123,7 +125,7 @@ Checks, against the live database and the **real production calculation function
 - Class 9 roster counts and section grouping match expectations
 - Repeated/Regular/newly-enrolled status is genuinely *derived* from `GradeHistory`, not asserted
 - Every student has at least one published subject; marks are realistically varied, not uniform
-- IT correctly has entered-but-unpublished results
+- IT correctly has both published and unpublished results (a real draft/issued mix)
 - Zero orphaned or duplicate rows (`AssessmentComponentResult`, `GradeHistory`)
 - No teacher holds both a grade-wide and section-specific assignment for the same subject (the real overlap rule)
 - Certificates exist for both completed courses

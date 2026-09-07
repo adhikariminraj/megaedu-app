@@ -21,6 +21,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { recordGradeDecision } from "../src/lib/gradeHistory";
 
 const prisma = new PrismaClient();
 
@@ -751,6 +752,116 @@ async function main() {
     // matches "results entered, not yet published."
   }
   console.log("Entered (unpublished) IT marks for 3 students — demonstrates draft/in-progress state.");
+
+  // ---------------------------------------------------------------------
+  // Mark Sheet Kilometer 1 demo scenario.
+  //
+  // 1. A student with NO MEGA User account at all (Student.userId: null),
+  //    fully eligible for Mark Sheet issuance — proves issuance never
+  //    requires digital-account presence (Student.id is the academic
+  //    identity, never User.id; see docs/MARK_SHEET.md). Published in
+  //    all three Class 9 subjects and given a CURRENT-session Promoted
+  //    decision into a newly-added Class 10.
+  // 2. Demo Student (already REPEATED for the current session, from the
+  //    roster setup above) gets its IT result published too, so it
+  //    becomes a second, real, login-accessible "ready to issue" demo —
+  //    covering the Not-Promoted outcome via the existing UI/API.
+  // Every other Class 9 student deliberately stays ineligible (IT left
+  // unpublished for 3 of them, ENROLLED/undecided for the rest) — a
+  // real, intentional demonstration of Issue correctly refusing an
+  // incomplete record, not an oversight.
+  // ---------------------------------------------------------------------
+  const userlessStudent = await prisma.student.upsert({
+    where: { id: "sunrise-userless-student-demo" },
+    update: {},
+    create: {
+      id: "sunrise-userless-student-demo",
+      fullName: "Bimala Thapa Magar",
+      schoolId: sunrise.id,
+      approved: true,
+    },
+  });
+  await placeCurrentSession(userlessStudent.id, class9.id, sectionsC9["A"].id);
+
+  const gY10 = await prisma.gradeReference.findUniqueOrThrow({ where: { code: "Y10" } });
+  const class10 = await prisma.schoolGrade.upsert({
+    where: { schoolId_gradeReferenceId: { schoolId: sunrise.id, gradeReferenceId: gY10.id } },
+    update: {},
+    create: { schoolId: sunrise.id, gradeReferenceId: gY10.id, displayName: "Class 10" },
+  });
+
+  async function publishOneSubjectFor(
+    studentId: string,
+    subjectName: string,
+    fw: { assignment: { id: string }; firstTermComponents: { id: string; maxMarks: number }[]; secondTermComponents?: { id: string; maxMarks: number }[] },
+    teacherUserId: string,
+    ability: number
+  ) {
+    const gradeSubject = gradeSubjectsC9[subjectName];
+    for (const comp of [...fw.firstTermComponents, ...(fw.secondTermComponents ?? [])]) {
+      await prisma.assessmentComponentResult.upsert({
+        where: { componentId_studentId: { componentId: comp.id, studentId } },
+        update: {},
+        create: {
+          componentId: comp.id,
+          gradeSubjectId: gradeSubject.id,
+          assignmentId: fw.assignment.id,
+          studentId,
+          status: "EVALUATED",
+          marksObtained: markFor(comp.maxMarks, ability),
+          evaluatedByUserId: teacherUserId,
+          evaluatedAt: new Date("2026-08-20"),
+        },
+      });
+    }
+    await prisma.assessmentResultPublication.upsert({
+      where: { gradeSubjectId_studentId: { gradeSubjectId: gradeSubject.id, studentId } },
+      update: {},
+      create: {
+        gradeSubjectId: gradeSubject.id,
+        studentId,
+        assignmentId: fw.assignment.id,
+        status: "PUBLISHED",
+        publishedAt: new Date("2026-08-22"),
+        publishedByUserId: teacherUserId,
+      },
+    });
+  }
+
+  await publishOneSubjectFor(userlessStudent.id, "Mathematics", mathFramework, bimlaUser.id, 0.75);
+  await publishOneSubjectFor(userlessStudent.id, "Science", scienceFramework, prakash.user.id, 0.68);
+  // Class 9 has six subjects total; Mathematics/Science use their own
+  // subject-override frameworks (above), the remaining four (IT, English,
+  // Nepali, Social Studies) share the grade-default framework — ALL SIX
+  // must be published for full Mark Sheet eligibility, not just the two
+  // headline subjects.
+  for (const subjectName of ["IT", "English", "Nepali", "Social Studies"]) {
+    await publishOneSubjectFor(userlessStudent.id, subjectName, gradeDefaultFramework, bishnu.user.id, 0.7);
+  }
+
+  const userlessPlacement = await prisma.gradeHistory.findUniqueOrThrow({
+    where: { studentId_academicSessionId: { studentId: userlessStudent.id, academicSessionId: activeSession.id } },
+  });
+  await recordGradeDecision({
+    gradeHistoryId: userlessPlacement.id,
+    newStatus: "COMPLETED",
+    newOutcomeGradeId: class10.id,
+    changedByUserId: schoolAdminUser.id,
+  });
+  console.log(
+    `Userless Mark Sheet demo student ready: ${userlessStudent.fullName} (Student.id ${userlessStudent.id}, no User account) — Promoted to Class 10, fully eligible for Mark Sheet issuance.`
+  );
+
+  // Demo Student already has Mathematics/Science published (part of the
+  // c9Students roster loop above) — the remaining four grade-default
+  // subjects are published here so ALL SIX are complete, matching the
+  // same full-eligibility bar as the userless student above.
+  for (const subjectName of ["IT", "English", "Nepali", "Social Studies"]) {
+    await publishOneSubjectFor(demoStudent.id, subjectName, gradeDefaultFramework, bishnu.user.id, 0.6);
+  }
+  console.log(
+    "Published all remaining subjects for Demo Student too — now fully eligible (all 6 subjects published, REPEATED decision already recorded) for a live Mark Sheet issuance demo via the UI."
+  );
 
   // ---------------------------------------------------------------------
   // Attendance — Class 9 A-D, 10 school days, realistic mixed statuses,

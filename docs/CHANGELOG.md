@@ -6,6 +6,19 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Mark Sheet, Kilometer 1: formal issued annual result, versioning, GradeHistory placement fix (2026-09-07)
+A three-part architecture audit established the product boundary — Report Card (live, periodic) vs. Mark Sheet (issued, immutable, annual) vs. Certificate (separate domain, untouched) — before any schema work began. This kilometer implements the Mark Sheet side of that boundary: two new additive models (`MarkSheet` header + `MarkSheetSubject` snapshot rows), a School-Admin-only Issue/Correct write path (`src/lib/markSheet.ts`), and owner-facing view pages, all reusing the existing assessment calculation engine and Promotion decision workflow **unchanged** — no `FinalAnnualResult` model, no new calculation logic, no new promotion mechanism.
+
+**Phase 0 fix, done first**: `fetchAssessmentResults()`/`buildReportCard()`/`fetchAcademicProgress()` each independently ran an unscoped `GradeHistory` placement lookup with no school filter and no deterministic order — harmless on a live Report Card, unacceptable once a Mark Sheet could freeze the result. Replaced all three with one shared, `schoolId`-scoped `resolveCurrentPlacement()` (`src/lib/gradeHistory.ts`), deterministic by construction (`AcademicSession` already enforces at most one `ACTIVE` row per school). Five downstream call sites updated to pass the `schoolId` they already had in scope. Verified against real two-school seed data with no regression.
+
+**Versioning**: a correction never edits an issued row — it creates a new version and marks the prior one `SUPERSEDED`, linked forward. `@@unique([studentId, academicSessionId, version])` makes a duplicate version physically impossible at the database level (also the concurrency backstop); "only one current version" is enforced via an optimistic-lock `updateMany()`, the same partial-unique-index workaround already used for `AcademicSession`/`TeacherSchoolAffiliation`.
+
+**Identity**: `Student.id`, never `User.id` — verified live end-to-end with a Student holding no `User` account at all (`studentMegaIdSnapshot` correctly left `null`, never fabricated). Snapshot immutability verified directly: issued a Mark Sheet, then simulated both a student rename and a school transfer, and confirmed every frozen field was unaffected.
+
+No PDF, no public verification/QR, no rank/division, no signatory role, no roll number — all deliberately deferred; see [MARK_SHEET.md](MARK_SHEET.md), [KNOWN_GAPS.md](KNOWN_GAPS.md).
+
+**Verified live**: issuance and correction flows exercised through the real UI (School Admin) and the real API routes; Student/Parent access confirmed both positive (own child) and negative (another student, correctly redirected); `npx tsc --noEmit` unchanged at the pre-existing 13-error baseline; existing regression suite (`prisma/verify-demo-data.ts`) passes.
+
 ### Added — My Profile, Kilometer 1: MEGA Identity header, institutional relationships, Security & Account (2026-09-07)
 A product audit found `/dashboard/profile` felt like an administrative record rather than a MEGA identity hub — this kilometer restructures it into **My MEGA Identity** (photo, name, MEGA ID with a one-click Copy action, role chips, email demoted below), **My Institutional Relationships** (new), **Security & Account** (the existing Change Password moved into its own section, functionality untouched), and a collapsed-by-default **Addresses** summary that expands into the existing `AddressForm` on Edit. MEGA ID remains exactly `user.id`, unchanged — no new identifier format, no `Person` model; the future `Person → Role Identity → Institutional Affiliation → optional User` architecture is documented as future direction only, not implemented here.
 

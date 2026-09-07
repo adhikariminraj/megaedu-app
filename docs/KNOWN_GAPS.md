@@ -180,6 +180,23 @@ Explicitly out of scope for My Profile K1's Security & Account section — see "
 ### School Admin relationships have no historical concept 🔭
 `SchoolAdmin` (see [DATABASE.md](DATABASE.md)) has no `status`/`startDate`/`endDate` columns — a row's existence is the entire relationship. My Profile K1 shows every administered school (never `take: 1`) but cannot show past/ended School Admin relationships, because the schema doesn't record them. Not invented; reported as a real limitation directly in the Profile UI itself.
 
+## Mark Sheet (Kilometer 1)
+
+### V1 targets only the school's currently ACTIVE session 🔭
+`resolveCurrentPlacement()`/`gatherSnapshot()` (`src/lib/markSheet.ts`, `src/lib/gradeHistory.ts`) scope Mark Sheet issuance to the school's `ACTIVE` `AcademicSession` only. Issuing a Mark Sheet against a closed/past session (e.g., discovered late, after the school already opened a new session) is not supported — a deliberate V1 scope limit, not an oversight. See [MARK_SHEET.md](MARK_SHEET.md).
+
+### PDF generation, public verification, QR code are not built 🔭
+The Mark Sheet document view is in-browser only, the same deferred-PDF state `Certificate` has been in since Phase 1. No document number is exposed publicly, and no `/verify/[code]`-equivalent page exists — a Mark Sheet carries meaningfully more sensitive per-student data than a Certificate, so its public-verification design was deliberately not attempted alongside persistence. See [MARK_SHEET.md](MARK_SHEET.md).
+
+### No Rank or Division 🔭
+Deliberately excluded from V1 content, per explicit product decision — no ranking/division policy is configured anywhere in this schema, and baking an assumption into an immutable, issued document before that policy is properly designed would be far harder to walk back than leaving it off. See [MARK_SHEET.md](MARK_SHEET.md).
+
+### No formal signatory / Principal identity 🔭
+`SchoolAdmin` has no `position`/`title` field — every School Admin is architecturally identical. A Mark Sheet's issuer is simply "the School Admin who performed the Issue action" (`issuedByUserId` + `issuerNameSnapshot`), not a distinguished Principal/Headmaster role. Building that role system was explicitly out of scope for this kilometer.
+
+### No roll number / symbol number / admission number 🔭
+Confirmed absent from the schema entirely (a direct search returns zero matches) — not fabricated on the Mark Sheet. See [MARK_SHEET.md](MARK_SHEET.md) §6/§7 of the design audit trail for the full reasoning.
+
 ## Authentication
 
 ### Several standard auth features are absent 🔭
