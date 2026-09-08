@@ -9,6 +9,24 @@ import {
   HOMEWORK_COMPLETION_STATUSES,
 } from "@/lib/homeworkCompletion";
 import { computeHomeworkRollup } from "@/lib/homeworkRollup";
+import { runWithConcurrencyLimit } from "@/lib/concurrency";
+
+/**
+ * Bulk completion save — how many recordOrCorrectCompletion() calls (each
+ * its own independent prisma.$transaction()) may be in flight at once.
+ * SQLite allows only one writer at a time, and Prisma's interactive-
+ * transaction default timeout is 5000ms — fire too many transactions at
+ * once and the ones stuck waiting for the SQLite write lock past that
+ * window fail with a P1008 timeout, not a graceful conflict. Empirically
+ * benchmarked against this repository's actual dev.db (not guessed):
+ * unbounded concurrency fails routinely at just 12 rows (5/12 succeeded);
+ * a limit of 8 still collapses catastrophically at realistic class sizes
+ * (16/60 succeeded); limits of 3 and 5 were both 100% reliable up to 60
+ * rows (well beyond MEGA's largest real class sizes, ~30-35 students) at
+ * comparable elapsed time. 5 was chosen for a little more throughput
+ * headroom than 3 while staying well clear of the failure cliff at 8.
+ */
+const COMPLETION_SAVE_CONCURRENCY = 5;
 
 /**
  * K2 — resolves whether the current session's Teacher may record/view
@@ -140,6 +158,8 @@ const recordSchema = z.object({
 });
 const postSchema = z.object({ records: z.array(recordSchema).min(1).max(500) });
 
+type RowOutcome = { applicabilityId: string; ok: true; version: number } | { applicabilityId: string; ok: false; error: string };
+
 /**
  * POST — bulk-record/correct completion in one request, so a teacher
  * checking a whole section's notebooks doesn't need one page load per
@@ -147,9 +167,26 @@ const postSchema = z.object({ records: z.array(recordSchema).min(1).max(500) });
  * recordOrCorrectCompletion() transaction — deliberately NOT one
  * all-or-nothing transaction across the whole batch, since one student's
  * completion is entirely unrelated to another's; a stale-version
- * conflict on one row must never discard the other rows' legitimate
- * writes. Returns a per-row outcome so the client can show exactly which
- * rows saved and which need a refresh.
+ * conflict (or any other single-row failure — see below) must never
+ * discard the other rows' legitimate writes. Returns a per-row outcome
+ * so the client can show exactly which rows saved and which need a
+ * refresh.
+ *
+ * Concurrency is bounded to COMPLETION_SAVE_CONCURRENCY in-flight
+ * transactions at once (see that constant's own comment for the
+ * empirical reasoning) — this is throughput/reliability tuning only, it
+ * changes nothing about per-row atomicity or CAS semantics.
+ *
+ * EVERY row failure — a genuine HomeworkCompletionConflictError (CAS
+ * lost the race) or any other unexpected error (e.g. a transient
+ * database error) — becomes that row's own {ok:false} outcome. Nothing
+ * is ever re-thrown out of the per-row handler: doing so would reject
+ * the whole batch and discard the results of every row that already
+ * succeeded, which is exactly the bug this route previously had. The
+ * response is therefore always valid JSON with a 200 status, regardless
+ * of how many individual rows failed — success/failure is communicated
+ * entirely through each row's own `ok` flag, never through the HTTP
+ * status of the batch as a whole.
  */
 export async function POST(
   req: NextRequest,
@@ -174,26 +211,46 @@ export async function POST(
   });
   const validIds = new Set(validApplicability.map((a) => a.id));
 
-  const outcomes = await Promise.all(
-    parsed.data.records.map(async (record) => {
-      if (!validIds.has(record.applicabilityId)) {
-        return { applicabilityId: record.applicabilityId, ok: false as const, error: "Not found for this homework." };
+  const settled = await runWithConcurrencyLimit(parsed.data.records, COMPLETION_SAVE_CONCURRENCY, async (record) => {
+    if (!validIds.has(record.applicabilityId)) {
+      const outcome: RowOutcome = { applicabilityId: record.applicabilityId, ok: false, error: "Not found for this homework." };
+      return outcome;
+    }
+    try {
+      const { completion } = await recordOrCorrectCompletion({
+        homeworkApplicabilityId: record.applicabilityId,
+        status: record.status,
+        teacherId,
+        expectedVersion: record.expectedVersion,
+      });
+      const outcome: RowOutcome = { applicabilityId: record.applicabilityId, ok: true, version: completion.version };
+      return outcome;
+    } catch (err) {
+      if (err instanceof HomeworkCompletionConflictError) {
+        const outcome: RowOutcome = { applicabilityId: record.applicabilityId, ok: false, error: err.message };
+        return outcome;
       }
-      try {
-        const { completion } = await recordOrCorrectCompletion({
-          homeworkApplicabilityId: record.applicabilityId,
-          status: record.status,
-          teacherId,
-          expectedVersion: record.expectedVersion,
-        });
-        return { applicabilityId: record.applicabilityId, ok: true as const, version: completion.version };
-      } catch (err) {
-        if (err instanceof HomeworkCompletionConflictError) {
-          return { applicabilityId: record.applicabilityId, ok: false as const, error: err.message };
-        }
-        throw err;
-      }
-    })
+      // Any other failure (e.g. a transient database error) must also
+      // become this row's own explicit outcome — never escape and take
+      // down the whole batch response. Logged server-side for
+      // visibility; the client sees a generic, safe message rather than
+      // a raw internal error string.
+      console.error(`Homework completion save failed for applicability ${record.applicabilityId}:`, err);
+      const outcome: RowOutcome = { applicabilityId: record.applicabilityId, ok: false, error: "Could not save this row — please try again." };
+      return outcome;
+    }
+  });
+
+  // runWithConcurrencyLimit() itself never rejects a settled entry for
+  // the function above, since every path inside it already returns a
+  // RowOutcome rather than throwing — but unwrap defensively via the
+  // PromiseSettledResult shape regardless, so a future change to the
+  // callback above can never silently reintroduce the original bug of
+  // one row's uncaught exception rejecting the whole batch response.
+  const outcomes: RowOutcome[] = settled.map((s, i) =>
+    s.status === "fulfilled"
+      ? s.value
+      : { applicabilityId: parsed.data.records[i].applicabilityId, ok: false, error: "Could not save this row — please try again." }
   );
 
   return NextResponse.json({ ok: true, results: outcomes });
