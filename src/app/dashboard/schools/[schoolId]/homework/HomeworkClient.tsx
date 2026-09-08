@@ -115,7 +115,19 @@ export default function HomeworkClient({
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-12">
-      <h1 className="text-2xl font-bold text-slate-800 mb-8">Homework</h1>
+      <h1 className="text-2xl font-bold text-slate-800 mb-1">Homework</h1>
+      {/* K5 — Class Teacher/Grade Coordinator progress view. Teacher-only
+          (the page itself redirects Admin); shown unconditionally to
+          every teacher rather than passing a new server-computed flag
+          down just for link visibility — the page handles "you hold no
+          such assignment" gracefully on its own. */}
+      <p className="mb-8">
+        {!isAdmin && (
+          <a href={`/dashboard/schools/${schoolId}/homework/progress`} className="text-sm text-mega-blue hover:underline">
+            View Homework Progress →
+          </a>
+        )}
+      </p>
 
       {assignmentOptions.length === 0 ? (
         <p className="text-slate-400 text-sm mb-8">

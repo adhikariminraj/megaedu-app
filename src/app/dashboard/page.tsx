@@ -14,7 +14,7 @@ import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
 import { fetchAcademicProgress, fetchMeetingsForStudent, fetchMeetingsForTeacher } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
-import { fetchTodaysHomework } from "@/lib/homework";
+import { fetchTodaysHomework, fetchStudentHomeworkHistory } from "@/lib/homework";
 import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
 import SchoolChooser from "@/components/SchoolChooser";
 
@@ -338,6 +338,11 @@ export default async function DashboardPage() {
       const progress = await fetchAcademicProgress(student.id, student.schoolId, "STUDENT");
       const assessment = await fetchAssessmentResults(student.id, student.schoolId, "STUDENT");
       const todaysHomework = await fetchTodaysHomework(student.id, student.schoolId);
+      // K6 — the new Applicability-based history, deliberately a
+      // SEPARATE fetch from fetchTodaysHomework() above, not a
+      // replacement — see fetchStudentHomeworkHistory()'s own doc
+      // comment for why these are two different questions.
+      const homeworkHistory = await fetchStudentHomeworkHistory(student.id);
       let interestsLocked = false;
       if (student.schoolId) {
         const activeSession = await prisma.academicSession.findFirst({
@@ -362,6 +367,7 @@ export default async function DashboardPage() {
           gpa={assessment.gpa}
           interestsLocked={interestsLocked}
           todaysHomework={todaysHomework}
+          homeworkHistory={homeworkHistory}
         />
       );
     }
@@ -391,6 +397,10 @@ export default async function DashboardPage() {
           // above calls for their own view — never a separate
           // parent-specific visibility algorithm (see src/lib/homework.ts).
           todaysHomework: await fetchTodaysHomework(c.student.id, c.student.schoolId),
+          // K6 — same reuse principle for the Applicability-based
+          // history: identical function, identical shape, Parent gets
+          // exactly what Student sees for their own linked child.
+          homeworkHistory: await fetchStudentHomeworkHistory(c.student.id),
         }))
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;

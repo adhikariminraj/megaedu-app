@@ -30,6 +30,74 @@ export type HomeworkRow = {
   dueDate: string; // "YYYY-MM-DD"
 };
 
+export type HomeworkHistoryRow = {
+  applicabilityId: string;
+  homeworkId: string;
+  title: string;
+  instructions: string;
+  subjectName: string;
+  dueDate: string; // "YYYY-MM-DD"
+  isIndividual: boolean;
+  status: "COMPLETED" | "PARTIAL" | "NOT_COMPLETED" | "EXCUSED" | null;
+  submissionCount: number;
+  latestAttemptLate: boolean;
+  reviewCount: number;
+};
+
+/**
+ * K6 — a student's Homework HISTORY, resolved from HomeworkApplicability
+ * DIRECTLY (the canonical, historical Student <-> Homework relationship
+ * — see HomeworkApplicability's own model comment) — deliberately NOT
+ * from current placement the way fetchTodaysHomework() below is.
+ *
+ * This is a genuinely different question from fetchTodaysHomework()'s:
+ * "what's due today" is correctly a LIVE view of current placement
+ * (today's answer can only ever be about where the student is right
+ * now); "what has this student's homework history been" is correctly a
+ * HISTORICAL view of the immutable Applicability record, so a section
+ * transfer, grade promotion, or even leaving the school never removes
+ * or reinterprets an entry here — "disassociate != delete," the same
+ * principle K1 established for Applicability itself. Using current
+ * placement for this query would be exactly the failure mode K1/K2's
+ * whole architecture was built to prevent; fetchTodaysHomework() itself
+ * is untouched by this function's existence.
+ *
+ * Bounded to the most recent `limit` applicability rows (default 50) —
+ * an explicit query limit from day one, so a student's Homework history
+ * never becomes an ever-growing unbounded list as real schools
+ * accumulate years of records (see the platform's own scale audit).
+ * Callers are responsible for only ever passing a studentId they've
+ * already verified the caller is allowed to see — this function does no
+ * authorization itself, matching fetchTodaysHomework()'s own contract.
+ */
+export async function fetchStudentHomeworkHistory(studentId: string, limit = 50): Promise<HomeworkHistoryRow[]> {
+  const applicability = await prisma.homeworkApplicability.findMany({
+    where: { studentId },
+    include: {
+      homework: { include: { subject: true } },
+      completion: { select: { status: true } },
+      submissionAttempts: { select: { isLate: true }, orderBy: { attemptNumber: "desc" } },
+      _count: { select: { submissionAttempts: true, reviews: true } },
+    },
+    orderBy: { assignedAt: "desc" },
+    take: limit,
+  });
+
+  return applicability.map((a) => ({
+    applicabilityId: a.id,
+    homeworkId: a.homeworkId,
+    title: a.homework.title,
+    instructions: a.homework.instructions,
+    subjectName: a.homework.subject.name,
+    dueDate: a.homework.dueDate.toISOString().slice(0, 10),
+    isIndividual: !!a.homework.targetStudentId,
+    status: (a.completion?.status as HomeworkHistoryRow["status"]) ?? null,
+    submissionCount: a._count.submissionAttempts,
+    latestAttemptLate: a.submissionAttempts[0]?.isLate ?? false,
+    reviewCount: a._count.reviews,
+  }));
+}
+
 /**
  * Today's PUBLISHED homework applicable to one student, resolved
  * entirely from that student's current institutional placement — never

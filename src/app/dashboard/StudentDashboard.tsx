@@ -10,6 +10,7 @@ import AcademicProgressPanel, {
   SubjectResultRow,
 } from "@/components/AcademicProgressPanel";
 import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
+import HomeworkHistoryPanel, { HomeworkHistoryRow } from "@/components/HomeworkHistoryPanel";
 
 type Student = {
   id: string;
@@ -36,6 +37,7 @@ export default function StudentDashboard({
   gpa,
   interestsLocked,
   todaysHomework,
+  homeworkHistory,
 }: {
   student: Student;
   userName: string;
@@ -47,6 +49,7 @@ export default function StudentDashboard({
   gpa: number | null;
   interestsLocked: boolean;
   todaysHomework: HomeworkRow[];
+  homeworkHistory: HomeworkHistoryRow[];
 }) {
   if (!student.school) {
     return (
@@ -160,6 +163,10 @@ export default function StudentDashboard({
 
       <div className="mb-6">
         <TodaysHomeworkPanel homework={todaysHomework} />
+      </div>
+
+      <div className="mb-6">
+        <HomeworkHistoryPanel rows={homeworkHistory} canSubmit={true} />
       </div>
 
       <p className="text-xs mb-6">

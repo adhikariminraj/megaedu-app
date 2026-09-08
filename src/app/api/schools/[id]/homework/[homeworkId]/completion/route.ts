@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireTeacherAssignment } from "@/lib/authorize";
+import { resolveSubjectTeacherAuthorizationScope } from "@/lib/homeworkAuthorization";
 import {
   recordOrCorrectCompletion,
-  resolveCompletionAuthorizationSectionScope,
   HomeworkCompletionConflictError,
   HOMEWORK_COMPLETION_STATUSES,
 } from "@/lib/homeworkCompletion";
+import { computeHomeworkRollup } from "@/lib/homeworkRollup";
 
 /**
  * K2 — resolves whether the current session's Teacher may record/view
@@ -48,7 +49,7 @@ async function resolveCompletionAuthorization(
   schoolId: string,
   homework: { academicSessionId: string; schoolGradeId: string; sectionId: string | null; subjectId: string; targetStudentId: string | null }
 ): Promise<string | null> {
-  const sectionId = await resolveCompletionAuthorizationSectionScope(homework);
+  const sectionId = await resolveSubjectTeacherAuthorizationScope(homework);
 
   const userId = await requireTeacherAssignment(schoolId, {
     academicSessionId: homework.academicSessionId,
@@ -86,9 +87,15 @@ async function loadAuthorizedHomework(schoolId: string, homeworkId: string) {
 /**
  * GET — the current roster of HomeworkApplicability rows for this
  * Homework, each with its current HomeworkCompletion (or null =
- * unrecorded). The one minimal read model K2 needs — Teacher-only, no
- * Class Teacher/Grade Coordinator/School Admin progress-visibility
- * surface is introduced here or anywhere else in K2.
+ * unrecorded), plus (K5) a summary rollup and (K3/K4) per-student
+ * submission/review counts — Teacher-only, no Class Teacher/Grade
+ * Coordinator/School Admin progress-visibility surface here (that's
+ * the separate, deliberately deferred-scope .../homework/progress
+ * page). The rollup is included ONLY for Regular Homework
+ * (targetStudentId: null) — an Individual Homework's single applicable
+ * student has no meaningful "class completion percentage," per the
+ * hard Regular/Individual separation rule, so `rollup` is null and
+ * `isIndividual` is true instead.
  */
 export async function GET(
   req: NextRequest,
@@ -96,18 +103,22 @@ export async function GET(
 ) {
   const result = await loadAuthorizedHomework(params.id, params.homeworkId);
   if ("error" in result) return result.error;
+  const { homework } = result;
 
   const applicability = await prisma.homeworkApplicability.findMany({
     where: { homeworkId: params.homeworkId },
     include: {
       student: { select: { fullName: true } },
       completion: { include: { recordedByTeacher: { select: { fullName: true } } } },
+      _count: { select: { submissionAttempts: true, reviews: true } },
     },
     orderBy: { student: { fullName: "asc" } },
   });
 
   return NextResponse.json({
     ok: true,
+    isIndividual: !!homework.targetStudentId,
+    rollup: homework.targetStudentId ? null : await computeHomeworkRollup(params.homeworkId),
     students: applicability.map((a) => ({
       applicabilityId: a.id,
       studentId: a.studentId,
@@ -116,6 +127,8 @@ export async function GET(
       version: a.completion?.version ?? null,
       recordedAt: a.completion?.recordedAt.toISOString() ?? null,
       recordedByTeacherName: a.completion?.recordedByTeacher.fullName ?? null,
+      submissionCount: a._count.submissionAttempts,
+      reviewCount: a._count.reviews,
     })),
   });
 }

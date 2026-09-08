@@ -1,53 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { resolveStudentPlacementInSession } from "@/lib/gradeHistory";
 
 export const HOMEWORK_COMPLETION_STATUSES = ["COMPLETED", "PARTIAL", "NOT_COMPLETED", "EXCUSED"] as const;
 export type HomeworkCompletionStatus = (typeof HOMEWORK_COMPLETION_STATUSES)[number];
 
-/**
- * K2 — the pure decision behind Individual Homework completion
- * authorization (see the K2 authorization clarification). Deliberately
- * factored out from the route so it's independently testable without a
- * live session: session resolution and the actual TeacherAcademicAssignment
- * match (requireTeacherAssignment(), src/lib/authorize.ts) are unchanged,
- * already-proven code — this function's only job is producing the
- * correct `sectionId` SCOPE to check that assignment against.
- *
- * Regular Homework: the Homework's own frozen sectionId, unchanged —
- * no per-student resolution needed, since Regular Homework's
- * authorization question is "does this teacher teach the Homework's own
- * declared scope," not "does this teacher teach this particular
- * student."
- *
- * Individual Homework: Homework.sectionId is always null by K1 design,
- * which must be read as neither "any section" nor "grade-wide only."
- * Freshly resolves the target student's placement WITHIN THIS
- * HOMEWORK'S OWN academicSessionId/schoolGradeId (never the school's
- * currently-ACTIVE session — see resolveStudentPlacementInSession()'s
- * own doc comment for why that distinction matters). If the student is
- * still there (even in a different section than when the homework was
- * created — "disassociate != delete" for HISTORY, but authorization is
- * always a CURRENT check), authorize against their current section
- * (grade-wide OR that exact section). If the student has since
- * transferred out of this grade or left the school entirely (no
- * current-roster placement), fall back to grade-wide-only — a teacher
- * whose assignment was only ever section-specific has no remaining
- * basis to record for a student no longer anywhere in this grade. This
- * NEVER reads, rewrites, or re-derives HomeworkApplicability itself.
- */
-export async function resolveCompletionAuthorizationSectionScope(
-  homework: { academicSessionId: string; schoolGradeId: string; sectionId: string | null; targetStudentId: string | null }
-): Promise<string | null> {
-  if (!homework.targetStudentId) return homework.sectionId;
-
-  const placement = await resolveStudentPlacementInSession(
-    homework.targetStudentId,
-    homework.academicSessionId,
-    homework.schoolGradeId
-  );
-  return placement ? placement.sectionId : null;
-}
+// K4 — the Individual-Homework authorization-scope rule that used to
+// live here moved to src/lib/homeworkAuthorization.ts
+// (resolveSubjectTeacherAuthorizationScope) — mechanical rename/
+// relocation only, semantics unchanged — since K4 Review now reuses the
+// identical rule and it no longer belongs to Completion specifically.
 
 /**
  * K2 — thrown when a completion recording/correction can't be applied as

@@ -16,6 +16,10 @@
 # see src/lib/uploads.ts
 /public/uploads/
 
+# private user-uploaded content (Homework Submission evidence photos) —
+# never committed, never publicly served; see src/lib/uploads.ts
+/private-uploads/
+
 # env files
 .env
 .env*.local

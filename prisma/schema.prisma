@@ -80,6 +80,8 @@ model User {
   markSheetsIssued MarkSheet[] @relation("MarkSheetIssuedBy")
 
   coScholasticResultsEvaluated CoScholasticResult[] @relation("CoScholasticResultEvaluatedBy")
+
+  homeworkSubmissionAttempts HomeworkSubmissionAttempt[] @relation("HomeworkSubmissionAttemptSubmittedBy")
 }
 
 // Role is a plain String below, not a Prisma enum — SQLite's connector
@@ -289,6 +291,7 @@ model Teacher {
   homework                Homework[]
   homeworkCompletionsRecorded   HomeworkCompletion[]      @relation("HomeworkCompletionRecordedBy")
   homeworkCompletionAuditsMade  HomeworkCompletionAudit[] @relation("HomeworkCompletionAuditChangedBy")
+  homeworkReviewsGiven          HomeworkReview[]          @relation("HomeworkReviewReviewedBy")
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Same structural separation from portal access
@@ -1165,6 +1168,8 @@ model HomeworkApplicability {
   @@index([studentId])
 
   completion HomeworkCompletion?
+  submissionAttempts HomeworkSubmissionAttempt[]
+  reviews            HomeworkReview[]
 }
 
 // K2 — one student's completion decision for one HomeworkApplicability
@@ -1242,6 +1247,130 @@ model HomeworkCompletionAudit {
   newStatus            String
 
   @@index([homeworkCompletionId])
+}
+
+// ============================================================
+// K3 — HOMEWORK SUBMISSION
+// Optional student-provided evidence, entirely independent of
+// HomeworkCompletion — the core product principle: "Completion is the
+// primary fact. Online submission is optional evidence." A student may
+// be COMPLETED with zero submission rows (offline homework, checked
+// physically), or may submit evidence and still be recorded PARTIAL —
+// neither model ever reads or writes the other. Anchored directly to
+// HomeworkApplicability (never Homework.studentId, never a second
+// Student <-> Homework relationship), as a sibling of HomeworkCompletion
+// under the same canonical parent.
+// ============================================================
+
+// One immutable attempt by the student to submit evidence for one
+// HomeworkApplicability. Multiple attempts are expected and normal (a
+// resubmission is simply a new row, even after Completion has already
+// been recorded — Completion and Submission never gate each other).
+// No update or delete route exists or should ever exist for this model
+// — a correction is always a new attempt, never an edit to an old one,
+// matching this schema's dominant "append, never overwrite" discipline
+// (GradeHistory, Certificate, MarkSheet).
+model HomeworkSubmissionAttempt {
+  id                      String                @id @default(cuid())
+  homeworkApplicabilityId String
+  homeworkApplicability   HomeworkApplicability @relation(fields: [homeworkApplicabilityId], references: [id], onDelete: Cascade)
+
+  // App-assigned (current count + 1, within this applicability's own
+  // scope), matching TeachingUnit.order's existing idiom — never a bare
+  // insert order, since attempts must be stably numbered for display
+  // ("Attempt 1", "Attempt 2") regardless of any future query ordering
+  // change. @@unique below is the database-level backstop against a
+  // duplicate attempt number, the same "belt and suspenders" relationship
+  // already used throughout this schema's other numbered/CAS models.
+  attemptNumber Int
+
+  submittedAt DateTime
+
+  // Derived exactly once, at submission time, from submittedAt vs. the
+  // parent Homework's own dueDate (already frozen post-publish) — never
+  // recomputed live. Matches this schema's "snapshot at the moment it
+  // matters" precedent (Certificate, MarkSheet, GradeHistoryAudit).
+  isLate Boolean
+
+  // At least one of textContent/fileUrl is required (enforced at the
+  // application layer — see src/lib/homeworkSubmission.ts); both may be
+  // present on the same attempt. Deliberately NOT two separate models
+  // (TextSubmission/FileSubmission) — one attempt is one act of
+  // evidence, which may combine a note and a photo.
+  textContent String?
+  // Root-relative path into the PRIVATE (non-public) storage directory
+  // used by saveSubmissionFile() (src/lib/uploads.ts) — deliberately
+  // NEVER a /uploads/... public URL. Served only through the
+  // authenticated file route (src/app/api/homework-submissions/[id]/
+  // file/route.ts), which re-verifies the caller's authorization to
+  // this exact HomeworkApplicability before streaming any bytes.
+  filePath String?
+
+  // The STUDENT's own account, resolved fresh from the session at
+  // submission time — never trusted from client input, never a
+  // teacher/admin/parent "on behalf of" actor. This is the one field
+  // that anchors "who actually did this work" for accountability.
+  submittedByUserId String
+  submittedByUser    User   @relation("HomeworkSubmissionAttemptSubmittedBy", fields: [submittedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  reviews HomeworkReview[]
+
+  @@unique([homeworkApplicabilityId, attemptNumber])
+  @@index([homeworkApplicabilityId])
+}
+
+// ============================================================
+// K4 — HOMEWORK REVIEW / FEEDBACK
+// The Subject Teacher's response — independent of submission (a review
+// may exist for a purely offline-checked homework, with no submission
+// attempt at all) and independent of Completion (feedback never implies
+// or requires a particular completion status). Anchored to
+// HomeworkApplicability, with an OPTIONAL pointer to the specific
+// HomeworkSubmissionAttempt it responds to, when one exists.
+// ============================================================
+
+// One append-only review/feedback entry. Multiple reviews for the same
+// HomeworkApplicability are expected (a resubmission naturally invites
+// another review) and are NEVER collapsed into one editable row — no
+// update or delete route exists. A correction to earlier feedback is
+// always a new review entry, preserving the full round-by-round history
+// ("Submission 1 -> Review 1 -> Feedback 1, resubmit -> Review 2 ->
+// Feedback 2") exactly as the approved product design specifies.
+// Visible to the Student/Parent immediately on creation — no private-
+// until-shared gate in v1 (an explicit, approved product decision, not
+// an oversight — contrast with StudentEvaluation's own visibleToParent/
+// visibleToStudent flags, deliberately not reused here).
+model HomeworkReview {
+  id                      String                     @id @default(cuid())
+  homeworkApplicabilityId String
+  homeworkApplicability   HomeworkApplicability      @relation(fields: [homeworkApplicabilityId], references: [id], onDelete: Cascade)
+
+  // Optional — informational linkage only, never authorization-relevant
+  // and never required. A review anchored to no particular attempt is
+  // exactly as valid as one anchored to a specific attempt.
+  submissionAttemptId String?
+  submissionAttempt   HomeworkSubmissionAttempt? @relation(fields: [submissionAttemptId], references: [id])
+
+  // App-assigned, same numbering idiom as attemptNumber above.
+  reviewNumber Int
+
+  feedback String
+
+  // The real institutional Teacher identity — matches
+  // HomeworkCompletion.recordedByTeacherId/Homework.teacherId's
+  // established precedent. Multiple different teachers may each leave
+  // their own review rows for the same HomeworkApplicability (no
+  // hierarchy among co-teachers, the same precedent already established
+  // for TeacherAcademicAssignment/Homework PATCH/HomeworkCompletion).
+  reviewedByTeacherId String
+  reviewedByTeacher   Teacher @relation("HomeworkReviewReviewedBy", fields: [reviewedByTeacherId], references: [id])
+
+  reviewedAt DateTime @default(now())
+
+  @@unique([homeworkApplicabilityId, reviewNumber])
+  @@index([homeworkApplicabilityId])
 }
 
 // ============================================================

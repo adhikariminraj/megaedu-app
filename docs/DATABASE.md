@@ -213,9 +213,9 @@ Seven new models, additive on top of Phase 2/3A — no existing model's columns 
 
 ---
 
-## Homework — Phase 1 + K1 + K2 ✅ (fully implemented and in active use)
+## Homework — Phase 1 + K1 + K2 + K3 + K4 ✅ (fully implemented and in active use)
 
-One new model in Phase 1; one further new model plus one additive field in K1; two further new models in K2 — no existing column ever changed meaning, only new relation-array fields. See [HOMEWORK.md](HOMEWORK.md) for the full behavioral write-up; this section covers structure only.
+One new model in Phase 1; one further new model plus one additive field in K1; two further new models in K2; one further new model each in K3 and K4 (K5/K6 add no new models — pure read-side) — no existing column ever changed meaning, only new relation-array fields. See [HOMEWORK.md](HOMEWORK.md) for the full behavioral write-up; this section covers structure only.
 
 ### `Homework`
 **Purpose**: one teacher-created homework item for a grade (or one section of it) and subject, for one session — or, as of K1, targeting exactly one individual student instead. **Currently used**: yes.
@@ -244,6 +244,20 @@ One new model in Phase 1; one further new model plus one additive field in K1; t
 **Constraints**: `@@index([homeworkCompletionId])`.
 **Delete behavior**: cascades from `HomeworkCompletion`; no update or delete route — pure insert-only log.
 **Notes**: written on every correction (never on the first recording — creation isn't a correction, the same reasoning already applied to `GradeHistoryAudit`/`StudentEvaluationAudit`), inside the same transaction as the correcting update.
+
+### `HomeworkSubmissionAttempt` (K3)
+**Purpose**: one immutable attempt by a student to submit optional evidence for one `HomeworkApplicability`. **Currently used**: yes.
+**Key fields**: `id, homeworkApplicabilityId (FK, cascade), attemptNumber, submittedAt, isLate, textContent?, filePath?, submittedByUserId (FK to User), createdAt`.
+**Constraints**: `@@unique([homeworkApplicabilityId, attemptNumber])`; `@@index([homeworkApplicabilityId])`.
+**Delete behavior**: cascades from `HomeworkApplicability`; no update or delete route exists — a correction is always a new attempt.
+**Notes**: at least one of `textContent`/`filePath` is required (enforced by `createSubmissionAttempt()`, `src/lib/homeworkSubmission.ts` — the only write path); both may be present together. `isLate` is derived once, at submission time, from `submittedAt` vs. the parent `Homework`'s own frozen `dueDate` — never recomputed live. `filePath` is a relative path into `private-uploads/` (outside `public/`), never a public URL — the file is served only through the authenticated `GET /api/homework-submissions/[attemptId]/file` route. `submittedByUserId` is always the Student's own account, resolved from session — never a Parent/Teacher "on behalf of."
+
+### `HomeworkReview` (K4)
+**Purpose**: one append-only Subject Teacher review/feedback entry for one `HomeworkApplicability`, optionally anchored to a specific `HomeworkSubmissionAttempt`. **Currently used**: yes.
+**Key fields**: `id, homeworkApplicabilityId (FK, cascade), submissionAttemptId? (FK), reviewNumber, feedback, reviewedByTeacherId (FK to Teacher), reviewedAt`.
+**Constraints**: `@@unique([homeworkApplicabilityId, reviewNumber])`; `@@index([homeworkApplicabilityId])`.
+**Delete behavior**: cascades from `HomeworkApplicability`; no update or delete route — a correction to earlier feedback is always a new review row, never an edit (explicit product decision: "do not overwrite previous feedback").
+**Notes**: `submissionAttemptId` is optional and purely informational — a review may exist for a purely offline-checked homework with zero submissions ever recorded. No visibility-gate field exists (v1 decision: immediate visibility to the authorized Student/Parent on creation, contrast with `StudentEvaluation.visibleToParent`/`visibleToStudent`). Multiple different teachers may each leave their own review rows for the same applicability — no hierarchy, matching `TeacherAcademicAssignment`'s own precedent. The only write path is `createReview()` (`src/lib/homeworkReview.ts`).
 
 ---
 

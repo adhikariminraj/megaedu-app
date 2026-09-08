@@ -99,3 +99,59 @@ export async function deleteUploadedImage(url: string | null | undefined): Promi
     // Already gone, or never existed on disk — nothing to do.
   }
 }
+
+/**
+ * K3 — private (non-public) image storage for Homework Submission
+ * evidence. Deliberately a SEPARATE root from saveUploadedImage()'s
+ * public/uploads/ — a School Logo or a User's own avatar is meant to be
+ * publicly viewable, but a student's homework photo is not, and must
+ * never be reachable merely by guessing/obtaining its URL. Writes under
+ * private-uploads/ at the project root (outside public/, so Next.js's
+ * static file server never serves it directly) and returns a plain
+ * relative PATH, never a URL — the only way to read the file back is
+ * through the authenticated route (src/app/api/homework-submissions/
+ * [id]/file/route.ts), which re-verifies the caller's authorization to
+ * the specific HomeworkApplicability before streaming any bytes.
+ * Reuses the exact same magic-byte validation/size cap/UUID-naming
+ * conventions as saveUploadedImage() — only the storage root and the
+ * public-vs-private access model differ.
+ */
+export async function saveSubmissionFile(file: File, subdir: string): Promise<string> {
+  if (file.size > MAX_BYTES) {
+    throw new UploadValidationError("File must be 2MB or smaller.");
+  }
+  if (file.size === 0) {
+    throw new UploadValidationError("Uploaded file is empty.");
+  }
+
+  const buf = Buffer.from(await file.arrayBuffer());
+  const { ext } = detectImageType(buf);
+
+  const dir = path.join(process.cwd(), "private-uploads", subdir);
+  await mkdir(dir, { recursive: true });
+
+  const filename = `${randomUUID()}.${ext}`;
+  await writeFile(path.join(dir, filename), buf);
+
+  return `${subdir}/${filename}`;
+}
+
+/** Reads back a file saved by saveSubmissionFile(), for the authenticated serving route only. */
+export async function readSubmissionFile(relativePath: string): Promise<{ buffer: Buffer; ext: string }> {
+  const filePath = path.join(process.cwd(), "private-uploads", relativePath);
+  const { readFile } = await import("fs/promises");
+  const buffer = await readFile(filePath);
+  const ext = path.extname(relativePath).slice(1);
+  return { buffer, ext };
+}
+
+/** Best-effort delete of a private submission file — same silent-ignore contract as deleteUploadedImage(). */
+export async function deleteSubmissionFile(relativePath: string | null | undefined): Promise<void> {
+  if (!relativePath) return;
+  const filePath = path.join(process.cwd(), "private-uploads", relativePath);
+  try {
+    await unlink(filePath);
+  } catch {
+    // Already gone, or never existed — nothing to do.
+  }
+}

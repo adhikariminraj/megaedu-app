@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-08 (Homework Completion Kilometer 2) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-08 (Homework v1 — Kilometers 3-6: Submission, Review/Feedback, Rollups, Student/Parent Visibility) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -23,8 +23,8 @@ Both fields default to `true` and are used as a filter in two places (`schools/s
 
 ## File storage
 
-### School logo / profile photo uploads assume a persistent local filesystem ⚠️
-`src/lib/uploads.ts` writes to `public/uploads/` on local disk — the simplest architecture for the current deployment model (nothing is deployed anywhere yet), but it will not survive on typical serverless/edge hosting, where the filesystem is ephemeral or read-only. Needs an object-storage adapter (e.g. S3-compatible) before that kind of deployment; the schema (`logoUrl`/`avatarUrl` as plain URL strings) doesn't need to change. See [DEPLOYMENT.md](DEPLOYMENT.md).
+### School logo / profile photo / Homework Submission uploads assume a persistent local filesystem ⚠️
+`src/lib/uploads.ts` writes to `public/uploads/` (School Logos/Avatars) and, as of K3, `private-uploads/` (Homework Submission evidence) on local disk — the simplest architecture for the current deployment model (nothing is deployed anywhere yet), but neither will survive on typical serverless/edge hosting, where the filesystem is ephemeral or read-only. Needs an object-storage adapter (e.g. S3-compatible) before that kind of deployment for both directories; the schema (`logoUrl`/`avatarUrl`/`HomeworkSubmissionAttempt.filePath` as plain strings) doesn't need to change. See [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Testing
 
@@ -132,10 +132,10 @@ Every Organization Admin page resolves its organization the same unscoped way (`
 ### Student simultaneous multi-school affiliation remains an undecided product policy 🔭
 `StudentSchoolAffiliation` permits a Student to hold 2+ `ACTIVE` rows at once — the schema imposes no limit, mirroring the Teacher side — but unlike Teacher (explicitly designed and tested for multi-school), no business rule or product decision has ever been made about whether a Student *should* be allowed to be simultaneously enrolled at two schools. Nothing in the app currently blocks it; nothing in the app was designed assuming it happens. A future phase should either explicitly bless it (and audit every Student-scoped roster/attendance/grade view for multi-school correctness) or add an enforced one-ACTIVE-affiliation-at-a-time rule for Students specifically.
 
-## Homework (Phase 1 / K1 / K2)
+## Homework (Phase 1 / K1 / K2 / K3 / K4 / K5 / K6)
 
-### No online submission, attachments, teacher feedback, or progress-visibility dashboards 🔭
-Deliberate scope decision, not an oversight. K2 added `HomeworkCompletion`/`HomeworkCompletionAudit` — the Subject Teacher's recorded completion decision per `HomeworkApplicability` row, supporting offline (notebook/paper/oral/practical) work as the norm, not an edge case. Still entirely unbuilt: `HomeworkSubmission` (optional online evidence), `HomeworkFeedback` (Teacher Review's written-feedback half), any Class Teacher/Grade Coordinator/School Admin progress-visibility surface (K2's completion data exists but nothing yet reads it in aggregate — only the recording Subject Teacher's own per-homework roster view exists), and notifications on a completion being recorded. Adding any of these later is additive against `HomeworkApplicability`/`HomeworkCompletion`, not a redesign. See [HOMEWORK.md](HOMEWORK.md).
+### No School Admin-facing rollup dashboard, notifications, multi-file attachments, or Parent submit-on-behalf 🔭
+Deliberate scope decisions, not oversights. K3–K6 completed the full v1 Homework lifecycle (Assign → Applicability → Complete → optional Submission → Review/Feedback → Rollups → Student/Parent Visibility). Still deliberately unbuilt: a School Admin-facing school-wide rollup dashboard (would require date-range/grade filtering to avoid an unbounded query — the Class Teacher/Grade Coordinator rollup at `/dashboard/schools/[schoolId]/homework/progress` is naturally bounded to their own assignment and shipped instead); notifications on submission/review/publish; multi-file/attachment galleries (one text + one file per submission attempt only); Parent submit-on-behalf-of-student (explicitly evaluated and rejected — Parent is view-only throughout, matching the existing Parent-Teacher-Meeting "read-only recipient" precedent); a private-until-shared visibility gate on `HomeworkReview` (immediate visibility was the approved v1 decision); a dedicated full-page Homework History view (the dashboard panel proved sufficient); cross-Homework/date-range rollups ("this student's completion rate this term"); and any connection to formal assessment/GPA/Report Card/Mark Sheet marks, which remains permanently out of scope per the core product principle that Homework is a learning/feedback workflow, not a graded-assessment one. See [HOMEWORK.md](HOMEWORK.md).
 
 ### No reminders or notifications on publish 🔭
 Publishing a `Homework` item does not notify anyone (unlike `NewsPost`, which fires `notifySchoolCommunity()`) — a Student/Parent only sees it by visiting their dashboard. Deliberately deferred; the existing `notify()` pattern (`src/lib/notify.ts`) would be the natural mechanism to extend later.

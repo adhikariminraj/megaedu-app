@@ -10,6 +10,7 @@ import AcademicProgressPanel, {
 import type { MeetingRow } from "@/lib/academicProgress";
 import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults";
 import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
+import HomeworkHistoryPanel, { HomeworkHistoryRow } from "@/components/HomeworkHistoryPanel";
 import MyChildrenTodayPanel from "@/components/MyChildrenTodayPanel";
 
 type Parent = {
@@ -36,6 +37,11 @@ type Parent = {
     // Reuses the same TodaysHomeworkPanel/fetchTodaysHomework() the
     // Student branch uses for their own view — see src/lib/homework.ts.
     todaysHomework: HomeworkRow[];
+    // K6 — same reuse principle: the identical fetchStudentHomeworkHistory()
+    // the Student branch uses, view-only here (HomeworkHistoryPanel's
+    // canSubmit={false} below — Parent may never submit/resubmit/alter
+    // completion/write feedback).
+    homeworkHistory: HomeworkHistoryRow[];
   }[];
 };
 
@@ -118,6 +124,10 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
 
                 <div className="mt-4">
                   <TodaysHomeworkPanel homework={c.todaysHomework} />
+                </div>
+
+                <div className="mt-4">
+                  <HomeworkHistoryPanel rows={c.homeworkHistory} canSubmit={false} />
                 </div>
 
                 {(c.progress.attendance.length > 0 ||

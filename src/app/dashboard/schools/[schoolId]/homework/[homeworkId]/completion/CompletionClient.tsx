@@ -21,6 +21,18 @@ type StudentRow = {
   version: number | null;
   recordedAt: string | null;
   recordedByTeacherName: string | null;
+  submissionCount: number;
+  reviewCount: number;
+};
+
+type Rollup = {
+  assigned: number;
+  unrecorded: number;
+  completed: number;
+  partial: number;
+  notCompleted: number;
+  excused: number;
+  completionPercentage: number | null;
 };
 
 export default function CompletionClient({
@@ -41,6 +53,7 @@ export default function CompletionClient({
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<StudentRow[] | null>(null);
+  const [rollup, setRollup] = useState<Rollup | null>(null);
   const [pending, setPending] = useState<Record<string, Status>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,6 +68,7 @@ export default function CompletionClient({
       return;
     }
     setRows(data.students);
+    setRollup(data.rollup);
     setPending({});
     setRowErrors({});
   }
@@ -133,6 +147,22 @@ export default function CompletionClient({
         <p className="text-sm text-mega-red bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-6">{loadError}</p>
       )}
 
+      {/* K5 — summary numbers, Regular Homework only. Individual
+          Homework never gets a percentage (a single-target assignment
+          has no meaningful class completion rate) — homework.
+          targetStudentName already distinguishes the two above. */}
+      {rollup && (
+        <div className="border border-slate-200 rounded-xl px-4 py-3 mb-6 flex items-center justify-between gap-4 flex-wrap">
+          <span className="text-sm text-slate-600">
+            {rollup.assigned} assigned · {rollup.completed} completed · {rollup.partial} partial · {rollup.notCompleted} not
+            completed · {rollup.excused} excused · {rollup.unrecorded} unrecorded
+          </span>
+          <span className="text-lg font-semibold text-mega-navy">
+            {rollup.completionPercentage === null ? "N/A" : `${Math.round(rollup.completionPercentage)}%`}
+          </span>
+        </div>
+      )}
+
       {!rows && !loadError && <p className="text-slate-400 text-sm">Loading…</p>}
 
       {rows && rows.length === 0 && <p className="text-slate-400 text-sm">No students applicable to this homework.</p>}
@@ -157,6 +187,13 @@ export default function CompletionClient({
                       : "Not yet recorded"}
                   </p>
                   {rowError && <p className="text-xs text-mega-red mt-1">{rowError}</p>}
+                  <a
+                    href={`/dashboard/schools/${schoolId}/homework/${homeworkId}/completion/${row.applicabilityId}`}
+                    className="text-xs text-mega-blue hover:underline mt-1 inline-block"
+                  >
+                    {row.submissionCount > 0 ? `${row.submissionCount} submission(s)` : "No submission"}
+                    {row.reviewCount > 0 ? ` · ${row.reviewCount} review(s)` : ""} · View / Give Feedback
+                  </a>
                 </div>
                 <select
                   value={currentValue}
