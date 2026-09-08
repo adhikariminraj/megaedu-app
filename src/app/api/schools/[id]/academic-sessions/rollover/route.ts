@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
-import { carryForwardEligibleStudents } from "@/lib/gradeRollover";
+import { transitionAcademicSession, academicSessionTransitionErrorResponse } from "@/lib/academicSession";
 
 /**
  * Closes the school's current ACTIVE session and opens a new one, then
@@ -11,15 +11,30 @@ import { carryForwardEligibleStudents } from "@/lib/gradeRollover";
  * unplaced — never silently defaulted — and shows up in the persistent
  * Pending/Unresolved queue on /dashboard/grades until a School Admin
  * resolves them.
+ *
+ * C2: the close+create+carry-forward transition itself happens entirely
+ * inside transitionAcademicSession() (src/lib/academicSession.ts), which
+ * re-reads the real current ACTIVE session fresh, inside its own
+ * transaction, and requires it to still match expectedPriorSession
+ * below before touching anything. expectedPriorSession here is only
+ * ever a hint used to detect staleness — never trusted as the actual
+ * write target — so a second concurrent rollover request (a double
+ * submit, or two admins racing) is rejected with a clear conflict
+ * rather than silently closing an already-superseded session and
+ * chaining a second, unintended rollover on top of the first.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
   if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const priorSession = await prisma.academicSession.findFirst({
+  // Non-authoritative — purely this request's own belief about what's
+  // currently active, used only as the expectation transitionAcademicSession()
+  // verifies against its own fresh, in-transaction read below. Never
+  // used directly as the id being closed.
+  const expectedPriorSession = await prisma.academicSession.findFirst({
     where: { schoolId: params.id, status: "ACTIVE" },
   });
-  if (!priorSession) {
+  if (!expectedPriorSession) {
     return NextResponse.json(
       { error: "No active session to close. Complete Initial Setup first." },
       { status: 400 }
@@ -39,14 +54,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "End date must be after the start date." }, { status: 400 });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.academicSession.update({ where: { id: priorSession.id }, data: { status: "CLOSED" } });
-    const newSession = await tx.academicSession.create({
-      data: { schoolId: params.id, name: name.trim(), startDate: start, endDate: end, status: "ACTIVE" },
+  try {
+    const result = await transitionAcademicSession({
+      mode: "ROLLOVER",
+      schoolId: params.id,
+      name: name.trim(),
+      startDate: start,
+      endDate: end,
+      expectedPriorSessionId: expectedPriorSession.id,
     });
-    const { placed } = await carryForwardEligibleStudents(params.id, newSession.id, tx);
-    return { newSession, placed };
-  });
-
-  return NextResponse.json({ ok: true, session: result.newSession, placed: result.placed });
+    return NextResponse.json({ ok: true, session: result.session, placed: result.placed });
+  } catch (err) {
+    return academicSessionTransitionErrorResponse(err);
+  }
 }
