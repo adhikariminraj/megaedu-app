@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveFrameworkAssignment } from "@/lib/assessmentFramework";
+import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
 import AssessmentResultsEntryClient from "./AssessmentResultsEntryClient";
 
 export const dynamic = "force-dynamic";
@@ -28,19 +29,26 @@ export default async function AssessmentResultsEntryPage({ params }: { params: {
   if (!gradeSubject) notFound();
   const schoolId = gradeSubject.schoolGrade.schoolId;
 
-  const [schoolAdmin, teacherAssignment] = await Promise.all([
-    prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId } } }),
-    prisma.teacherAcademicAssignment.findFirst({
-      where: {
-        teacher: { userId, schoolId, approved: true },
-        academicSessionId: gradeSubject.academicSessionId,
-        schoolGradeId: gradeSubject.schoolGradeId,
-        subjectId: gradeSubject.subjectId,
-      },
+  // Never pre-filters the teacher lookup by the Teacher.schoolId/
+  // approved bridge fields (which can go stale — see
+  // src/lib/affiliation.ts's syncTeacherBridgeFields doc comment, and
+  // the identical, explicit reasoning already documented in
+  // dashboard/academics/[gradeSubjectId]/page.tsx). requireTeacherAssignment()
+  // is the real gate — it independently re-resolves the caller's own
+  // Teacher identity, checks a fresh ACTIVE TeacherSchoolAffiliation at
+  // this specific schoolId, and requires a matching
+  // TeacherAcademicAssignment, so a teacher active here via a second
+  // concurrent affiliation is correctly recognized.
+  const [adminUserId, teacherUserId] = await Promise.all([
+    requireSchoolAdmin(schoolId),
+    requireTeacherAssignment(schoolId, {
+      academicSessionId: gradeSubject.academicSessionId,
+      schoolGradeId: gradeSubject.schoolGradeId,
+      subjectId: gradeSubject.subjectId,
     }),
   ]);
-  const isAdmin = !!schoolAdmin;
-  if (!isAdmin && !teacherAssignment) redirect("/dashboard/assessment-results");
+  const isAdmin = !!adminUserId;
+  if (!isAdmin && !teacherUserId) redirect("/dashboard/assessment-results");
 
   const assignment = await resolveFrameworkAssignment({
     academicSessionId: gradeSubject.academicSessionId,

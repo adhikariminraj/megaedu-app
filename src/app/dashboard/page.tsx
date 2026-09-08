@@ -265,6 +265,20 @@ export default async function DashboardPage() {
       return <SchoolChooser schools={teacherSchools} userName={userName} />;
     }
 
+    // teacherSchools has at most 1 entry here (2+ is handled above via
+    // redirect/SchoolChooser) — its schoolId, not the Teacher.schoolId
+    // bridge field, is what scopes the two assignment queries below.
+    // Without this, a teacher who was once active at a different school
+    // X (TeacherAcademicAssignment/ClassTeacherAssignment rows persist
+    // forever, per "disassociate != delete") would see X's assignments
+    // bleed into this dashboard for as long as X's own AcademicSession
+    // happens to still be ACTIVE — the queries were previously filtered
+    // only by academicSession.status, with no schoolId at all.
+    // A sentinel, never-matching id when this teacher has zero ACTIVE
+    // affiliations — Prisma treats an `undefined` filter value as "no
+    // filter," which would silently re-introduce the unscoped bug for
+    // exactly the case with no current school to scope to.
+    const currentSchoolId = teacherSchools[0]?.schoolId ?? "__no_active_school__";
     const teacher = await prisma.teacher.findUnique({
       where: { userId },
       include: {
@@ -272,12 +286,12 @@ export default async function DashboardPage() {
         user: { include: { interests: { orderBy: { createdAt: "desc" } } } },
         courseEnrollments: { include: { course: true, certificate: true } },
         academicAssignments: {
-          where: { academicSession: { status: "ACTIVE" } },
+          where: { academicSession: { status: "ACTIVE" }, schoolGrade: { schoolId: currentSchoolId } },
           include: { schoolGrade: true, section: true, subject: true, gradeSubject: true },
           orderBy: [{ schoolGrade: { gradeReference: { order: "asc" } } }, { subject: { name: "asc" } }],
         },
         classTeacherAssignments: {
-          where: { academicSession: { status: "ACTIVE" } },
+          where: { academicSession: { status: "ACTIVE" }, schoolGrade: { schoolId: currentSchoolId } },
           include: { schoolGrade: true, section: true },
           orderBy: { schoolGrade: { gradeReference: { order: "asc" } } },
         },
@@ -323,7 +337,7 @@ export default async function DashboardPage() {
     if (student) {
       const progress = await fetchAcademicProgress(student.id, student.schoolId, "STUDENT");
       const assessment = await fetchAssessmentResults(student.id, student.schoolId, "STUDENT");
-      const todaysHomework = await fetchTodaysHomework(student.id);
+      const todaysHomework = await fetchTodaysHomework(student.id, student.schoolId);
       let interestsLocked = false;
       if (student.schoolId) {
         const activeSession = await prisma.academicSession.findFirst({
@@ -376,7 +390,7 @@ export default async function DashboardPage() {
           // Reuses the exact same shared function the Student branch
           // above calls for their own view — never a separate
           // parent-specific visibility algorithm (see src/lib/homework.ts).
-          todaysHomework: await fetchTodaysHomework(c.student.id),
+          todaysHomework: await fetchTodaysHomework(c.student.id, c.student.schoolId),
         }))
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;

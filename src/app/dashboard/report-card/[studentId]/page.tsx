@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buildReportCard } from "@/lib/assessmentResults";
+import { verifySchoolAccess } from "@/lib/institutionalContext";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,17 @@ export default async function ReportCardPage({ params }: { params: { studentId: 
   if (student.userId === userId) {
     audience = "STUDENT";
   } else {
-    const [parentLink, schoolAdmin, teacher] = await Promise.all([
+    // Staff access never resolved from the Teacher.schoolId/approved
+    // bridge fields, which can go stale (see src/lib/affiliation.ts's
+    // syncTeacherBridgeFields doc comment) — verifySchoolAccess() re-
+    // checks a fresh ACTIVE TeacherSchoolAffiliation (or a real
+    // SchoolAdmin link) against this student's own current school.
+    const [parentLink, access] = await Promise.all([
       prisma.parentStudent.findFirst({ where: { studentId: student.id, parent: { userId } } }),
-      prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId: student.schoolId } } }),
-      prisma.teacher.findFirst({ where: { userId, schoolId: student.schoolId, approved: true } }),
+      verifySchoolAccess(userId, student.schoolId),
     ]);
     if (parentLink) audience = "PARENT";
-    else if (schoolAdmin || teacher) audience = "STAFF";
+    else if (access) audience = "STAFF";
   }
   if (!audience) redirect("/dashboard");
 

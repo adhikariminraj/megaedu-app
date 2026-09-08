@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { resolveFrameworkAssignment } from "@/lib/assessmentFramework";
+import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
+import SchoolChooser from "@/components/SchoolChooser";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +23,43 @@ export default async function AssessmentResultsLandingPage() {
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) redirect("/login");
 
-  const [schoolAdmin, teacher] = await Promise.all([
-    prisma.schoolAdmin.findFirst({ where: { userId }, include: { school: true } }),
-    prisma.teacher.findFirst({ where: { userId, approved: true } }),
-  ]);
-  const schoolId = schoolAdmin?.school.id ?? teacher?.schoolId;
-  if (!schoolId) redirect("/dashboard");
+  const schoolAdmin = await prisma.schoolAdmin.findFirst({ where: { userId }, include: { school: true } });
   const isAdmin = !!schoolAdmin;
+
+  // Never resolved from the Teacher.schoolId bridge field, which can go
+  // stale (see src/lib/affiliation.ts's syncTeacherBridgeFields doc
+  // comment) — always re-derived from ACTIVE TeacherSchoolAffiliation
+  // rows via getAccessibleSchools(), matching dashboard/page.tsx's own
+  // Teacher-branch chooser behavior exactly (one school resolves
+  // directly; 2+ shows a chooser, or resolves via a freshly-revalidated
+  // cookie, never guessed).
+  let schoolId: string;
+  let teacher: { id: string } | null = null;
+  if (isAdmin) {
+    schoolId = schoolAdmin!.school.id;
+  } else {
+    const teacherSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "TEACHER");
+    if (teacherSchools.length === 0) redirect("/dashboard");
+    if (teacherSchools.length === 1) {
+      schoolId = teacherSchools[0].schoolId;
+    } else {
+      const cookieSchoolId = cookies().get(SCHOOL_CONTEXT_COOKIE)?.value;
+      const match = cookieSchoolId && teacherSchools.find((s) => s.schoolId === cookieSchoolId);
+      if (match) {
+        schoolId = match.schoolId;
+      } else {
+        return (
+          <SchoolChooser
+            schools={teacherSchools}
+            userName={session?.user?.name || "there"}
+            redirectTo="/dashboard/assessment-results"
+          />
+        );
+      }
+    }
+    teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) redirect("/dashboard");
+  }
 
   const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
   if (!activeSession) {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { notify } from "@/lib/notify";
-import { syncTeacherBridgeFields } from "@/lib/affiliation";
+import { syncTeacherBridgeFields, createTeacherAffiliation } from "@/lib/affiliation";
 
 export async function POST(
   _req: Request,
@@ -47,8 +47,41 @@ export async function POST(
       await syncTeacherBridgeFields(tx, params.teacherId);
       return true;
     }
-    if (teacher.schoolId !== params.id) return false; // no relationship with this school at all
-    await tx.teacher.update({ where: { id: params.teacherId }, data: { approved: true } });
+    if (teacher.schoolId === params.id) {
+      // Direct match — the simple, common, already-correct legacy case.
+      await tx.teacher.update({ where: { id: params.teacherId }, data: { approved: true } });
+      return true;
+    }
+    if (teacher.schoolId === null) {
+      return false; // no relationship anywhere — unchanged from before
+    }
+    // Bridge field points at a DIFFERENT school than params.id. Only
+    // trust that as "genuinely no relationship with params.id" when
+    // this teacher has at most 1 open affiliation total — the case
+    // syncTeacherBridgeFields() keeps accurate (see its own doc
+    // comment in src/lib/affiliation.ts). With 2+ open affiliations,
+    // the mismatch is explained by that documented "frozen, can't
+    // represent a second school" behavior, not a real absence of any
+    // relationship with params.id — so a functional-bug false rejection
+    // is possible here (a teacher legitimately added the old, direct
+    // way at params.id, who separately also holds 2+ real affiliations
+    // elsewhere). requireSchoolAdmin() above already confirmed this
+    // admin's own authority over params.id, so rather than trust the
+    // ambiguous single-valued field, this formalizes the call's own
+    // intent into a real affiliation row — the same JOIN primitive
+    // every other approval path already produces, never a second,
+    // parallel bridge-field write.
+    const openElsewhere = await tx.teacherSchoolAffiliation.count({
+      where: { teacherId: params.teacherId, status: { in: ["ACTIVE", "PENDING"] } },
+    });
+    if (openElsewhere <= 1) return false; // bridge field is trustworthy here — genuinely a different school
+    await createTeacherAffiliation(tx, {
+      teacherId: params.teacherId,
+      schoolId: params.id,
+      status: "ACTIVE",
+      position: teacher.position,
+      subjects: teacher.subjects,
+    });
     return true;
   });
   if (!approved) return NextResponse.json({ error: "Not found" }, { status: 404 });

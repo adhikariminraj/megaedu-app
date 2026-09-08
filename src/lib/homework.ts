@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { sectionScopeWhere } from "@/lib/authorize";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
 
 /**
@@ -39,11 +40,18 @@ export type HomeworkRow = {
  * passing a studentId they've already verified the caller is allowed to
  * see — this function itself does no authorization, matching
  * fetchAcademicProgress()'s own documented contract.
+ *
+ * schoolId scopes the placement lookup via resolveCurrentPlacement()
+ * (src/lib/gradeHistory.ts) — required so a student whose GradeHistory
+ * touches more than one school (a transfer, or any school whose own
+ * session happens to still be open) never resolves an unrelated
+ * school's ACTIVE session. Pass the student's own authoritative current
+ * schoolId (the bridge field a caller already trusts elsewhere for this
+ * same student, e.g. Student.schoolId), never a remembered/default
+ * school that could bypass which school's homework is actually shown.
  */
-export async function fetchTodaysHomework(studentId: string): Promise<HomeworkRow[]> {
-  const currentPlacement = await prisma.gradeHistory.findFirst({
-    where: { studentId, academicSession: { status: "ACTIVE" } },
-  });
+export async function fetchTodaysHomework(studentId: string, schoolId: string | null): Promise<HomeworkRow[]> {
+  const currentPlacement = schoolId ? await resolveCurrentPlacement(studentId, schoolId) : null;
   if (!currentPlacement) return [];
 
   const today = new Date(todayInKathmandu());
@@ -112,9 +120,7 @@ export async function fetchHomeworkDueForStudent(
   window: CalendarWindow,
   child?: { id: string; name: string }
 ): Promise<CalendarItem[]> {
-  const currentPlacement = await prisma.gradeHistory.findFirst({
-    where: { studentId, academicSession: { status: "ACTIVE" } },
-  });
+  const currentPlacement = await resolveCurrentPlacement(studentId, schoolId);
   if (!currentPlacement) return [];
 
   const homework = await prisma.homework.findMany({

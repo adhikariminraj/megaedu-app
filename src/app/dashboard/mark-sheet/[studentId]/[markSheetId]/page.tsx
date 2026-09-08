@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { verifySchoolAccess } from "@/lib/institutionalContext";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +64,18 @@ export default async function MarkSheetDocumentPage({
 
   let authorized = student?.userId === userId;
   if (!authorized) {
-    const [parentLink, schoolAdmin, teacher] = await Promise.all([
+    // Staff access never resolved from the Teacher.schoolId/approved
+    // bridge fields, which can go stale (see src/lib/affiliation.ts's
+    // syncTeacherBridgeFields doc comment) — verifySchoolAccess() re-
+    // checks a fresh ACTIVE TeacherSchoolAffiliation (or a real
+    // SchoolAdmin link) against markSheet.schoolId — the ISSUING
+    // school, frozen at issuance, unaffected by the student's current
+    // affiliation (see PHASE 11, Mark Sheet Kilometer 1).
+    const [parentLink, access] = await Promise.all([
       prisma.parentStudent.findFirst({ where: { studentId: markSheet.studentId, parent: { userId } } }),
-      prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId: markSheet.schoolId } } }),
-      prisma.teacher.findFirst({ where: { userId, schoolId: markSheet.schoolId, approved: true } }),
+      verifySchoolAccess(userId, markSheet.schoolId),
     ]);
-    authorized = !!(parentLink || schoolAdmin || teacher);
+    authorized = !!(parentLink || access);
   }
   if (!authorized) redirect("/dashboard");
 

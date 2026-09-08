@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { todayInKathmandu } from "@/lib/homework";
+import { getAccessibleSchools } from "@/lib/institutionalContext";
 import AttendanceClient from "./AttendanceClient";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +25,29 @@ export default async function AttendancePage({
   if (!userId) redirect("/login");
 
   const schoolAdmin = await prisma.schoolAdmin.findFirst({ where: { userId }, include: { school: true } });
-  const teacher = schoolAdmin ? null : await prisma.teacher.findUnique({ where: { userId } });
-  if (!schoolAdmin && !teacher?.schoolId) redirect("/dashboard");
-
-  const schoolId = schoolAdmin ? schoolAdmin.school.id : (teacher!.schoolId as string);
   const isAdmin = !!schoolAdmin;
+
+  // Never resolved from the Teacher.schoolId bridge field, which can go
+  // stale (see src/lib/affiliation.ts's syncTeacherBridgeFields doc
+  // comment) — a teacher's current school is always re-derived from
+  // ACTIVE TeacherSchoolAffiliation rows via getAccessibleSchools(),
+  // matching this page's already-correct sibling
+  // (dashboard/schools/[schoolId]/attendance/page.tsx). This unscoped
+  // page has no per-teacher chooser UI of its own, so a teacher with
+  // 2+ ACTIVE schools is sent to /dashboard, whose own Teacher branch
+  // already implements the real chooser — never guessed here.
+  let schoolId: string;
+  let teacher: { id: string } | null = null;
+  if (isAdmin) {
+    schoolId = schoolAdmin!.school.id;
+  } else {
+    const teacherSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "TEACHER");
+    if (teacherSchools.length === 0) redirect("/dashboard");
+    if (teacherSchools.length > 1) redirect("/dashboard");
+    schoolId = teacherSchools[0].schoolId;
+    teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) redirect("/dashboard");
+  }
 
   const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
   if (!activeSession) {

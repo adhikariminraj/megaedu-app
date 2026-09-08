@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
+import { requireSchoolAdmin, requireClassTeacher } from "@/lib/authorize";
 import CoScholasticEntryClient from "./CoScholasticEntryClient";
 
 export const dynamic = "force-dynamic";
@@ -22,17 +23,27 @@ export default async function CoScholasticEntryPage({ params }: { params: { scho
   if (!schoolGrade) notFound();
   const schoolId = schoolGrade.schoolId;
 
-  const [schoolAdmin, classTeacherAssignment] = await Promise.all([
-    prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId } } }),
-    prisma.classTeacherAssignment.findFirst({
-      where: { teacher: { userId, schoolId, approved: true }, schoolGradeId: params.schoolGradeId },
-    }),
-  ]);
-  const isAdmin = !!schoolAdmin;
-  if (!isAdmin && !classTeacherAssignment) redirect("/dashboard/co-scholastic");
-
   const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
   if (!activeSession) notFound();
+
+  // Never pre-filters the teacher lookup by the Teacher.schoolId/
+  // approved bridge fields (which can go stale — see
+  // src/lib/affiliation.ts's syncTeacherBridgeFields doc comment, and
+  // the identical, explicit reasoning already documented in
+  // dashboard/academics/[gradeSubjectId]/page.tsx). requireClassTeacher()
+  // is the real gate — it independently re-resolves the caller's own
+  // Teacher identity, checks a fresh ACTIVE TeacherSchoolAffiliation at
+  // this specific schoolId, and requires a matching
+  // ClassTeacherAssignment for THIS session (the original query never
+  // filtered by academicSessionId at all — a second, independent fix:
+  // a stale historical assignment from a past session could otherwise
+  // grant access here too).
+  const [adminUserId, classTeacherUserId] = await Promise.all([
+    requireSchoolAdmin(schoolId),
+    requireClassTeacher(schoolId, { academicSessionId: activeSession.id, schoolGradeId: params.schoolGradeId }),
+  ]);
+  const isAdmin = !!adminUserId;
+  if (!isAdmin && !classTeacherUserId) redirect("/dashboard/co-scholastic");
 
   const [areas, periods, setting, roster, results] = await Promise.all([
     prisma.coScholasticArea.findMany({ where: { schoolId, isActive: true }, orderBy: { order: "asc" } }),

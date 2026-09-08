@@ -13,6 +13,7 @@ import FamilyContactsManager, {
 import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { verifySchoolAccess } from "@/lib/institutionalContext";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +57,14 @@ export default async function StudentProfilePage({ params }: { params: { student
   });
   if (!student || !student.schoolId) notFound();
 
-  const [schoolAdmin, teacher] = await Promise.all([
-    prisma.schoolAdmin.findUnique({ where: { userId_schoolId: { userId, schoolId: student.schoolId } } }),
-    prisma.teacher.findFirst({ where: { userId, schoolId: student.schoolId, approved: true } }),
-  ]);
-  if (!schoolAdmin && !teacher) redirect("/dashboard");
-  const isAdmin = !!schoolAdmin;
+  // Never resolved from the Teacher.schoolId/approved bridge fields,
+  // which can go stale (see src/lib/affiliation.ts's
+  // syncTeacherBridgeFields doc comment) — verifySchoolAccess() re-
+  // checks a fresh ACTIVE TeacherSchoolAffiliation (or a real
+  // SchoolAdmin link) against this student's own current school.
+  const access = await verifySchoolAccess(userId, student.schoolId);
+  if (!access) redirect("/dashboard");
+  const isAdmin = access.role === "SCHOOL_ADMIN";
   const studentAddresses = student.user?.addresses ?? [];
 
   function toAddressValue(a: (typeof studentAddresses)[number] | undefined): AddressFormValue | null {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchMeetingsForTeacher, type TeacherMeetingRow } from "@/lib/academicProgress";
+import { getAccessibleSchools } from "@/lib/institutionalContext";
 import MeetingsClient from "./MeetingsClient";
 
 export const dynamic = "force-dynamic";
@@ -26,12 +27,30 @@ export default async function MeetingsPage({
   if (!userId) redirect("/login");
 
   const schoolAdmin = await prisma.schoolAdmin.findFirst({ where: { userId }, include: { school: true } });
-  const teacher = schoolAdmin ? null : await prisma.teacher.findFirst({ where: { userId, approved: true } });
-  if (!schoolAdmin && !teacher?.schoolId) redirect("/dashboard");
-
-  const schoolId = schoolAdmin ? schoolAdmin.school.id : (teacher!.schoolId as string);
   const isAdmin = !!schoolAdmin;
-  const myTeacherId = teacher?.id ?? null;
+
+  // Never resolved from the Teacher.schoolId/approved bridge fields,
+  // which can go stale (see src/lib/affiliation.ts's
+  // syncTeacherBridgeFields doc comment) — always re-derived from
+  // ACTIVE TeacherSchoolAffiliation rows via getAccessibleSchools(),
+  // matching this page's already-correct sibling
+  // (dashboard/schools/[schoolId]/meetings/page.tsx). This unscoped
+  // page has no per-teacher chooser UI of its own, so a teacher with
+  // 2+ ACTIVE schools is sent to /dashboard, whose own Teacher branch
+  // already implements the real chooser — never guessed here.
+  let schoolId: string;
+  let myTeacherId: string | null = null;
+  if (isAdmin) {
+    schoolId = schoolAdmin!.school.id;
+  } else {
+    const teacherSchools = (await getAccessibleSchools(userId)).filter((s) => s.role === "TEACHER");
+    if (teacherSchools.length === 0) redirect("/dashboard");
+    if (teacherSchools.length > 1) redirect("/dashboard");
+    schoolId = teacherSchools[0].schoolId;
+    const teacher = await prisma.teacher.findUnique({ where: { userId } });
+    if (!teacher) redirect("/dashboard");
+    myTeacherId = teacher.id;
+  }
 
   const statusFilter =
     searchParams.status && ["SCHEDULED", "COMPLETED", "CANCELLED"].includes(searchParams.status)
