@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment, requireClassTeacher } from "@/lib/authorize";
 import { updateEvaluationRemarks, shareEvaluation } from "@/lib/evaluation";
+import { ConcurrencyConflictError } from "@/lib/assessmentResults";
 
 /**
  * Edits an evaluation's remarks and/or shares it with the Parent and/or
@@ -44,20 +45,31 @@ export async function PATCH(
   const userId = adminUserId || teacherUserId;
   if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = (await req.json()) as { remarks?: string; share?: "PARENT" | "STUDENT" };
+  const body = (await req.json()) as { remarks?: string; share?: "PARENT" | "STUDENT"; expectedVersion?: number };
   if (!body.remarks?.trim() && !body.share) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+  if (body.remarks?.trim() && typeof body.expectedVersion !== "number") {
+    return NextResponse.json({ error: "expectedVersion is required." }, { status: 400 });
   }
 
   let updated = evaluation as typeof evaluation;
 
   if (body.remarks?.trim()) {
-    const result = await updateEvaluationRemarks({
-      evaluationId: params.evaluationId,
-      newRemarks: body.remarks.trim(),
-      changedByUserId: userId,
-    });
-    updated = { ...updated, ...result.evaluation };
+    try {
+      const result = await updateEvaluationRemarks({
+        evaluationId: params.evaluationId,
+        newRemarks: body.remarks.trim(),
+        changedByUserId: userId,
+        expectedVersion: body.expectedVersion!,
+      });
+      updated = { ...updated, ...result.evaluation };
+    } catch (err) {
+      if (err instanceof ConcurrencyConflictError) {
+        return NextResponse.json({ error: err.message }, { status: 409 });
+      }
+      throw err;
+    }
   }
 
   if (body.share === "PARENT" || body.share === "STUDENT") {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
-import { RESULT_STATUSES, correctComponentResult } from "@/lib/assessmentResults";
+import { RESULT_STATUSES, correctComponentResult, ConcurrencyConflictError } from "@/lib/assessmentResults";
 
 /**
  * The audited correction path for an AssessmentComponentResult that
@@ -41,9 +41,13 @@ export async function PATCH(
     marksObtained?: number | null;
     gradeLabel?: string | null;
     remarks?: string | null;
+    expectedVersion?: number;
   };
   if (!body.status || !RESULT_STATUSES.includes(body.status as any)) {
     return NextResponse.json({ error: "A valid status is required." }, { status: 400 });
+  }
+  if (typeof body.expectedVersion !== "number") {
+    return NextResponse.json({ error: "expectedVersion is required." }, { status: 400 });
   }
   if (body.status === "EVALUATED") {
     if (result.component.entryMode === "MARKS") {
@@ -56,14 +60,21 @@ export async function PATCH(
     }
   }
 
-  const { result: updated, audit } = await correctComponentResult({
-    resultId: params.resultId,
-    newStatus: body.status as any,
-    newMarksObtained: body.marksObtained,
-    newGradeLabel: body.gradeLabel,
-    newRemarks: body.remarks,
-    changedByUserId: userId,
-  });
-
-  return NextResponse.json({ ok: true, result: updated, audited: !!audit });
+  try {
+    const { result: updated, audit } = await correctComponentResult({
+      resultId: params.resultId,
+      newStatus: body.status as any,
+      newMarksObtained: body.marksObtained,
+      newGradeLabel: body.gradeLabel,
+      newRemarks: body.remarks,
+      changedByUserId: userId,
+      expectedVersion: body.expectedVersion,
+    });
+    return NextResponse.json({ ok: true, result: updated, audited: !!audit });
+  } catch (err) {
+    if (err instanceof ConcurrencyConflictError) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    throw err;
+  }
 }

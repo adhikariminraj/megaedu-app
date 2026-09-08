@@ -1156,6 +1156,14 @@ model StudentEvaluation {
   visibleToStudent    Boolean   @default(false)
   sharedWithStudentAt DateTime?
 
+  // H3 — optimistic-lock guard for updateEvaluationRemarks() (see
+  // src/lib/evaluation.ts). Every successful correction increments this
+  // by exactly 1, inside the same transaction as the update itself; a
+  // correction submitted against a version that no longer matches the
+  // row's current version is rejected rather than silently overwriting
+  // a change it never saw.
+  version Int @default(1)
+
   createdByUserId String
   createdBy       User     @relation("StudentEvaluationCreatedBy", fields: [createdByUserId], references: [id])
   createdAt       DateTime @default(now())
@@ -1472,6 +1480,14 @@ model AssessmentComponentResult {
   evaluatedByUserId String?
   evaluatedBy       User?                         @relation("AssessmentComponentResultEvaluatedBy", fields: [evaluatedByUserId], references: [id])
   evaluatedAt       DateTime?
+
+  // H3 — optimistic-lock guard for correctComponentResult() (see
+  // src/lib/assessmentResults.ts). Every successful correction
+  // increments this by exactly 1, inside the same transaction as the
+  // update itself; a correction submitted against a version that no
+  // longer matches the row's current version is rejected rather than
+  // silently overwriting a change it never saw.
+  version Int @default(1)
 
   audits AssessmentComponentResultAudit[]
 

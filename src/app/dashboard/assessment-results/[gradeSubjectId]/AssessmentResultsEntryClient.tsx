@@ -14,6 +14,7 @@ type ResultRow = {
   marksObtained: number | null;
   gradeLabel: string | null;
   remarks: string | null;
+  version: number;
 };
 
 type Entry = { status: string; marksObtained: string; gradeLabel: string; remarks: string };
@@ -145,7 +146,7 @@ export default function AssessmentResultsEntryClient({
     });
   }
 
-  async function correctResult(resultId: string, componentId: string, studentId: string) {
+  async function correctResult(resultId: string, expectedVersion: number, componentId: string, studentId: string) {
     const key = `${componentId}:${studentId}`;
     const e = entries[key];
     const component = framework.components.find((c) => c.id === componentId)!;
@@ -157,6 +158,7 @@ export default function AssessmentResultsEntryClient({
         marksObtained: e.status === "EVALUATED" && component.entryMode === "MARKS" ? Number(e.marksObtained) : undefined,
         gradeLabel: e.status === "EVALUATED" && component.entryMode === "GRADE" ? e.gradeLabel : undefined,
         remarks: e.remarks || undefined,
+        expectedVersion,
       }),
     });
     if (result) {
@@ -251,7 +253,7 @@ export default function AssessmentResultsEntryClient({
                 )}
                 {isPublished && existing && isCorrecting && (
                   <>
-                    <button onClick={() => correctResult(existing.id, component.id, s.studentId)} className="text-xs text-mega-green font-semibold">
+                    <button onClick={() => correctResult(existing.id, existing.version, component.id, s.studentId)} className="text-xs text-mega-green font-semibold">
                       Save Correction
                     </button>
                     <button onClick={() => cancelCorrecting(component.id, s.studentId)} className="text-xs text-slate-400">

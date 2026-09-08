@@ -136,6 +136,7 @@ export default async function AssessmentResultsEntryPage({ params }: { params: {
         marksObtained: r.marksObtained,
         gradeLabel: r.gradeLabel,
         remarks: r.remarks,
+        version: r.version,
       }))}
     />
   );

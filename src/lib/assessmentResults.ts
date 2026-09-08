@@ -483,7 +483,22 @@ type CorrectComponentResultInput = {
   newGradeLabel?: string | null;
   newRemarks?: string | null;
   changedByUserId: string;
+  /**
+   * H3 — the version the caller last saw for this result. Required so a
+   * correction can never silently overwrite a change it never saw — see
+   * ConcurrencyConflictError below.
+   */
+  expectedVersion: number;
 };
+
+/**
+ * H3 — thrown when a correction's expectedVersion no longer matches the
+ * result's current version (another correction won the race in between).
+ * Always maps to HTTP 409 at the calling route. Never thrown for a
+ * missing/not-found result — that remains the existing, unchanged
+ * findUniqueOrThrow() behavior.
+ */
+export class ConcurrencyConflictError extends Error {}
 
 /**
  * The only code path allowed to change an existing
@@ -495,6 +510,16 @@ type CorrectComponentResultInput = {
  * the same transaction — mirroring updateEvaluationRemarks() exactly.
  * The publication itself is NOT reverted to DRAFT by a correction —
  * an explicit, approved design decision (see docs/ASSESSMENT_RESULTS.md).
+ *
+ * H3 — the update itself is now an optimistic-lock compare-and-swap:
+ * client.assessmentComponentResult.updateMany() only affects a row
+ * whose version still equals input.expectedVersion (read fresh, inside
+ * this same transaction, immediately above), and bumps version by
+ * exactly 1 when it does. If a concurrent correction already won —
+ * updateMany() affects 0 rows — this throws ConcurrencyConflictError
+ * instead of silently proceeding, and (since the whole thing is one
+ * transaction) neither the version bump nor the audit row below ever
+ * gets committed for the losing attempt.
  */
 export async function correctComponentResult(input: CorrectComponentResultInput, tx?: Prisma.TransactionClient) {
   const run = async (client: Prisma.TransactionClient) => {
@@ -505,18 +530,32 @@ export async function correctComponentResult(input: CorrectComponentResultInput,
     const newMarksObtained = input.newStatus === "ABSENT" ? null : input.newMarksObtained ?? null;
     const newGradeLabel = input.newStatus === "ABSENT" ? null : input.newGradeLabel ?? null;
     const newRemarks = input.newStatus === "ABSENT" ? null : input.newRemarks ?? current.remarks;
+    const evaluatedAt = new Date();
 
-    const updated = await client.assessmentComponentResult.update({
-      where: { id: input.resultId },
+    const casResult = await client.assessmentComponentResult.updateMany({
+      where: { id: input.resultId, version: input.expectedVersion },
       data: {
         status: input.newStatus,
         marksObtained: newMarksObtained,
         gradeLabel: newGradeLabel,
         remarks: newRemarks,
         evaluatedByUserId: input.changedByUserId,
-        evaluatedAt: new Date(),
+        evaluatedAt,
+        version: { increment: 1 },
       },
     });
+    if (casResult.count !== 1) {
+      throw new ConcurrencyConflictError(
+        "This result was changed by someone else in the meantime — please refresh and try again."
+      );
+    }
+    // updateMany() only ever returns a count, never the row — but its
+    // count === 1 above already proves the row was still exactly
+    // `current` (version input.expectedVersion) the instant this write
+    // applied, so the post-write shape is fully known without a second
+    // read: current's own fields, with the change just written and
+    // version advanced by exactly 1.
+    const updated = { ...current, status: input.newStatus, marksObtained: newMarksObtained, gradeLabel: newGradeLabel, remarks: newRemarks, evaluatedByUserId: input.changedByUserId, evaluatedAt, version: current.version + 1 };
 
     const publication = await client.assessmentResultPublication.findUnique({
       where: { gradeSubjectId_studentId: { gradeSubjectId: current.gradeSubjectId, studentId: current.studentId } },

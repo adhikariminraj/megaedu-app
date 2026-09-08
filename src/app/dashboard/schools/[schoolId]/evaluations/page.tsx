@@ -187,6 +187,7 @@ export default async function ScopedEvaluationsPage({
           remarks: ev.remarks,
           visibleToParent: ev.visibleToParent,
           visibleToStudent: ev.visibleToStudent,
+          version: ev.version,
         })),
         meetings: (meetingsByStudent.get(r.studentId) ?? []).map((m) => ({
           id: m.id,

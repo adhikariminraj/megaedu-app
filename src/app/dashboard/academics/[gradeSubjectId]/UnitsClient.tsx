@@ -25,6 +25,7 @@ type StudentEval = {
   remarks: string;
   visibleToParent: boolean;
   visibleToStudent: boolean;
+  version: number;
 };
 type EvalRosterRow = {
   studentId: string;
@@ -184,12 +185,12 @@ export default function UnitsClient({
     }
   }
 
-  async function saveEvalEdit(evaluationId: string) {
+  async function saveEvalEdit(evaluationId: string, expectedVersion: number) {
     if (!editEvalRemarks.trim()) return;
     const result = await call(`/api/schools/${schoolId}/evaluations/${evaluationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ remarks: editEvalRemarks }),
+      body: JSON.stringify({ remarks: editEvalRemarks, expectedVersion }),
     });
     if (result) setEditingEvalId(null);
   }
@@ -501,7 +502,7 @@ export default function UnitsClient({
                                 className="w-full border border-slate-200 rounded-lg px-2 py-1"
                               />
                               <div className="flex gap-2">
-                                <button onClick={() => saveEvalEdit(ev.id)} className="text-mega-navy font-semibold">
+                                <button onClick={() => saveEvalEdit(ev.id, ev.version)} className="text-mega-navy font-semibold">
                                   Save
                                 </button>
                                 <button onClick={() => setEditingEvalId(null)} className="text-slate-500">

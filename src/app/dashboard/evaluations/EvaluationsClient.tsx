@@ -11,6 +11,7 @@ type Evaluation = {
   remarks: string;
   visibleToParent: boolean;
   visibleToStudent: boolean;
+  version: number;
 };
 type RosterRow = {
   studentId: string;
@@ -101,12 +102,12 @@ export default function EvaluationsClient({
     }
   }
 
-  async function saveEdit(evaluationId: string) {
+  async function saveEdit(evaluationId: string, expectedVersion: number) {
     if (!editRemarks.trim()) return;
     const ok = await call(`/api/schools/${schoolId}/evaluations/${evaluationId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ remarks: editRemarks }),
+      body: JSON.stringify({ remarks: editRemarks, expectedVersion }),
     });
     if (ok) setEditingId(null);
   }
@@ -196,7 +197,7 @@ export default function EvaluationsClient({
                             />
                             <div className="flex gap-2">
                               <button
-                                onClick={() => saveEdit(ev.id)}
+                                onClick={() => saveEdit(ev.id, ev.version)}
                                 disabled={busy}
                                 className="text-xs font-semibold text-white bg-mega-navy rounded-lg px-3 py-1.5 disabled:opacity-50"
                               >
