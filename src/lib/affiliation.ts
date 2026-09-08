@@ -146,6 +146,18 @@ export async function createTeacherAffiliation(
   return affiliation;
 }
 
+/**
+ * H2 — a Student may have at most ONE simultaneously open (ACTIVE or
+ * PENDING) affiliation, at any school, at a time — unlike Teacher,
+ * where genuine multi-school affiliation is a legitimate, supported
+ * product scenario. Checked here, across every school (not scoped to
+ * params.schoolId), because this is the one choke point every Student
+ * JOIN path already funnels through (join-school, registration,
+ * admin-add, and — via endStudentAffiliation() running first, in the
+ * same transaction — transfer-school too). A historical ENDED
+ * affiliation, at this school or any other, never counts as open and
+ * never blocks a new one.
+ */
 export async function createStudentAffiliation(
   tx: Tx,
   params: {
@@ -155,11 +167,15 @@ export async function createStudentAffiliation(
     effectiveDate?: Date;
   }
 ): Promise<StudentSchoolAffiliation> {
-  const existing = await tx.studentSchoolAffiliation.findFirst({
-    where: { studentId: params.studentId, schoolId: params.schoolId, status: { in: [...OPEN_STATUSES] } },
+  const existingOpen = await tx.studentSchoolAffiliation.findFirst({
+    where: { studentId: params.studentId, status: { in: [...OPEN_STATUSES] } },
   });
-  if (existing) {
-    throw new AffiliationError("This student already has an active or pending affiliation with this school.");
+  if (existingOpen) {
+    throw new AffiliationError(
+      existingOpen.schoolId === params.schoolId
+        ? "This student already has an active or pending affiliation with this school."
+        : "This student already has an active or pending affiliation with another school."
+    );
   }
 
   const affiliation = await tx.studentSchoolAffiliation.create({
