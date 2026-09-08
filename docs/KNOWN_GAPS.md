@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-07 (Calendar Kilometer 1.2, My Profile Kilometer 1, documentation audit) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-08 (Homework Completion Kilometer 2) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -132,10 +132,10 @@ Every Organization Admin page resolves its organization the same unscoped way (`
 ### Student simultaneous multi-school affiliation remains an undecided product policy 🔭
 `StudentSchoolAffiliation` permits a Student to hold 2+ `ACTIVE` rows at once — the schema imposes no limit, mirroring the Teacher side — but unlike Teacher (explicitly designed and tested for multi-school), no business rule or product decision has ever been made about whether a Student *should* be allowed to be simultaneously enrolled at two schools. Nothing in the app currently blocks it; nothing in the app was designed assuming it happens. A future phase should either explicitly bless it (and audit every Student-scoped roster/attendance/grade view for multi-school correctness) or add an enforced one-ACTIVE-affiliation-at-a-time rule for Students specifically.
 
-## Homework (Phase 1 / K1)
+## Homework (Phase 1 / K1 / K2)
 
-### No completion, submissions, attachments, grading, or feedback 🔭
-Deliberate scope decision, not an oversight. K1 added `HomeworkApplicability` — a per-student row answering only "does this homework apply to this student," created once at publish time — but this is deliberately *not* a result/completion row: it has no status, no marks, no remarks. `HomeworkCompletion`/`HomeworkSubmission`/`HomeworkFeedback` remain entirely unbuilt; adding them later is additive against `HomeworkApplicability`, not a redesign.
+### No online submission, attachments, teacher feedback, or progress-visibility dashboards 🔭
+Deliberate scope decision, not an oversight. K2 added `HomeworkCompletion`/`HomeworkCompletionAudit` — the Subject Teacher's recorded completion decision per `HomeworkApplicability` row, supporting offline (notebook/paper/oral/practical) work as the norm, not an edge case. Still entirely unbuilt: `HomeworkSubmission` (optional online evidence), `HomeworkFeedback` (Teacher Review's written-feedback half), any Class Teacher/Grade Coordinator/School Admin progress-visibility surface (K2's completion data exists but nothing yet reads it in aggregate — only the recording Subject Teacher's own per-homework roster view exists), and notifications on a completion being recorded. Adding any of these later is additive against `HomeworkApplicability`/`HomeworkCompletion`, not a redesign. See [HOMEWORK.md](HOMEWORK.md).
 
 ### No reminders or notifications on publish 🔭
 Publishing a `Homework` item does not notify anyone (unlike `NewsPost`, which fires `notifySchoolCommunity()`) — a Student/Parent only sees it by visiting their dashboard. Deliberately deferred; the existing `notify()` pattern (`src/lib/notify.ts`) would be the natural mechanism to extend later.

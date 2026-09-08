@@ -287,6 +287,8 @@ model Teacher {
   studentEvaluations      StudentEvaluation[]
   parentTeacherMeetings   ParentTeacherMeeting[]
   homework                Homework[]
+  homeworkCompletionsRecorded   HomeworkCompletion[]      @relation("HomeworkCompletionRecordedBy")
+  homeworkCompletionAuditsMade  HomeworkCompletionAudit[] @relation("HomeworkCompletionAuditChangedBy")
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Same structural separation from portal access
@@ -1161,6 +1163,85 @@ model HomeworkApplicability {
   // Every Student/Parent read, and every future Completion/Submission/
   // Feedback join, is "give me this student's applicable homework."
   @@index([studentId])
+
+  completion HomeworkCompletion?
+}
+
+// K2 — one student's completion decision for one HomeworkApplicability
+// row. The Subject Teacher is the sole authoritative recorder — see
+// recordOrCorrectCompletion() (src/lib/homeworkCompletion.ts), the only
+// code path allowed to write here. Absence of a row for a given
+// HomeworkApplicability means "completion has not yet been recorded" —
+// this must NEVER be read as NOT_COMPLETED, ABSENT, or EXCUSED by any
+// caller, and no backfill exists or will ever be added for pre-K2
+// Homework/Applicability rows.
+//
+// One CURRENT row per Applicability (update-in-place), not a
+// MarkSheet-style version chain: nothing downstream ever needs to
+// reference "completion as of a past moment" the way a Report Card
+// references a frozen Mark Sheet, so a single mutable row plus the
+// append-only HomeworkCompletionAudit below gives full correction
+// history without the "find the current non-superseded version" query
+// complexity a chain would add — the same shape Attendance/
+// StudentEvaluation already use for a teacher's correctable, day-to-day
+// recorded judgment.
+model HomeworkCompletion {
+  id                      String                @id @default(cuid())
+  homeworkApplicabilityId String                @unique
+  homeworkApplicability   HomeworkApplicability @relation(fields: [homeworkApplicabilityId], references: [id], onDelete: Cascade)
+
+  status     String // COMPLETED | PARTIAL | NOT_COMPLETED | EXCUSED
+  recordedAt DateTime
+
+  // The real institutional Teacher identity, not a raw User FK —
+  // matches Homework.teacherId/StudentEvaluation.teacherId's
+  // established precedent: authorship resolves through the Teacher
+  // identity, never the raw account. Reflects whoever most recently
+  // recorded/corrected this row (same "latest actor" semantics as
+  // Attendance.markedByUserId / AssessmentComponentResult.
+  // evaluatedByUserId) — full history of who changed what, when, lives
+  // in HomeworkCompletionAudit below, not here.
+  recordedByTeacherId String
+  recordedByTeacher   Teacher @relation("HomeworkCompletionRecordedBy", fields: [recordedByTeacherId], references: [id])
+
+  // K2 — optimistic-lock CAS guard for recordOrCorrectCompletion() (see
+  // src/lib/homeworkCompletion.ts). Every successful correction
+  // increments this by exactly 1, inside the same transaction as the
+  // update; a correction submitted against a version that no longer
+  // matches the row's current version is rejected rather than silently
+  // overwriting a change it never saw — the same H3 pattern already
+  // proven for AssessmentComponentResult/StudentEvaluation, adopted
+  // here deliberately (not by default) because TeacherAcademicAssignment
+  // explicitly permits more than one teacher to hold an overlapping
+  // assignment for the same subject/grade/section, making a genuine
+  // two-teacher race a real, non-hypothetical scenario for Homework
+  // specifically.
+  version Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  audits HomeworkCompletionAudit[]
+
+  @@index([recordedByTeacherId])
+}
+
+// Append-only correction log for HomeworkCompletion — mirrors
+// AttendanceAudit exactly. Written on every correction (never on the
+// first recording — creation isn't a correction, the same "creation
+// isn't a decision" reasoning already applied to GradeHistoryAudit/
+// StudentEvaluationAudit).
+model HomeworkCompletionAudit {
+  id                   String             @id @default(cuid())
+  homeworkCompletionId String
+  homeworkCompletion   HomeworkCompletion @relation(fields: [homeworkCompletionId], references: [id], onDelete: Cascade)
+  changedByTeacherId   String
+  changedByTeacher     Teacher            @relation("HomeworkCompletionAuditChangedBy", fields: [changedByTeacherId], references: [id])
+  changedAt            DateTime           @default(now())
+  previousStatus       String
+  newStatus            String
+
+  @@index([homeworkCompletionId])
 }
 
 // ============================================================

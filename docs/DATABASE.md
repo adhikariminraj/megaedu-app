@@ -213,9 +213,9 @@ Seven new models, additive on top of Phase 2/3A — no existing model's columns 
 
 ---
 
-## Homework — Phase 1 + K1 ✅ (fully implemented and in active use)
+## Homework — Phase 1 + K1 + K2 ✅ (fully implemented and in active use)
 
-One new model in Phase 1; one further new model plus one additive field in K1 — no existing column ever changed meaning, only new relation-array fields. See [HOMEWORK.md](HOMEWORK.md) for the full behavioral write-up; this section covers structure only.
+One new model in Phase 1; one further new model plus one additive field in K1; two further new models in K2 — no existing column ever changed meaning, only new relation-array fields. See [HOMEWORK.md](HOMEWORK.md) for the full behavioral write-up; this section covers structure only.
 
 ### `Homework`
 **Purpose**: one teacher-created homework item for a grade (or one section of it) and subject, for one session — or, as of K1, targeting exactly one individual student instead. **Currently used**: yes.
@@ -230,6 +230,20 @@ One new model in Phase 1; one further new model plus one additive field in K1 �
 **Constraints**: `@@unique([homeworkId, studentId])` — at most one applicability row per student per homework; the database-level backstop behind the publish transaction's own exactly-once guard. `@@index([studentId])` for the "this student's applicable homework" read pattern every Student/Parent view (and future Completion/Submission/Feedback join) will use.
 **Delete behavior**: cascades from `Homework` or `Student`; no update or delete route exists for this model in K1 — immutable by omission once created.
 **Notes**: created once, in a batch, inside the same transaction as `Homework`'s `DRAFT → PUBLISHED` transition (`publishHomework()`, `src/lib/homework.ts`) — never at draft creation, never recalculated from a student's later placement. See [HOMEWORK.md](HOMEWORK.md)'s "Homework Applicability" section for the full rationale and the Regular-vs-Individual resolution logic.
+
+### `HomeworkCompletion` (K2)
+**Purpose**: one Subject Teacher's completion decision for one `HomeworkApplicability` row. **Currently used**: yes.
+**Key fields**: `id, homeworkApplicabilityId (FK, unique, cascade), status, recordedAt, recordedByTeacherId (FK to Teacher), version (default 1), createdAt, updatedAt`. Valid `status`: `COMPLETED | PARTIAL | NOT_COMPLETED | EXCUSED`.
+**Constraints**: `homeworkApplicabilityId` is `@unique` — at most one CURRENT completion row per applicability (1:1), and the database-level backstop behind `recordOrCorrectCompletion()`'s own first-recording concurrency guard. `@@index([recordedByTeacherId])`.
+**Delete behavior**: cascades from `HomeworkApplicability`; no delete route exists — corrections update this row in place (see `HomeworkCompletionAudit` below for the correction trail).
+**Notes**: absence of a row for a given `HomeworkApplicability` means "not yet recorded" — never coerced into any status value by any reader, and nothing ever auto-creates one (no due-date sweep, no absence/leave/transfer inference, no backfill for pre-K2 rows). `recordedByTeacherId` references the real `Teacher` identity (matching `Homework.teacherId`/`StudentEvaluation.teacherId`'s precedent), and always reflects the most recent actor — same "latest actor" semantics as `Attendance.markedByUserId`/`AssessmentComponentResult.evaluatedByUserId`; full change history lives in `HomeworkCompletionAudit`, not here. `version` is an H3-style optimistic-lock CAS guard, deliberately adopted (not by default) because `TeacherAcademicAssignment` explicitly permits more than one teacher to hold an overlapping assignment for the same subject/grade/section — a genuine two-teacher race for Homework specifically, verified empirically both same-process and cross-process. The only write path is `recordOrCorrectCompletion()` (`src/lib/homeworkCompletion.ts`). See [HOMEWORK.md](HOMEWORK.md)'s "Homework Completion (K2)" section for the full lifecycle, concurrency, and authorization write-up.
+
+### `HomeworkCompletionAudit` (K2)
+**Purpose**: append-only correction log for `HomeworkCompletion` — mirrors `AttendanceAudit` exactly. **Currently used**: yes.
+**Key fields**: `id, homeworkCompletionId (FK, cascade), changedByTeacherId (FK to Teacher), changedAt, previousStatus, newStatus`.
+**Constraints**: `@@index([homeworkCompletionId])`.
+**Delete behavior**: cascades from `HomeworkCompletion`; no update or delete route — pure insert-only log.
+**Notes**: written on every correction (never on the first recording — creation isn't a correction, the same reasoning already applied to `GradeHistoryAudit`/`StudentEvaluationAudit`), inside the same transaction as the correcting update.
 
 ---
 

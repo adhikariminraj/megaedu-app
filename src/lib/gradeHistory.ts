@@ -75,6 +75,42 @@ export async function resolveCurrentPlacement(
   });
 }
 
+/**
+ * K2 — resolves a student's current-roster placement WITHIN ONE SPECIFIC
+ * academic session (never "whichever session is currently ACTIVE for the
+ * school," unlike resolveCurrentPlacement() above). Needed wherever a
+ * caller must check a student's placement as of a session that may no
+ * longer be the school's active one — e.g. Individual Homework
+ * completion authorization, evaluated against the Homework's own
+ * (possibly now-closed) academicSessionId, potentially long after that
+ * session ended. Using resolveCurrentPlacement() for that purpose would
+ * silently resolve the WRONG session's placement (or none) once a new
+ * session has started.
+ *
+ * Same CURRENT_ROSTER_STATUSES definition as every other roster check in
+ * this codebase. Returns null if the student has no current-roster
+ * GradeHistory row for this exact (academicSessionId, schoolGradeId) —
+ * e.g. they transferred out of this grade or left the school entirely.
+ * This function does no authorization itself and never writes anything;
+ * it is a pure read, matching resolveCurrentPlacement()'s own contract.
+ */
+export async function resolveStudentPlacementInSession(
+  studentId: string,
+  academicSessionId: string,
+  schoolGradeId: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client = tx || prisma;
+  return client.gradeHistory.findFirst({
+    where: {
+      studentId,
+      academicSessionId,
+      schoolGradeId,
+      status: { in: CURRENT_ROSTER_STATUSES },
+    },
+  });
+}
+
 type RecordGradeDecisionInput = {
   gradeHistoryId: string;
   newStatus: GradeHistoryStatus;

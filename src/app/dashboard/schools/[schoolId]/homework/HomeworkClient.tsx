@@ -270,6 +270,18 @@ export default function HomeworkClient({
                   {publishingId === hw.id ? "Publishing..." : "Publish"}
                 </button>
               )}
+              {/* K2 — Teacher-only: School Admin has no authority over
+                  individual Homework completion, so this link is
+                  deliberately omitted from the Admin view rather than
+                  shown and then always rejected server-side. */}
+              {hw.status === "PUBLISHED" && !isAdmin && (
+                <a
+                  href={`/dashboard/schools/${schoolId}/homework/${hw.id}/completion`}
+                  className="mt-4 inline-block text-xs font-semibold border border-mega-navy text-mega-navy rounded-full px-4 py-1.5 hover:bg-mega-navy hover:text-white transition"
+                >
+                  Record Completion
+                </a>
+              )}
             </div>
           ))}
         </div>
