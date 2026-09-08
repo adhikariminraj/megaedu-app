@@ -1,16 +1,19 @@
 # Homework
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-06 (Phase 1 — fundamental Homework structure), against the current codebase.
+> Last verified: 2026-09-08 (K1 — Homework Applicability foundation), against the current codebase.
 
 ## The fundamental flow ✅
 
 ```
-Teacher → creates Homework → assigns to Grade/Section → selects Subject → publishes
+Teacher → creates Homework (Regular or Individual) → publishes
+        → HomeworkApplicability resolved & persisted at that moment
         → Students see it → Parents see today's due homework for each child
 ```
 
-One `Homework` row serves every applicable student — there is **no per-student fan-out record** (no `HomeworkStudent`/`StudentHomework`/`HomeworkAssignment` table). Student and Parent visibility is resolved entirely at read time by matching a student's current institutional placement against the `Homework` row's own scope.
+One `Homework` row describes the assignment. **`HomeworkApplicability`** (K1) is the one canonical, universal Student ↔ Homework relationship — `Homework.studentId` does not exist and must not be added. Regular Homework (targeting a grade/section) resolves to many `HomeworkApplicability` rows; Individual Homework (targeting exactly one student) resolves to exactly one. Applicability is resolved **once, at the moment of publication** — never recalculated later, never derived live from a student's current placement at read time. See "Homework Applicability (K1)" below for the full model.
+
+Student and Parent visibility of *today's* homework is still resolved at read time by matching a student's current institutional placement against `Homework`'s own scope (`fetchTodaysHomework()`, below) — this remains a live, always-current query, distinct from `HomeworkApplicability`'s historical, resolve-once record.
 
 ## Data model ✅
 
@@ -30,12 +33,27 @@ Once `PUBLISHED`, `title`/`instructions`/`dueDate`/`sectionId` are frozen (a `PA
 
 ## Shared read function ✅
 
-`fetchTodaysHomework(studentId)` (`src/lib/homework.ts`) is the **one** place this query is written — shared by the Student's own dashboard and, once per linked child, the Parent dashboard, matching the exact "one function, every caller" discipline already established by `fetchAcademicProgress()` (`src/lib/academicProgress.ts`). It:
-1. Resolves the student's current placement via `GradeHistory` (`{ studentId, academicSession: { status: "ACTIVE" } }`) — no placement, no homework, returns `[]`.
+`fetchTodaysHomework(studentId, schoolId)` (`src/lib/homework.ts`) is the **one** place this query is written — shared by the Student's own dashboard and, once per linked child, the Parent dashboard, matching the exact "one function, every caller" discipline already established by `fetchAcademicProgress()` (`src/lib/academicProgress.ts`). It:
+1. Resolves the student's current placement via `resolveCurrentPlacement(studentId, schoolId)` (`src/lib/gradeHistory.ts`) — scoped to the caller's own trusted `schoolId` (never inferred), so a student whose `GradeHistory` touches more than one school can never resolve an unrelated school's session. No placement, no homework, returns `[]`.
 2. Resolves today's date via `todayInKathmandu()`.
 3. Queries `PUBLISHED` `Homework` matching that placement's `academicSessionId`/`schoolGradeId`, `dueDate = today`, and the student's own `sectionId` via `sectionScopeWhere()` (grade-wide OR that exact section).
 
-Like `fetchAcademicProgress()`, this function does no authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller is allowed to see.
+Like `fetchAcademicProgress()`, this function does no authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller is allowed to see. (This corrects an earlier, pre-institutional-context-hardening version of this section that described an unscoped `GradeHistory.findFirst()` lookup — documentation-only correction, no behavior change from this note.)
+
+## Homework Applicability (K1) ✅
+
+`HomeworkApplicability` (`prisma/schema.prisma`) is the sole, canonical Student ↔ Homework relationship — see the model's own comment for the full architectural rationale. Key properties:
+
+- **Created once, at publish time**, inside the same transaction as the `DRAFT → PUBLISHED` transition (`publishHomework()`, `src/lib/homework.ts`) — never at draft creation, never recalculated afterward.
+- **Regular Homework** (`Homework.targetStudentId` is `null`): resolves to every student whose `GradeHistory` currently places them in the homework's `schoolGradeId` (+ `sectionId`, if section-specific), using the same `CURRENT_ROSTER_STATUSES` definition every other roster-scoped feature in this codebase shares.
+- **Individual Homework** (`Homework.targetStudentId` set): resolves to exactly one `HomeworkApplicability` row, for that student — re-validated fresh, at publish time, against the same current-roster criteria; a target who is no longer eligible (transferred, left) causes publication to fail with a `409`, rather than creating a stale row.
+- **Immutable in K1** — no update or delete path exists. A student's later section change, grade change, or school transfer never rewrites or removes an existing row (`disassociate ≠ delete`, the same principle governing `GradeHistory`/affiliations elsewhere in this schema).
+- **Exactly-once, verified empirically** against this repository's actual SQLite/Prisma behavior (the same methodology proven for `AcademicSession` transitions and assessment-result corrections): a fresh `Homework.status` re-check inside the publish transaction is what actually prevents a duplicate batch on a concurrent/retried publish request; `@@unique([homeworkId, studentId])` is the database-level backstop behind it.
+- **No late-joiner auto-add** — a student who joins a grade/section after a homework was published is never retroactively added to it.
+
+**Individual Homework targeting** is exposed in the create form (`HomeworkClient.tsx`) as "Assign to: Entire Section / Individual Student," with the student picker scoped to whichever grade/subject/section option is currently selected. Creation-time validation confirms the target student is currently placed in the intended grade/session and derives the authorization scope (grade-wide or the target's own section) from their real current section — not merely "does this teacher teach this subject somewhere in the grade."
+
+**Explicitly out of scope for K1** — Completion, Online Submission, Feedback, Class/Grade/School progress rollups, notifications, homework marks, any connection to formal assessment. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
 
 ## Parent visibility — reuses the existing Parent → ParentStudent → Student chain ✅
 
@@ -61,6 +79,6 @@ The three-way `sectionId` semantics (`sectionScopeWhere()`) are unweakened: a te
 - **Student** (`dashboard/page.tsx`'s `STUDENT` branch → `StudentDashboard.tsx`): a "Today's Homework" section, subject/title/instructions per item.
 - **Parent** (`PARENT` branch → `ParentDashboard.tsx`): the same section, once per linked child, grouped under that child's card.
 
-## Explicitly out of scope for Phase 1 🔭
+## Explicitly out of scope for Phase 1 / K1 🔭
 
-Student submissions, file attachments, grading, rubrics, teacher feedback, discussion, plagiarism checking, analytics, reminders/notifications, homework categories/types, completion tracking, upcoming/past homework views. See [KNOWN_GAPS.md](KNOWN_GAPS.md).
+Student submissions, file attachments, grading, rubrics, teacher feedback, discussion, plagiarism checking, analytics, reminders/notifications, completion tracking, upcoming/past homework views. See [KNOWN_GAPS.md](KNOWN_GAPS.md). ("Homework categories/types" is now partially addressed — K1 added Regular vs. Individual as an *assignment-target* distinction; this is not the same as a subject-matter category/tag system, which remains out of scope.)

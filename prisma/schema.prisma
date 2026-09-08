@@ -349,6 +349,8 @@ model Student {
   assessmentResultPublications AssessmentResultPublication[]
   markSheets                   MarkSheet[]
   coScholasticResults          CoScholasticResult[]
+  homeworkApplicability        HomeworkApplicability[]
+  individualHomeworkAssigned   Homework[]                     @relation("IndividualHomeworkTarget")
 
   // Administrative Family & Emergency Contact records — see
   // FamilyContact below. Structurally unrelated to `parents` (
@@ -1093,6 +1095,21 @@ model Homework {
   status      String    @default("DRAFT") // DRAFT | PUBLISHED
   publishedAt DateTime?
 
+  // K1 — null = Regular Homework (applies to the grade/section above,
+  // resolved into HomeworkApplicability at publish time). Set =
+  // Individual Homework, targeting exactly this one student instead —
+  // schoolGradeId/subjectId above still describe its academic context
+  // (needed for teacher-assignment validation), but sectionId becomes
+  // irrelevant to who this applies to. Re-validated fresh at publish
+  // time (see publishHomework() in src/lib/homework.ts), never trusted
+  // from whenever the draft was created — the same "never derive from a
+  // stale earlier read" discipline this schema already applies
+  // elsewhere (AcademicSession, AssessmentComponentResult).
+  targetStudentId String?
+  targetStudent   Student? @relation("IndividualHomeworkTarget", fields: [targetStudentId], references: [id], onDelete: Cascade)
+
+  applicability HomeworkApplicability[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1104,6 +1121,46 @@ model Homework {
   @@index([schoolGradeId, dueDate])
   @@index([academicSessionId])
   @@index([teacherId])
+}
+
+// K1 — the ONE canonical, universal Student <-> Homework relationship.
+// Homework.studentId does not exist and must not be added; this model
+// is the sole answer to "does this homework apply to this student."
+// Regular Homework: one Homework -> many rows, resolved from the
+// current grade/section roster (GradeHistory) at the exact moment of
+// publish. Individual Homework: one Homework -> exactly one row, for
+// Homework.targetStudentId, also resolved at publish (see
+// publishHomework(), src/lib/homework.ts).
+//
+// Created once, in a batch, inside the same transaction as the
+// DRAFT -> PUBLISHED transition — never at draft creation, never
+// recalculated afterward. Immutable in K1: no update or delete path
+// exists for this model at all. A student's later section change,
+// grade change, school transfer, or affiliation ending never rewrites
+// or removes an existing row here — "disassociate != delete," the same
+// principle already governing GradeHistory/affiliations everywhere
+// else in this schema. This is a historical institutional fact, not a
+// live-derived membership check.
+model HomeworkApplicability {
+  id         String   @id @default(cuid())
+  homeworkId String
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Stamped once from the same timestamp used for Homework.publishedAt
+  // in the same publish transaction — every row in one publish batch
+  // shares one exact instant, never an independent now() per row.
+  assignedAt DateTime
+
+  // The database-level backstop behind the publish transaction's own
+  // fresh-status guard (see publishHomework()) — structurally prevents
+  // a duplicate applicability row for the same (homework, student) pair
+  // regardless of how the duplicate attempt happened.
+  @@unique([homeworkId, studentId])
+  // Every Student/Parent read, and every future Completion/Submission/
+  // Feedback join, is "give me this student's applicable homework."
+  @@index([studentId])
 }
 
 // ============================================================

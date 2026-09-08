@@ -1,6 +1,7 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { sectionScopeWhere } from "@/lib/authorize";
-import { resolveCurrentPlacement } from "@/lib/gradeHistory";
+import { resolveCurrentPlacement, CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
 import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
 
 /**
@@ -177,4 +178,162 @@ export async function fetchHomeworkForSchool(schoolId: string, window: CalendarW
   });
   const link = `/dashboard/schools/${schoolId}/homework`;
   return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId, { link }));
+}
+
+// ============================================================
+// K1 — Homework Applicability. The only code path allowed to create a
+// HomeworkApplicability row, and the only code path allowed to
+// transition a Homework from DRAFT to PUBLISHED. See the model comment
+// on HomeworkApplicability (schema.prisma) for the full architectural
+// rationale — this is its implementation.
+// ============================================================
+
+/**
+ * Thrown when a Homework can't be published as requested — either it's
+ * not actually in DRAFT (caller should treat this as a harmless no-op,
+ * not surface it as an error — see publishHomework()'s own return
+ * shape), or an Individual Homework's target student no longer
+ * satisfies the required institutional context at the moment of
+ * publication. Always maps to the status code it carries; never thrown
+ * for "already published," which is a success case, not an error.
+ */
+export class HomeworkPublishError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+export type PublishHomeworkResult = {
+  homework: Prisma.HomeworkGetPayload<{}>;
+  /**
+   * True only when the homework was already PUBLISHED when this was
+   * called — a harmless no-op, matching this route's existing
+   * idempotent-publish behavior from before Applicability existed.
+   * Internal signal only; the calling route does not need to (and
+   * should not) expose this as a new field in its HTTP response — see
+   * the route for why.
+   */
+  alreadyPublished: boolean;
+};
+
+/**
+ * Resolves the current roster for a Regular Homework's own grade/
+ * (optional) section, inside the same transaction as the publish that
+ * calls it — never a value read before that transaction began. Reuses
+ * the exact "current roster" definition (CURRENT_ROSTER_STATUSES) every
+ * other roster-scoped feature in this codebase already shares (Grades
+ * index, Class Overview, the bulk assessment-marks-entry roster) —
+ * never a separate, independently-invented membership rule.
+ */
+async function resolveRegularRoster(
+  tx: Prisma.TransactionClient,
+  homework: Prisma.HomeworkGetPayload<{}>
+): Promise<string[]> {
+  const roster = await tx.gradeHistory.findMany({
+    where: {
+      academicSessionId: homework.academicSessionId,
+      schoolGradeId: homework.schoolGradeId,
+      status: { in: CURRENT_ROSTER_STATUSES },
+      ...(homework.sectionId ? { sectionId: homework.sectionId } : {}),
+    },
+    select: { studentId: true },
+  });
+  return roster.map((r) => r.studentId);
+}
+
+/**
+ * Re-validates an Individual Homework's target student is STILL
+ * genuinely placed in this homework's own grade/session, fresh, at the
+ * exact moment of publication — never trusted from whatever was true
+ * when the draft was created or the target was selected. A student who
+ * has transferred away (or otherwise no longer has a current-roster
+ * GradeHistory row for this exact academicSessionId/schoolGradeId)
+ * fails this check and publication is rejected outright, rather than
+ * creating a stale HomeworkApplicability row for a student no longer in
+ * the context the homework was written for.
+ */
+async function resolveIndividualTarget(
+  tx: Prisma.TransactionClient,
+  homework: Prisma.HomeworkGetPayload<{}>
+): Promise<string[]> {
+  const targetStudentId = homework.targetStudentId!;
+  const stillEligible = await tx.gradeHistory.findFirst({
+    where: {
+      studentId: targetStudentId,
+      academicSessionId: homework.academicSessionId,
+      schoolGradeId: homework.schoolGradeId,
+      status: { in: CURRENT_ROSTER_STATUSES },
+    },
+  });
+  if (!stillEligible) {
+    throw new HomeworkPublishError(
+      409,
+      "The individually assigned student is no longer eligible for this homework — they may have transferred or left this grade."
+    );
+  }
+  return [targetStudentId];
+}
+
+/**
+ * The one function allowed to transition a Homework from DRAFT to
+ * PUBLISHED, and the one function allowed to create
+ * HomeworkApplicability rows. Everything — the fresh status re-check,
+ * any same-request field edits, roster/target resolution, the
+ * Applicability batch insert, and the status flip itself — happens
+ * inside one transaction, so publication either fully succeeds
+ * (Homework is PUBLISHED with a complete, correct Applicability set) or
+ * fully fails (Homework stays DRAFT, no Applicability rows persist at
+ * all, and no field edit is left half-applied) — never a partial
+ * result.
+ *
+ * fieldUpdates carries any DRAFT-stage field edits submitted in the
+ * SAME PATCH request as the publish (title/instructions/dueDate/
+ * sectionId — already validated by the caller). Applied first, inside
+ * this transaction, before roster/target resolution — critically, so a
+ * sectionId change submitted alongside publish resolves the roster
+ * against the NEW section, never a stale pre-edit one.
+ *
+ * Verified empirically (not assumed) against this repository's actual
+ * SQLite configuration, mirroring the exact methodology already proven
+ * for AcademicSession transitions (src/lib/academicSession.ts) and
+ * assessment-result corrections (src/lib/assessmentResults.ts): a
+ * second concurrent call to this function for the SAME homeworkId does
+ * not even begin its own read until the first has fully committed, so
+ * the fresh `homework.status === "PUBLISHED"` check below is what
+ * actually prevents a duplicate Applicability batch — never merely a
+ * defensive nicety. @@unique([homeworkId, studentId]) on
+ * HomeworkApplicability remains the database-level backstop behind it,
+ * exactly as intended, for any path this reasoning hasn't anticipated.
+ */
+export async function publishHomework(
+  homeworkId: string,
+  fieldUpdates?: { title?: string; instructions?: string; dueDate?: Date; sectionId?: string | null }
+): Promise<PublishHomeworkResult> {
+  return prisma.$transaction(async (tx) => {
+    let homework = await tx.homework.findUniqueOrThrow({ where: { id: homeworkId } });
+
+    if (homework.status === "PUBLISHED") {
+      return { homework, alreadyPublished: true };
+    }
+
+    if (fieldUpdates && Object.keys(fieldUpdates).length > 0) {
+      homework = await tx.homework.update({ where: { id: homeworkId }, data: fieldUpdates });
+    }
+
+    const assignedAt = new Date();
+    const studentIds = homework.targetStudentId
+      ? await resolveIndividualTarget(tx, homework)
+      : await resolveRegularRoster(tx, homework);
+
+    await tx.homeworkApplicability.createMany({
+      data: studentIds.map((studentId) => ({ homeworkId: homework.id, studentId, assignedAt })),
+    });
+
+    const published = await tx.homework.update({
+      where: { id: homeworkId },
+      data: { status: "PUBLISHED", publishedAt: assignedAt },
+    });
+
+    return { homework: published, alreadyPublished: false };
+  });
 }

@@ -11,6 +11,7 @@ type AssignmentOption = {
   subjectName: string;
   sectionId: string | null;
   sectionName: string | null;
+  students: { id: string; name: string }[];
 };
 
 type HomeworkRow = {
@@ -23,6 +24,7 @@ type HomeworkRow = {
   instructions: string;
   dueDate: string;
   status: "DRAFT" | "PUBLISHED";
+  targetStudentName: string | null;
 };
 
 export default function HomeworkClient({
@@ -38,6 +40,8 @@ export default function HomeworkClient({
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState(assignmentOptions[0]?.key ?? "");
+  const [assignMode, setAssignMode] = useState<"SECTION" | "INDIVIDUAL">("SECTION");
+  const [targetStudentId, setTargetStudentId] = useState("");
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -45,12 +49,25 @@ export default function HomeworkClient({
   const [saving, setSaving] = useState(false);
   const [publishingId, setPublishingId] = useState<string | null>(null);
 
+  const selectedOption = assignmentOptions.find((o) => o.key === selectedKey);
+
+  function handleOptionChange(key: string) {
+    setSelectedKey(key);
+    // A different scope has a different roster — an Individual target
+    // picked under the previous scope may not even apply here.
+    setTargetStudentId("");
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const option = assignmentOptions.find((o) => o.key === selectedKey);
     if (!option) {
       setError("Choose a grade/subject/section.");
+      return;
+    }
+    if (assignMode === "INDIVIDUAL" && !targetStudentId) {
+      setError("Choose which student this individual homework is for.");
       return;
     }
     if (!title.trim() || !instructions.trim() || !dueDate) {
@@ -68,6 +85,7 @@ export default function HomeworkClient({
         title,
         instructions,
         dueDate,
+        targetStudentId: assignMode === "INDIVIDUAL" ? targetStudentId : null,
       }),
     });
     const data = await res.json();
@@ -79,6 +97,8 @@ export default function HomeworkClient({
     setTitle("");
     setInstructions("");
     setDueDate("");
+    setAssignMode("SECTION");
+    setTargetStudentId("");
     router.refresh();
   }
 
@@ -111,7 +131,7 @@ export default function HomeworkClient({
             <label className="block text-sm font-medium text-slate-700 mb-1">Grade / Subject / Section</label>
             <select
               value={selectedKey}
-              onChange={(e) => setSelectedKey(e.target.value)}
+              onChange={(e) => handleOptionChange(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-mega-blue"
             >
               {assignmentOptions.map((o) => (
@@ -120,6 +140,47 @@ export default function HomeworkClient({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Assign to</label>
+            <div className="flex gap-4 text-sm text-slate-700">
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="assignMode"
+                  checked={assignMode === "SECTION"}
+                  onChange={() => {
+                    setAssignMode("SECTION");
+                    setTargetStudentId("");
+                  }}
+                />
+                Entire Section
+              </label>
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="assignMode"
+                  checked={assignMode === "INDIVIDUAL"}
+                  onChange={() => setAssignMode("INDIVIDUAL")}
+                />
+                Individual Student
+              </label>
+            </div>
+            {assignMode === "INDIVIDUAL" && (
+              <select
+                value={targetStudentId}
+                onChange={(e) => setTargetStudentId(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 bg-white focus:outline-none focus:ring-2 focus:ring-mega-blue mt-2"
+              >
+                <option value="">Choose a student…</option>
+                {(selectedOption?.students ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
@@ -178,8 +239,13 @@ export default function HomeworkClient({
                 <div>
                   <p className="font-semibold text-slate-800">{hw.title}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {hw.gradeDisplayName} {hw.sectionName ? `— Section ${hw.sectionName}` : "— Whole Grade"} ·{" "}
-                    {hw.subjectName}
+                    {hw.gradeDisplayName}{" "}
+                    {hw.targetStudentName
+                      ? `— Individual: ${hw.targetStudentName}`
+                      : hw.sectionName
+                      ? `— Section ${hw.sectionName}`
+                      : "— Whole Grade"}{" "}
+                    · {hw.subjectName}
                     {isAdmin ? ` · ${hw.teacherName}` : ""}
                   </p>
                 </div>

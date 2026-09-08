@@ -132,10 +132,10 @@ Every Organization Admin page resolves its organization the same unscoped way (`
 ### Student simultaneous multi-school affiliation remains an undecided product policy 🔭
 `StudentSchoolAffiliation` permits a Student to hold 2+ `ACTIVE` rows at once — the schema imposes no limit, mirroring the Teacher side — but unlike Teacher (explicitly designed and tested for multi-school), no business rule or product decision has ever been made about whether a Student *should* be allowed to be simultaneously enrolled at two schools. Nothing in the app currently blocks it; nothing in the app was designed assuming it happens. A future phase should either explicitly bless it (and audit every Student-scoped roster/attendance/grade view for multi-school correctness) or add an enforced one-ACTIVE-affiliation-at-a-time rule for Students specifically.
 
-## Homework (Phase 1)
+## Homework (Phase 1 / K1)
 
-### No submissions, attachments, grading, or feedback 🔭
-Deliberate Phase 1 scope decision, not an oversight — Homework is a publish-and-view mechanism only in this phase. `Homework` has no schema hook for any of these yet (no per-student result row exists at all, unlike `UnitTestResult`); adding them later is additive, not a redesign.
+### No completion, submissions, attachments, grading, or feedback 🔭
+Deliberate scope decision, not an oversight. K1 added `HomeworkApplicability` — a per-student row answering only "does this homework apply to this student," created once at publish time — but this is deliberately *not* a result/completion row: it has no status, no marks, no remarks. `HomeworkCompletion`/`HomeworkSubmission`/`HomeworkFeedback` remain entirely unbuilt; adding them later is additive against `HomeworkApplicability`, not a redesign.
 
 ### No reminders or notifications on publish 🔭
 Publishing a `Homework` item does not notify anyone (unlike `NewsPost`, which fires `notifySchoolCommunity()`) — a Student/Parent only sees it by visiting their dashboard. Deliberately deferred; the existing `notify()` pattern (`src/lib/notify.ts`) would be the natural mechanism to extend later.

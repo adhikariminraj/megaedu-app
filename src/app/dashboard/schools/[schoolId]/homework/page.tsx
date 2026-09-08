@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
+import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
 import HomeworkClient from "./HomeworkClient";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,13 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
     subjectName: string;
     sectionId: string | null;
     sectionName: string | null;
+    // K1 — the roster this option's students would be drawn from,
+    // resolved fresh here just for the Individual-Student picker's
+    // options; the actual authoritative resolution happens again,
+    // independently, inside publishHomework() at publish time (see
+    // src/lib/homework.ts) — this list is a UI convenience only, never
+    // itself an authorization or applicability decision.
+    students: { id: string; name: string }[];
   };
 
   let assignmentOptions: AssignmentOption[] = [];
@@ -74,6 +82,7 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
         subjectName: gs.subject.name,
         sectionId: null,
         sectionName: null,
+        students: [] as { id: string; name: string }[],
       },
       ...gs.schoolGrade.sections.map((s) => ({
         key: `${gs.id}|${s.id}`,
@@ -83,6 +92,7 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
         subjectName: gs.subject.name,
         sectionId: s.id,
         sectionName: s.name,
+        students: [] as { id: string; name: string }[],
       })),
     ]);
   } else if (teacherId) {
@@ -99,6 +109,35 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
       subjectName: a.subject.name,
       sectionId: a.sectionId,
       sectionName: a.section?.name ?? null,
+      students: [] as { id: string; name: string }[],
+    }));
+  }
+
+  // K1 — resolve each option's Individual-Student picker roster in one
+  // batched query (never one query per option), grouped in memory by
+  // (schoolGradeId, sectionId) — a whole-grade option (sectionId: null)
+  // includes every current-roster student in that grade regardless of
+  // section; a section-specific option includes only that section's.
+  // Reuses the same CURRENT_ROSTER_STATUSES "current roster" definition
+  // every other roster-scoped feature in this codebase already shares —
+  // this is a UI convenience list only; publishHomework() re-resolves
+  // the authoritative roster independently at publish time.
+  if (assignmentOptions.length > 0) {
+    const relevantGradeIds = [...new Set(assignmentOptions.map((o) => o.schoolGradeId))];
+    const rosterRows = await prisma.gradeHistory.findMany({
+      where: {
+        academicSessionId: activeSession.id,
+        schoolGradeId: { in: relevantGradeIds },
+        status: { in: CURRENT_ROSTER_STATUSES },
+      },
+      include: { student: true },
+      orderBy: { student: { fullName: "asc" } },
+    });
+    assignmentOptions = assignmentOptions.map((o) => ({
+      ...o,
+      students: rosterRows
+        .filter((r) => r.schoolGradeId === o.schoolGradeId && (o.sectionId === null || r.sectionId === o.sectionId))
+        .map((r) => ({ id: r.studentId, name: r.student.fullName })),
     }));
   }
 
@@ -109,7 +148,7 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
   // meeting at the school").
   const homework = await prisma.homework.findMany({
     where: isAdmin ? { schoolGrade: { schoolId } } : { teacherId: teacherId! },
-    include: { subject: true, schoolGrade: true, section: true, teacher: true },
+    include: { subject: true, schoolGrade: true, section: true, teacher: true, targetStudent: true },
     orderBy: { dueDate: "desc" },
   });
 
@@ -128,6 +167,13 @@ export default async function HomeworkPage({ params }: { params: { schoolId: str
         instructions: hw.instructions,
         dueDate: hw.dueDate.toISOString().slice(0, 10),
         status: hw.status as "DRAFT" | "PUBLISHED",
+        // K1 — minimal, directly-necessitated addition: without this,
+        // an Individual Homework (sectionId always null, same as a
+        // whole-grade Regular item) would be indistinguishable from
+        // whole-grade homework in this existing list. Not a redesign —
+        // the smallest change that avoids the list actively misleading
+        // whoever reads it once Individual Homework can exist at all.
+        targetStudentName: hw.targetStudent?.fullName ?? null,
       }))}
     />
   );

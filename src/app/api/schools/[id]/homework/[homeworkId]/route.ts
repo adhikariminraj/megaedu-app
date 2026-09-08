@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
+import { publishHomework, HomeworkPublishError } from "@/lib/homework";
 
 const patchSchema = z.object({
   title: z.string().trim().min(1).max(150).optional(),
@@ -87,23 +88,46 @@ export async function PATCH(
     }
   }
 
-  const data: Record<string, unknown> = {};
-  if (title !== undefined) data.title = title;
-  if (instructions !== undefined) data.instructions = instructions;
-  if (parsedDueDate !== undefined) data.dueDate = parsedDueDate;
-  if (sectionId !== undefined) data.sectionId = sectionId;
+  const fieldData: Record<string, unknown> = {};
+  if (title !== undefined) fieldData.title = title;
+  if (instructions !== undefined) fieldData.instructions = instructions;
+  if (parsedDueDate !== undefined) fieldData.dueDate = parsedDueDate;
+  if (sectionId !== undefined) fieldData.sectionId = sectionId;
 
-  if (status === "PUBLISHED" && homework.status === "DRAFT") {
-    data.status = "PUBLISHED";
-    data.publishedAt = new Date();
+  // K1: publishing (DRAFT -> PUBLISHED, or an idempotent re-request on
+  // an already-published item) always goes through publishHomework() —
+  // the one place HomeworkApplicability is ever created. Any field
+  // edits submitted in the SAME request are applied inside that same
+  // transaction (so, e.g., a sectionId change combined with publish
+  // resolves the roster against the NEW section, never the old one) —
+  // preserving this route's existing combined-edit-and-publish
+  // behavior exactly, just now atomic with Applicability creation too.
+  if (status === "PUBLISHED") {
+    try {
+      const result = await publishHomework(
+        params.homeworkId,
+        Object.keys(fieldData).length > 0 ? (fieldData as Parameters<typeof publishHomework>[1]) : undefined
+      );
+      // Deliberately the same { ok, homework } shape this route has
+      // always returned — alreadyPublished is an internal signal only
+      // (see publishHomework()'s own doc comment) and is never surfaced
+      // here, so a re-publish request looks identical to a first-time
+      // publish from the client's perspective, exactly as it already
+      // did before HomeworkApplicability existed.
+      return NextResponse.json({ ok: true, homework: result.homework });
+    } catch (err) {
+      if (err instanceof HomeworkPublishError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
   }
-  // status === "DRAFT" or re-requesting "PUBLISHED" on an already-
-  // published item: no status change, matching the no-unpublish /
-  // idempotent-publish behavior documented above.
 
+  // status === "DRAFT" or omitted: a plain field edit, no publish
+  // requested — unchanged from before K1, never touches Applicability.
   const updated = await prisma.homework.update({
     where: { id: params.homeworkId },
-    data,
+    data: fieldData,
   });
 
   return NextResponse.json({ ok: true, homework: updated });
