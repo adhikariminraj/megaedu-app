@@ -33,23 +33,21 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
     );
   }
 
+  // Academy Participation kilometer — userId (not Teacher/Student
+  // status) is the enrollment's identity. teacherId/studentId are still
+  // resolved and stored whenever the enrolling MEGA ID happens to also
+  // hold that institutional profile — purely contextual enrichment for
+  // TeacherDashboard/StudentDashboard's existing course lists, never a
+  // requirement to enroll. A Parent, Organization Admin/Accountant, or
+  // any other authenticated MEGA ID with neither profile enrolls with
+  // both left null.
   const [teacher, student] = await Promise.all([
     prisma.teacher.findUnique({ where: { userId } }),
     prisma.student.findUnique({ where: { userId } }),
   ]);
 
-  if (!teacher && !student) {
-    return NextResponse.json(
-      { error: "Only teacher or student accounts can enroll in courses right now." },
-      { status: 403 }
-    );
-  }
-
   const existing = await prisma.courseEnrollment.findFirst({
-    where: {
-      courseId: params.courseId,
-      ...(teacher ? { teacherId: teacher.id } : { studentId: student!.id }),
-    },
+    where: { courseId: params.courseId, userId },
   });
   if (existing) {
     return NextResponse.json({ ok: true, enrollment: existing, alreadyEnrolled: true });
@@ -58,6 +56,7 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
   const enrollment = await prisma.courseEnrollment.create({
     data: {
       courseId: params.courseId,
+      userId,
       teacherId: teacher?.id,
       studentId: student?.id,
     },

@@ -47,6 +47,9 @@ model User {
   skillsAdded          Skill[]       @relation("SkillAddedBy")
   instructorProfile    Instructor?
   certificatesReceived Certificate[] @relation("CertificateRecipient")
+  // Academy Participation kilometer — the enrollment's real identity
+  // anchor, independent of any institutional role. See CourseEnrollment.
+  courseEnrollments    CourseEnrollment[]
 
   gradeDecisionsMade     GradeHistory[]      @relation("GradeHistoryDecidedBy")
   gradeHistoryAuditsMade GradeHistoryAudit[] @relation("GradeHistoryAuditChangedBy")
@@ -2277,10 +2280,22 @@ model Lesson {
   order    Int
 }
 
+// userId is the enrollment's real identity anchor — any authenticated
+// MEGA ID may enroll, never requiring a Teacher or Student profile.
+// teacherId/studentId remain exactly as before, but are now optional
+// CONTEXTUAL enrichment only ("this enrollee also currently holds this
+// institutional role"), populated whenever applicable purely so
+// TeacherDashboard/StudentDashboard's existing
+// teacher.courseEnrollments/student.courseEnrollments reverse-relation
+// queries keep working unchanged — never re-derived as the enrollment's
+// identity. See docs/COURSES_AND_ENROLLMENTS.md for the full design
+// rationale (Academy Participation kilometer).
 model CourseEnrollment {
   id          String    @id @default(cuid())
   courseId    String
   course      Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
   teacherId   String?
   teacher     Teacher?  @relation(fields: [teacherId], references: [id])
   studentId   String?
@@ -2290,6 +2305,12 @@ model CourseEnrollment {
   enrolledAt  DateTime  @default(now())
 
   certificate Certificate?
+
+  // Confirmed safe via a real pre-flight data check before this was
+  // added: zero existing (courseId, userId) duplicates, and the enroll
+  // route's own pre-existing idempotent behavior already treats "one
+  // enrollment per user per course" as the intended product rule.
+  @@unique([courseId, userId])
 }
 
 // --- Certificate — the redesigned model, replacing the old one that

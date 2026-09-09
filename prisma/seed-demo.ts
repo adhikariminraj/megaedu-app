@@ -1242,7 +1242,13 @@ async function main() {
     let cbeEnrollment = await prisma.courseEnrollment.findFirst({ where: { courseId: cbeCourse.id, studentId: demoStudent.id } });
     if (!cbeEnrollment) {
       cbeEnrollment = await prisma.courseEnrollment.create({
-        data: { courseId: cbeCourse.id, studentId: demoStudent.id, progress: 100, completedAt: new Date("2026-08-10") },
+        data: {
+          courseId: cbeCourse.id,
+          userId: demoStudentUser.id,
+          studentId: demoStudent.id,
+          progress: 100,
+          completedAt: new Date("2026-08-10"),
+        },
       });
     }
     const existingCbeCert = await prisma.certificate.findUnique({ where: { enrollmentId: cbeEnrollment.id } });
@@ -1300,7 +1306,13 @@ async function main() {
     let enrollment1 = await prisma.courseEnrollment.findFirst({ where: { courseId: handwritingCourse.id, studentId: enrollee1.student.id } });
     if (!enrollment1) {
       enrollment1 = await prisma.courseEnrollment.create({
-        data: { courseId: handwritingCourse.id, studentId: enrollee1.student.id, progress: 100, completedAt: new Date("2026-08-20") },
+        data: {
+          courseId: handwritingCourse.id,
+          userId: enrollee1.user.id,
+          studentId: enrollee1.student.id,
+          progress: 100,
+          completedAt: new Date("2026-08-20"),
+        },
       });
     }
     const existingCert = await prisma.certificate.findUnique({ where: { enrollmentId: enrollment1.id } });
@@ -1322,7 +1334,9 @@ async function main() {
 
     const enrollment2 = await prisma.courseEnrollment.findFirst({ where: { courseId: handwritingCourse.id, studentId: enrollee2.student.id } });
     if (!enrollment2) {
-      await prisma.courseEnrollment.create({ data: { courseId: handwritingCourse.id, studentId: enrollee2.student.id, progress: 50 } });
+      await prisma.courseEnrollment.create({
+        data: { courseId: handwritingCourse.id, userId: enrollee2.user.id, studentId: enrollee2.student.id, progress: 50 },
+      });
       console.log(`Course in progress: ${enrollee2.user.name} -> "${handwritingCourse.title}" (50%).`);
     }
   }

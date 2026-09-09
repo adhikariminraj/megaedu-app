@@ -21,17 +21,16 @@ export default async function CourseDetailPage({ params }: { params: { slug: str
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string | undefined;
 
+  // Academy Participation kilometer — resolved by the enrollment's own
+  // direct userId. Previously this fell back to an unscoped {} filter
+  // (matching ANY enrollment for the course, by anyone) whenever the
+  // viewer held neither a Teacher nor a Student profile — dormant while
+  // enrollment required one of those profiles, but would have leaked a
+  // stranger's enrollment id the moment that requirement was lifted.
   let existingEnrollmentId: string | null = null;
   if (userId) {
-    const [teacher, student] = await Promise.all([
-      prisma.teacher.findUnique({ where: { userId } }),
-      prisma.student.findUnique({ where: { userId } }),
-    ]);
     const enrollment = await prisma.courseEnrollment.findFirst({
-      where: {
-        courseId: course.id,
-        ...(teacher ? { teacherId: teacher.id } : student ? { studentId: student.id } : {}),
-      },
+      where: { courseId: course.id, userId },
     });
     existingEnrollmentId = enrollment?.id || null;
   }

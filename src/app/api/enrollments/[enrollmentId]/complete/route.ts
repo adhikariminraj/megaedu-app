@@ -13,28 +13,33 @@ export async function POST(_req: Request, { params }: { params: { enrollmentId: 
   const enrollment = await prisma.courseEnrollment.findUnique({
     where: { id: params.enrollmentId },
     include: {
-      teacher: { include: { user: true, school: true } },
-      student: { include: { user: true, school: true } },
+      user: true,
+      teacher: { include: { school: true } },
+      student: { include: { school: true } },
       certificate: true,
       course: { include: { organization: true, instructor: true } },
     },
   });
   if (!enrollment) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const owns =
-    (enrollment.teacher && enrollment.teacher.userId === userId) ||
-    (enrollment.student && enrollment.student.userId === userId);
+  // Academy Participation kilometer — ownership is the enrollment's own
+  // direct userId, never re-derived through Teacher/Student. Certificate
+  // architecture (issueCourseCertificate(), recipientUserId) is
+  // untouched — it already spoke User.id natively; only the recipient
+  // lookup below changes, from Teacher/Student to the direct relation.
+  const owns = enrollment.userId === userId;
   if (!owns) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   if (enrollment.certificate) {
     return NextResponse.json({ ok: true, alreadyCompleted: true, certificate: enrollment.certificate });
   }
 
-  const recipient = enrollment.teacher?.user || enrollment.student?.user;
+  const recipient = enrollment.user;
+  // associatedSchool remains an optional, purely informational
+  // enrichment — present only when the enrollee also currently holds a
+  // Teacher or Student profile with a school; absent (not an error) for
+  // a Parent/Org Admin/unaffiliated learner, exactly as it already was.
   const associatedSchool = enrollment.teacher?.school || enrollment.student?.school;
-  if (!recipient) {
-    return NextResponse.json({ error: "No recipient found for this enrollment." }, { status: 400 });
-  }
 
   // Marking the enrollment complete and issuing its certificate happen
   // together, atomically — an enrollment should never end up "complete"

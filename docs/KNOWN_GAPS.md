@@ -10,11 +10,6 @@ Unlike `School` (which now has a real, uploadable `logoUrl` — School Admins ma
 ### `School.isActive` / `Organization.isActive` are read but never written ⚠️
 Both fields default to `true` and are used as a filter in two places (`schools/search`, Platform Admin dashboard counts), but **no route anywhere ever sets either to `false`**. There is no deactivation action in the app. Confirmed via a direct search: `isActive` appears in exactly three files, all reads.
 
-## Enforcement gaps
-
-### Organization verification isn't enforced on course publishing or enrollment ⚠️
-`Organization.verified` exists and is set by a Platform Admin, and the Org Admin dashboard tells the admin their courses won't "go live" until verified — but nothing in `PATCH /api/courses/[courseId]` (the publish toggle) or `POST /api/courses/[courseId]/enroll` actually checks `verified`. Confirmed with a fresh search across both routes: zero references to `verified`. An unverified organization can publish and receive enrollments today. See [USER_ROLES.md](USER_ROLES.md), [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md).
-
 ## Database portability
 
 ### SQLite-specific transaction behavior in two bulk-write routes ⚠️
