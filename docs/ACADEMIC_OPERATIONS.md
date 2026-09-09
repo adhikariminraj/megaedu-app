@@ -1,7 +1,7 @@
 # School Academic Operations (Phase 3B)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-08-29 (Phase 3B, plus the Parent Academic Visibility follow-up), against the current codebase.
+> Last verified: 2026-09-09 (Phase 3B, plus the Parent Academic Visibility follow-up and its Academic Snapshot/identity-field extension), against the current codebase.
 > Part of **Phase 3 — School Academic System**. This document covers Phase 3B and its direct follow-ups only. See [ACADEMIC_STRUCTURE.md](ACADEMIC_STRUCTURE.md) (Phase 3A — Subjects & Teacher Academic Assignment), [GRADES_AND_PROMOTION.md](GRADES_AND_PROMOTION.md), [ACADEMIC_SESSIONS.md](ACADEMIC_SESSIONS.md), and [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
 ## Why this exists ✅
@@ -89,6 +89,7 @@ Phase 3B's own brief explicitly deferred parent-facing work ("Do not build unrel
 - **`AcademicProgressPanel`**, a shared presentational component (`src/components/AcademicProgressPanel.tsx`) holding the Teaching Progress / Test Results / Recent Attendance markup, extracted from `StudentDashboard.tsx` with no behavioral change (verified live: a Student's own dashboard renders identically before and after) and reused, once per linked child, inside each child's own card on `ParentDashboard.tsx`.
 - **Strict per-child isolation**: the Parent branch resolves `parent.children` from the logged-in user's own session first, then calls `fetchAcademicProgress()` once per child using only that server-derived `studentId` — never a client-supplied one. There is no new API route (this stays a server-component-rendered page, consistent with every other dashboard branch), so there's no request parameter surface to spoof in the first place. Verified live: one parent linked to two children (one with genuine pre-existing data, one freshly created with deliberately distinct attendance/progress/test data) — both children's cards showed only their own information, no mixing; a third, unrelated student never appeared anywhere on the page.
 - A parent with no linked children, or a child not yet approved by their school, renders exactly as before — the panel simply shows no extra sections when there's nothing to show (same graceful-empty behavior already used for the Student's own dashboard).
+- **Extended** (Academic Snapshot visibility milestone): each linked child's card now also shows MEGA ID (when the child has a User account), Student ID (`StudentSchoolAffiliation.admissionNumber`, resolved the same way the Student Profile page resolves it), Date of Birth, and the same three-figure Academic Snapshot (Attendance %, Homework Completion %, Overall Performance) described in [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md)'s Student Profile section — computed by the identical functions, never a second calculation path. Still resolved entirely from the parent's own server-derived `studentId` per child, same isolation guarantee as above. A Parent has no access to the Admin/Teacher Student Profile page itself — this information lives only on their own dashboard.
 
 ## Deliberately out of scope
 

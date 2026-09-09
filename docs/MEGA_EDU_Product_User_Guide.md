@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-09-07 (added Calendar and the redesigned My Profile), against what is actually available in the app today.
+> **Last verified**: 2026-09-09 (Student Profile Academic Snapshot, assignment-scoped teacher access, and Parent dashboard identity/snapshot fields), against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -420,6 +420,8 @@ If you administer more than one school, Attendance, Evaluations, Parent-Teacher 
 
 Your dashboard shows the grades, sections, and subjects you're assigned to, with direct links into whichever of those you're responsible for that day — taking attendance, recording teaching progress, running a unit test, writing an evaluation, assigning homework, or entering assessment marks. If you're a Grade Coordinator or Class Teacher, you'll also see that responsibility called out separately.
 
+Wherever you see a student's name — in Attendance, Evaluations, or Homework Progress — clicking it opens that student's full profile, with their attendance/homework/performance summary, as long as you're actually the Subject Teacher, Class Teacher, or Grade Coordinator responsible for them; a student outside your own assignments isn't reachable this way.
+
 If you teach at more than one school, Attendance, Evaluations, Parent-Teacher Meetings, and Calendar will ask you which school you mean the first time you open them, and remember your choice after that (see [Switching between schools](#switching-between-schools)).
 
 ### Switching between schools
@@ -432,7 +434,7 @@ Your dashboard shows your own school status, your interests and credited skills,
 
 ### Parent
 
-Your dashboard shows, for each of your linked children, the same progress information they see themselves — school status, today's homework, teaching progress, test results, recent attendance, shared evaluations, published assessment results — plus your Parent-Teacher Meetings, which your child never sees on their own dashboard.
+Your dashboard shows, for each of your linked children, the same progress information they see themselves — school status, today's homework, teaching progress, test results, recent attendance, shared evaluations, published assessment results — plus your Parent-Teacher Meetings, which your child never sees on their own dashboard. Each child's card also shows their MEGA ID (once they have their own MEGA.EDU account), their Student ID (the school's own admission/registration number, when the school has recorded one), Date of Birth, and a compact Attendance/Homework Completion/Overall Performance snapshot — shown as "N/A" rather than a made-up number whenever there's nothing yet to calculate it from.
 
 ### My Profile
 

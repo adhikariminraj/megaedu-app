@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-09-07 (Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1 — added on top of Homework Phase 1/Phase 4D), against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-09 (Student Profile Academic Snapshot and its assignment-scoped teacher/Parent visibility extension — added on top of Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -404,7 +404,7 @@ Both `requireTeacherAssignment()` and `requireClassTeacher()` resolve the caller
 
 ### Access patterns not covered by `authorize.ts`
 
-Some checks are simple/specific enough to stay inlined: certificate preview access (`recipientUserId === userId || PLATFORM_ADMIN`), course enrollment/completion ownership, the Promotion roster's closed-session access, and the Student Profile page's staff-wide (not assignment-scoped) access check.
+Some checks are simple/specific enough to stay inlined: certificate preview access (`recipientUserId === userId || PLATFORM_ADMIN`), course enrollment/completion ownership, and the Promotion roster's closed-session access. The Student Profile page's own access check, `resolveStudentViewAccess()`, is a purpose-built resolver (`src/lib/institutionalContext.ts`) rather than an inline check — School Admin school-wide, or a Teacher whose `TeacherAcademicAssignment`/`ClassTeacherAssignment` actually covers the student's current section/grade, composing `requireTeacherAssignment()`/`requireClassTeacher()` above rather than the school-wide pattern other staff surfaces still use.
 
 *(Source: [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md))*
 
@@ -803,7 +803,7 @@ All calculation lives in `src/lib/assessmentResults.ts` — **nothing is cached*
 
 **Deliberately not modeled like `Certificate`.** A certificate is a permanent, frozen-at-issuance snapshot; a Report Card must reflect corrections made after publication, so freezing one into a stored row would directly contradict the audited-correction design. **There is no persisted `ReportCard` model and no PDF export** — both explicitly out of scope.
 
-**Access**: the Student themselves, a linked Parent, or staff (School Admin / any approved Teacher at the school, no assignment-level scoping — the same Skills-page precedent) — resolved to the matching audience before calling `buildReportCard()`, so a Student/Parent only ever sees published data through the identical filter used everywhere else.
+**Access**: the Student themselves, a linked Parent, or staff (School Admin / any approved Teacher at the school, no assignment-level scoping — the same Skills-page precedent; the Student Profile page itself no longer follows this pattern — see [§8](#8-authentication--authorization)) — resolved to the matching audience before calling `buildReportCard()`, so a Student/Parent only ever sees published data through the identical filter used everywhere else.
 
 *(Source: [ASSESSMENT_RESULTS.md](ASSESSMENT_RESULTS.md))*
 
@@ -933,6 +933,7 @@ No new API route was added for the relationships section — it's read server-si
 **Shared presentational components**, reused rather than duplicated per role:
 
 - **`AcademicProgressPanel.tsx`** — Teaching Progress, Test Results, Recent Attendance, Teacher Evaluations, Assessment Results — parameterized by an explicit `audience: "STUDENT" | "PARENT" | "STAFF"` that filters what's shown (e.g. published-only for Student/Parent, unfiltered for Staff). Rendered once per Student, once per linked child on Parent, and on the Student Profile page.
+- **`AcademicSnapshot.tsx`** — a compact Attendance %/Homework Completion %/Overall Performance summary (`N/A`, never `0%`, when the underlying data is absent), rendered on the Student Profile page and once per linked child on Parent — same three figures, same functions, both places. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 - **`MeetingActions.tsx`** — all meeting create/complete/cancel/reschedule/link logic, reused identically on three surfaces (General Evaluations, Subject Evaluations panel, Meetings management page).
 - **`TodaysHomeworkPanel.tsx`** (Phase 1) — renders whatever `fetchTodaysHomework()` returns; rendered once on the Student dashboard and once per linked child on the Parent dashboard. See [§17a](#17a-homework--phase-1).
 

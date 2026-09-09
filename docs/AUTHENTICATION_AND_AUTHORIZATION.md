@@ -1,7 +1,7 @@
 # Authentication & Authorization
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-05 (Phase 4B/4C/4D — affiliation-based authorization and institutional context), against the current codebase.
+> Last verified: 2026-09-09 (Phase 4B/4C/4D — affiliation-based authorization and institutional context, plus the Student Profile's `resolveStudentViewAccess()` assignment-scoped narrowing), against the current codebase.
 
 ## Login / MEGA ID authentication ✅
 
@@ -100,7 +100,7 @@ Some checks are simple/specific enough to stay inlined rather than factored into
 - **Certificate preview access** — `certificate.recipientUserId === userId || roles.includes("PLATFORM_ADMIN")`, inlined in the page.
 - **Course enrollment/completion ownership** — `enrollment.teacher?.userId === userId || enrollment.student?.userId === userId`, inlined per route.
 - **Promotion roster's closed-session access** (Phase 2) — `/dashboard/grades/[schoolGradeId]?session=<id>` resolves the target session (active by default, or the specific one given) and validates it belongs to the requester's own school via the same School Admin resolution the page already does; the underlying write (`recordGradeDecision()`) doesn't care about session status at all.
-- **Student Profile access** (Phase 3C-2) — `/dashboard/students/[studentId]` inlines `!schoolAdmin && !teacher → redirect` (a `SchoolAdmin` row for the student's school, or an `approved: true` `Teacher` row at that school, checked with `Promise.all`). Deliberately the same school-wide, non-assignment-scoped pattern `StudentSkillManager` already uses for adding Skills — not narrowed to a teacher with a matching `TeacherAcademicAssignment`/`ClassTeacherAssignment` for that specific student. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
+- **Student Profile access** (Phase 3C-2, narrowed in the Academic Snapshot visibility milestone) — `/dashboard/students/[studentId]` calls `resolveStudentViewAccess(userId, studentId)` (`src/lib/institutionalContext.ts`), a purpose-built resolver composing existing primitives: a `SchoolAdmin` row for the student's school (unchanged, school-wide); or a Teacher whose `requireTeacherAssignment()`/`requireClassTeacher()` check succeeds against the student's *current* placement (`resolveCurrentPlacement()`). No longer the school-wide, non-assignment-scoped pattern `StudentSkillManager` uses for adding Skills — that page, and every other "any approved Teacher at the school" surface in this document, are unchanged. See [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 
 ## Platform administration ✅
 

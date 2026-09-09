@@ -1,7 +1,7 @@
 # Homework
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-08 (K3–K6 — Homework v1: Submission, Review/Feedback, Rollups, Student/Parent Visibility), against the current codebase.
+> Last verified: 2026-09-09 (K3–K6 — Homework v1: Submission, Review/Feedback, Rollups, Student/Parent Visibility; plus the per-student Homework Completion % rollup added to the Student Profile/Parent Academic Snapshot), against the current codebase.
 
 ## The fundamental flow ✅
 
@@ -110,7 +110,7 @@ Like `fetchAcademicProgress()`, neither function does any authorization itself �
 - **Historical by construction**: reads `HomeworkApplicability`'s own immutable rows — never re-derives the roster from current `GradeHistory`, so a transferred/left student's row is counted exactly as it was at publish time, forever. Confirmed by test: rollup counts are byte-identical before and after a student's section transfer.
 - **Views**: (1) summary numbers added atop the existing K2 completion page (Subject Teacher — trivial additive UI). (2) A new read-only page, `/dashboard/schools/[schoolId]/homework/progress`, for Class Teacher/Grade Coordinator — every `PUBLISHED` Regular Homework relevant to their own `ClassTeacherAssignment` scope (`viewerSectionId: null` = Grade Coordinator, sees every section; a real section id = Class Teacher, sees grade-wide + their own section only, never a different section's). (3) School Admin's school-wide rollup was explicitly **deferred** — an unfiltered query would repeat the unbounded-query scale gap already flagged elsewhere in this codebase; no such surface exists.
 
-**Explicitly out of scope for K5** — a School Admin-facing rollup dashboard, cross-Homework/date-range rollups ("this student's completion rate this term").
+**Explicitly out of scope for K5** — a School Admin-facing rollup dashboard (still true). **No longer out of scope**: "this student's completion rate this term" now exists — `computeStudentHomeworkCompletion()` (`src/lib/homeworkRollup.ts`), the exact per-student dual of `computeHomeworkRollup()` above (identical formula, Regular Homework only, current academic session), surfaced via the Student Profile's Academic Snapshot and, per linked child, the Parent dashboard — see [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 
 ## Student & Parent Homework History (K6) ✅
 
