@@ -94,6 +94,12 @@ export default function DashboardClient({
     : null;
   const [newProgram, setNewProgram] = useState({ name: "", description: "" });
   const [newNews, setNewNews] = useState({ title: "", body: "" });
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
+  const [programDraft, setProgramDraft] = useState({ name: "", description: "" });
+  const [confirmDeleteProgramId, setConfirmDeleteProgramId] = useState<string | null>(null);
+  const [editingNewsId, setEditingNewsId] = useState<string | null>(null);
+  const [newsDraft, setNewsDraft] = useState({ title: "", body: "" });
+  const [confirmDeleteNewsId, setConfirmDeleteNewsId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAddStudent, setShowAddStudent] = useState(false);
   const [newStudent, setNewStudent] = useState({ name: "", email: "", password: "", schoolGradeId: "", sectionId: "" });
@@ -271,6 +277,50 @@ export default function DashboardClient({
       body: JSON.stringify(newNews),
     });
     setNewNews({ title: "", body: "" });
+    router.refresh();
+  }
+
+  function startEditProgram(p: { id: string; name: string; description: string | null }) {
+    setEditingProgramId(p.id);
+    setProgramDraft({ name: p.name, description: p.description || "" });
+  }
+
+  async function saveProgram(programId: string) {
+    if (!programDraft.name.trim()) return;
+    await fetch(`/api/schools/${school.id}/programs/${programId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(programDraft),
+    });
+    setEditingProgramId(null);
+    router.refresh();
+  }
+
+  async function deleteProgram(programId: string) {
+    await fetch(`/api/schools/${school.id}/programs/${programId}`, { method: "DELETE" });
+    setConfirmDeleteProgramId(null);
+    router.refresh();
+  }
+
+  function startEditNews(n: { id: string; title: string; body: string }) {
+    setEditingNewsId(n.id);
+    setNewsDraft({ title: n.title, body: n.body });
+  }
+
+  async function saveNews(newsId: string) {
+    if (!newsDraft.title.trim()) return;
+    await fetch(`/api/schools/${school.id}/news/${newsId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newsDraft),
+    });
+    setEditingNewsId(null);
+    router.refresh();
+  }
+
+  async function deleteNews(newsId: string) {
+    await fetch(`/api/schools/${school.id}/news/${newsId}`, { method: "DELETE" });
+    setConfirmDeleteNewsId(null);
     router.refresh();
   }
 
@@ -541,8 +591,64 @@ export default function DashboardClient({
           <div className="space-y-3">
             {school.programs.map((p) => (
               <div key={p.id} className="border border-slate-200 rounded-lg p-4">
-                <p className="font-medium text-slate-800">{p.name}</p>
-                {p.description && <p className="text-sm text-slate-500">{p.description}</p>}
+                {editingProgramId === p.id ? (
+                  <div className="space-y-2">
+                    <input
+                      value={programDraft.name}
+                      onChange={(e) => setProgramDraft({ ...programDraft, name: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+                    />
+                    <textarea
+                      value={programDraft.description}
+                      onChange={(e) => setProgramDraft({ ...programDraft, description: e.target.value })}
+                      rows={2}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => saveProgram(p.id)}
+                        className="text-xs font-semibold text-white bg-mega-navy rounded-full px-3 py-1.5"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingProgramId(null)}
+                        className="text-xs font-semibold text-slate-500"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-slate-800">{p.name}</p>
+                        {p.description && <p className="text-sm text-slate-500">{p.description}</p>}
+                      </div>
+                      <div className="flex gap-3 shrink-0 text-xs font-semibold">
+                        <button onClick={() => startEditProgram(p)} className="text-mega-blue">
+                          Edit
+                        </button>
+                        {confirmDeleteProgramId === p.id ? (
+                          <span className="flex items-center gap-2">
+                            <span className="text-mega-red">Delete?</span>
+                            <button onClick={() => deleteProgram(p.id)} className="text-mega-red hover:text-red-700">
+                              Confirm
+                            </button>
+                            <button onClick={() => setConfirmDeleteProgramId(null)} className="text-slate-400">
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteProgramId(p.id)} className="text-slate-400 hover:text-mega-red">
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
             {school.programs.length === 0 && (
@@ -579,8 +685,59 @@ export default function DashboardClient({
           <div className="space-y-3">
             {school.news.map((n) => (
               <div key={n.id} className="border border-slate-200 rounded-lg p-4">
-                <p className="font-medium text-slate-800">{n.title}</p>
-                <p className="text-sm text-slate-500">{n.body}</p>
+                {editingNewsId === n.id ? (
+                  <div className="space-y-2">
+                    <input
+                      value={newsDraft.title}
+                      onChange={(e) => setNewsDraft({ ...newsDraft, title: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+                    />
+                    <textarea
+                      value={newsDraft.body}
+                      onChange={(e) => setNewsDraft({ ...newsDraft, body: e.target.value })}
+                      rows={3}
+                      className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+                    />
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => saveNews(n.id)}
+                        className="text-xs font-semibold text-white bg-mega-navy rounded-full px-3 py-1.5"
+                      >
+                        Save
+                      </button>
+                      <button onClick={() => setEditingNewsId(null)} className="text-xs font-semibold text-slate-500">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-slate-800">{n.title}</p>
+                      <p className="text-sm text-slate-500">{n.body}</p>
+                    </div>
+                    <div className="flex gap-3 shrink-0 text-xs font-semibold">
+                      <button onClick={() => startEditNews(n)} className="text-mega-blue">
+                        Edit
+                      </button>
+                      {confirmDeleteNewsId === n.id ? (
+                        <span className="flex items-center gap-2">
+                          <span className="text-mega-red">Delete?</span>
+                          <button onClick={() => deleteNews(n.id)} className="text-mega-red hover:text-red-700">
+                            Confirm
+                          </button>
+                          <button onClick={() => setConfirmDeleteNewsId(null)} className="text-slate-400">
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setConfirmDeleteNewsId(n.id)} className="text-slate-400 hover:text-mega-red">
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             {school.news.length === 0 && (
