@@ -16,7 +16,7 @@ Approved product definition: **Assign → Complete → Teacher Review → Feedba
 
 One `Homework` row describes the assignment. **`HomeworkApplicability`** (K1) is the one canonical, universal Student ↔ Homework relationship — `Homework.studentId` does not exist and must not be added. Regular Homework (targeting a grade/section) resolves to many `HomeworkApplicability` rows; Individual Homework (targeting exactly one student) resolves to exactly one. Applicability is resolved **once, at the moment of publication** — never recalculated later, never derived live from a student's current placement at read time. See "Homework Applicability (K1)" below for the full model.
 
-Student and Parent visibility of *today's* homework is still resolved at read time by matching a student's current institutional placement against `Homework`'s own scope (`fetchTodaysHomework()`, below) — this remains a live, always-current query, distinct from `HomeworkApplicability`'s historical, resolve-once record.
+Student and Parent visibility of *today's* homework (`fetchTodaysHomework()`, below) is resolved at read time via `HomeworkApplicability` directly — the same canonical `Student → HomeworkApplicability → Homework` relationship `fetchStudentHomeworkHistory()` (K6) already uses, not a student's current institutional placement. (Corrected 2026-09-09 — the original K1 version of this function derived visibility from current `GradeHistory` placement instead, which let a late joiner see homework never actually applicable to them, and let pre-K1 legacy Homework rows with no `HomeworkApplicability` row keep appearing indefinitely; see "Shared read function," below, for the fix.)
 
 ## Data model ✅
 
@@ -36,12 +36,13 @@ Once `PUBLISHED`, `title`/`instructions`/`dueDate`/`sectionId` are frozen (a `PA
 
 ## Shared read function ✅
 
-`fetchTodaysHomework(studentId, schoolId)` (`src/lib/homework.ts`) is the **one** place this query is written — shared by the Student's own dashboard and, once per linked child, the Parent dashboard, matching the exact "one function, every caller" discipline already established by `fetchAcademicProgress()` (`src/lib/academicProgress.ts`). It:
-1. Resolves the student's current placement via `resolveCurrentPlacement(studentId, schoolId)` (`src/lib/gradeHistory.ts`) — scoped to the caller's own trusted `schoolId` (never inferred), so a student whose `GradeHistory` touches more than one school can never resolve an unrelated school's session. No placement, no homework, returns `[]`.
-2. Resolves today's date via `todayInKathmandu()`.
-3. Queries `PUBLISHED` `Homework` matching that placement's `academicSessionId`/`schoolGradeId`, `dueDate = today`, and the student's own `sectionId` via `sectionScopeWhere()` (grade-wide OR that exact section).
+`fetchTodaysHomework(studentId, schoolId)` (`src/lib/homework.ts`) is the **one** place this query is written — shared by the Student's own dashboard and, once per linked child, the Parent dashboard, matching the exact "one function, every caller" discipline already established by `fetchAcademicProgress()` (`src/lib/academicProgress.ts`). It, and Calendar's `fetchHomeworkDueForStudent()` (a date-range sibling — see [CALENDAR.md](CALENDAR.md)), both call one shared internal helper, `fetchApplicableHomeworkInWindow()`:
+1. Queries `HomeworkApplicability` directly for this `studentId`, joined to `PUBLISHED` `Homework` whose `dueDate` falls in the window and whose `schoolGrade.schoolId` matches the caller's own trusted `schoolId` (never inferred) — so a student who has ever changed schools can never have a past school's Applicability rows bleed into their current dashboard/calendar, even though those rows are never deleted.
+2. `fetchTodaysHomework()` narrows the window to exactly today (`todayInKathmandu()`); `fetchHomeworkDueForStudent()` passes its own caller-supplied range through unchanged.
 
-Like `fetchAcademicProgress()`, this function does no authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller is allowed to see. (This corrects an earlier, pre-institutional-context-hardening version of this section that described an unscoped `GradeHistory.findFirst()` lookup — documentation-only correction, no behavior change from this note.)
+Because visibility now flows through `HomeworkApplicability` — created once, at publish time, from the actual roster or Individual target, and never recalculated — a late joiner is correctly never shown homework published before they arrived, and a pre-K1 legacy `Homework` row (which structurally can never have an Applicability row, per K1's no-retroactive-backfill rule) correctly stops appearing for anyone. Section transfers, grade changes, and even leaving the school never remove or alter an existing Applicability row, so previously-applicable homework due today remains visible exactly as before.
+
+Like `fetchAcademicProgress()`, neither function does any authorization itself — callers are responsible for only ever passing a `studentId` they've already verified the caller is allowed to see.
 
 ## Homework Applicability (K1) ✅
 

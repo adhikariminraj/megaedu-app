@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { sectionScopeWhere } from "@/lib/authorize";
-import { resolveCurrentPlacement, CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
+import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
 import type { CalendarItem, CalendarWindow } from "@/lib/calendar";
 
 /**
@@ -99,51 +98,79 @@ export async function fetchStudentHomeworkHistory(studentId: string, limit = 50)
 }
 
 /**
- * Today's PUBLISHED homework applicable to one student, resolved
- * entirely from that student's current institutional placement — never
- * a stored per-student row. Shared by the Student's own dashboard and,
- * once per linked child, the Parent dashboard — the same
+ * The one shared query behind both fetchTodaysHomework() and
+ * fetchHomeworkDueForStudent() below: this student's PUBLISHED,
+ * applicable Homework — via HomeworkApplicability DIRECTLY, never via
+ * current GradeHistory/section/grade placement — whose dueDate falls
+ * within `window`. This is the same canonical `Student ->
+ * HomeworkApplicability -> Homework` relationship
+ * fetchStudentHomeworkHistory() (K6) already uses; the two "due
+ * today"/"due in this range" functions below previously derived
+ * visibility from current placement instead, which meant:
+ *   - a student who joined a section AFTER a Regular Homework was
+ *     published there would still see it (current placement matched,
+ *     even though K1 deliberately never auto-adds late joiners to
+ *     Applicability), and
+ *   - pre-K1 legacy Homework rows (which structurally can never have
+ *     an Applicability row — K1's own no-retroactive-backfill rule)
+ *     would keep appearing for every student in the matching grade/
+ *     section forever.
+ * Both are fixed by querying Applicability directly: an Individual
+ * Homework's one target, or a Regular Homework's actual roster AT
+ * PUBLISH TIME, is exactly what determines "does this apply to me" —
+ * never current membership.
+ *
+ * schoolId is still required and enforced here (via
+ * homework.schoolGrade.schoolId) even though HomeworkApplicability rows
+ * are never deleted — without it, a student who has ever changed
+ * schools could see a past school's homework bleed into their CURRENT
+ * school's dashboard/calendar. Pass the student's own authoritative
+ * current schoolId (the same bridge field every caller already trusts
+ * for this same student elsewhere), never a remembered/default school.
+ *
+ * Callers are responsible for only ever passing a studentId they've
+ * already verified the caller is allowed to see — this function does no
+ * authorization itself, matching fetchStudentHomeworkHistory()'s and
+ * fetchAcademicProgress()'s own documented contract.
+ */
+async function fetchApplicableHomeworkInWindow(studentId: string, schoolId: string, window: CalendarWindow) {
+  return prisma.homeworkApplicability.findMany({
+    where: {
+      studentId,
+      homework: {
+        status: "PUBLISHED",
+        dueDate: { gte: new Date(window.from), lte: new Date(window.to) },
+        schoolGrade: { schoolId },
+      },
+    },
+    include: { homework: { include: { subject: true } } },
+  });
+}
+
+/**
+ * Today's PUBLISHED homework applicable to one student — see
+ * fetchApplicableHomeworkInWindow()'s own doc comment for why this is
+ * Applicability-based, not placement-based. Shared by the Student's own
+ * dashboard and, once per linked child, the Parent dashboard — the same
  * "one function, every caller" discipline already established by
  * fetchAcademicProgress() (src/lib/academicProgress.ts), so the two
- * views can never drift apart. Callers are responsible for only ever
- * passing a studentId they've already verified the caller is allowed to
- * see — this function itself does no authorization, matching
- * fetchAcademicProgress()'s own documented contract.
- *
- * schoolId scopes the placement lookup via resolveCurrentPlacement()
- * (src/lib/gradeHistory.ts) — required so a student whose GradeHistory
- * touches more than one school (a transfer, or any school whose own
- * session happens to still be open) never resolves an unrelated
- * school's ACTIVE session. Pass the student's own authoritative current
- * schoolId (the bridge field a caller already trusts elsewhere for this
- * same student, e.g. Student.schoolId), never a remembered/default
- * school that could bypass which school's homework is actually shown.
+ * views can never drift apart.
  */
 export async function fetchTodaysHomework(studentId: string, schoolId: string | null): Promise<HomeworkRow[]> {
-  const currentPlacement = schoolId ? await resolveCurrentPlacement(studentId, schoolId) : null;
-  if (!currentPlacement) return [];
+  if (!schoolId) return [];
+  const today = todayInKathmandu();
 
-  const today = new Date(todayInKathmandu());
+  const applicability = await fetchApplicableHomeworkInWindow(studentId, schoolId, { from: today, to: today });
 
-  const homework = await prisma.homework.findMany({
-    where: {
-      status: "PUBLISHED",
-      academicSessionId: currentPlacement.academicSessionId,
-      schoolGradeId: currentPlacement.schoolGradeId,
-      dueDate: today,
-      ...sectionScopeWhere(currentPlacement.sectionId),
-    },
-    include: { subject: true },
-    orderBy: { subject: { name: "asc" } },
-  });
-
-  return homework.map((hw) => ({
-    id: hw.id,
-    subjectName: hw.subject.name,
-    title: hw.title,
-    instructions: hw.instructions,
-    dueDate: hw.dueDate.toISOString().slice(0, 10),
-  }));
+  return applicability
+    .map((a) => ({
+      id: a.homework.id,
+      subjectName: a.homework.subject.name,
+      title: a.homework.title,
+      instructions: a.homework.instructions,
+      dueDate: a.homework.dueDate.toISOString().slice(0, 10),
+    }))
+    .sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 }
 
 function toHomeworkCalendarItem(
@@ -177,11 +204,12 @@ function toHomeworkCalendarItem(
 }
 
 /**
- * Calendar K1 — PUBLISHED homework due within a date window for one
- * student. A sibling of fetchTodaysHomework(), not a replacement:
- * identical placement-resolution/sectionScopeWhere() logic, just
- * dueDate widened from an exact match to a range. fetchTodaysHomework()
- * itself is untouched — no existing caller's behavior changes.
+ * Calendar — PUBLISHED homework due within a date window for one
+ * student, via HomeworkApplicability — see
+ * fetchApplicableHomeworkInWindow()'s own doc comment for why. A
+ * sibling of fetchTodaysHomework() sharing that same helper: identical
+ * applicability-based visibility, just dueDate widened from an exact
+ * match to a range.
  */
 export async function fetchHomeworkDueForStudent(
   studentId: string,
@@ -189,25 +217,14 @@ export async function fetchHomeworkDueForStudent(
   window: CalendarWindow,
   child?: { id: string; name: string }
 ): Promise<CalendarItem[]> {
-  const currentPlacement = await resolveCurrentPlacement(studentId, schoolId);
-  if (!currentPlacement) return [];
-
-  const homework = await prisma.homework.findMany({
-    where: {
-      status: "PUBLISHED",
-      academicSessionId: currentPlacement.academicSessionId,
-      schoolGradeId: currentPlacement.schoolGradeId,
-      dueDate: { gte: new Date(window.from), lte: new Date(window.to) },
-      ...sectionScopeWhere(currentPlacement.sectionId),
-    },
-    include: { subject: true },
-    orderBy: { dueDate: "asc" },
-  });
+  const applicability = await fetchApplicableHomeworkInWindow(studentId, schoolId, window);
 
   // No link: no per-student homework detail page exists for
   // Student/Parent today — leaving this null is honest, not an
   // oversight (see docs/CALENDAR.md).
-  return homework.map((hw) => toHomeworkCalendarItem(hw, schoolId, { link: null, child }));
+  return applicability
+    .map((a) => toHomeworkCalendarItem(a.homework, schoolId, { link: null, child }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
