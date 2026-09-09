@@ -73,6 +73,70 @@ export async function computeHomeworkRollup(homeworkId: string): Promise<Homewor
   return { assigned: rows.length, unrecorded, completed, partial, notCompleted, excused, completionPercentage };
 }
 
+export type StudentHomeworkCompletionSummary = {
+  applicable: number;
+  unrecorded: number;
+  completed: number;
+  partial: number;
+  notCompleted: number;
+  excused: number;
+  completionPercentage: number | null;
+};
+
+/**
+ * The per-STUDENT dual of computeHomeworkRollup() above, for the
+ * Student Profile's Academic Snapshot — identical classification
+ * switch and Completed/(Applicable-Excused) formula, aggregated across
+ * one student's Regular Homework for one academic session instead of
+ * across one Homework's own roster. Regular Homework only
+ * (homework.targetStudentId: null) — Individual Homework must never
+ * distort this percentage, the same hard separation rule already
+ * documented on computeHomeworkRollup() itself. academicSessionId is
+ * the caller's responsibility to resolve correctly (e.g. via
+ * resolveCurrentPlacement() in gradeHistory.ts) — this function does no
+ * placement resolution of its own, matching every other summary
+ * function in this codebase.
+ */
+export async function computeStudentHomeworkCompletion(
+  studentId: string,
+  academicSessionId: string
+): Promise<StudentHomeworkCompletionSummary> {
+  const rows = await prisma.homeworkApplicability.findMany({
+    where: { studentId, homework: { targetStudentId: null, academicSessionId } },
+    include: { completion: { select: { status: true } } },
+  });
+
+  let completed = 0,
+    partial = 0,
+    notCompleted = 0,
+    excused = 0,
+    unrecorded = 0;
+
+  for (const row of rows) {
+    switch (row.completion?.status) {
+      case "COMPLETED":
+        completed++;
+        break;
+      case "PARTIAL":
+        partial++;
+        break;
+      case "NOT_COMPLETED":
+        notCompleted++;
+        break;
+      case "EXCUSED":
+        excused++;
+        break;
+      default:
+        unrecorded++;
+    }
+  }
+
+  const denominator = rows.length - excused;
+  const completionPercentage = denominator > 0 ? (completed / denominator) * 100 : null;
+
+  return { applicable: rows.length, unrecorded, completed, partial, notCompleted, excused, completionPercentage };
+}
+
 export type ClassProgressHomeworkRow = {
   homeworkId: string;
   title: string;

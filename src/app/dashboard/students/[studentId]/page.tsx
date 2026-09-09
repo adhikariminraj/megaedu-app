@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
+import AcademicSnapshot from "@/components/AcademicSnapshot";
 import StudentHomeworkSummary from "@/components/StudentHomeworkSummary";
 import EditStudentInfoForm from "@/components/EditStudentInfoForm";
 import Avatar from "@/components/Avatar";
@@ -14,10 +15,13 @@ import FamilyContactsManager, {
 } from "@/components/FamilyContactsManager";
 import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
-import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { fetchAssessmentResults, toSubjectResultRows, computeUnweightedAveragePercentage } from "@/lib/assessmentResults";
 import { fetchStudentHomeworkHistory } from "@/lib/homework";
+import { computeStudentHomeworkCompletion } from "@/lib/homeworkRollup";
+import { computeAttendanceSummary } from "@/lib/attendance";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
 import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 
 function formatDateOfBirth(d: Date): string {
   // UTC, matching this codebase's date-only storage convention — the
@@ -118,13 +122,38 @@ export default async function StudentProfilePage({ params }: { params: { student
     }));
   }
 
-  const [progress, meetings, assessment, homeworkHistory, affiliation] = await Promise.all([
-    fetchAcademicProgress(student.id, student.schoolId, "STAFF"),
-    fetchMeetingsForStudent(student.id, "STAFF"),
-    fetchAssessmentResults(student.id, student.schoolId, "STAFF"),
-    fetchStudentHomeworkHistory(student.id),
-    resolveOpenStudentAffiliation(student.id, student.schoolId),
-  ]);
+  // Same school-and-session-scoped placement resolution
+  // fetchAssessmentResults()/fetchAcademicProgress() already use
+  // internally — reused here (not the page's own student.gradeHistory
+  // include above, which filters academicSession.status but not
+  // schoolId) so the Academic Snapshot can never accidentally pull
+  // attendance/homework from a different school's still-ACTIVE session.
+  const currentPlacement = await resolveCurrentPlacement(student.id, student.schoolId);
+
+  const [progress, meetings, assessment, homeworkHistory, affiliation, attendanceSummary, homeworkCompletionSummary] =
+    await Promise.all([
+      fetchAcademicProgress(student.id, student.schoolId, "STAFF"),
+      fetchMeetingsForStudent(student.id, "STAFF"),
+      fetchAssessmentResults(student.id, student.schoolId, "STAFF"),
+      fetchStudentHomeworkHistory(student.id),
+      resolveOpenStudentAffiliation(student.id, student.schoolId),
+      currentPlacement ? computeAttendanceSummary(student.id, currentPlacement.academicSessionId) : null,
+      currentPlacement ? computeStudentHomeworkCompletion(student.id, currentPlacement.academicSessionId) : null,
+    ]);
+
+  // Overall Performance: the same GPA-or-average-percentage fallback
+  // chain already used by the Promotion/Grade-Decision ranking page
+  // (src/app/dashboard/grades/[schoolGradeId]/page.tsx) — GPA when any
+  // subject resolves a gradePoint, else the unweighted average
+  // percentage, else no figure at all. assessment.gpa is already
+  // computed above; no new assessment query.
+  const overallPerformance: { value: number; basis: "GPA" | "PERCENTAGE" } | null =
+    typeof assessment.gpa === "number"
+      ? { value: assessment.gpa, basis: "GPA" }
+      : (() => {
+          const avg = computeUnweightedAveragePercentage(assessment.subjects);
+          return typeof avg === "number" ? { value: avg, basis: "PERCENTAGE" } : null;
+        })();
 
   const placement = student.gradeHistory[0];
 
@@ -165,6 +194,12 @@ export default async function StudentProfilePage({ params }: { params: { student
           )}
         </p>
       </div>
+
+      <AcademicSnapshot
+        attendancePercentage={attendanceSummary?.attendancePercentage ?? null}
+        homeworkCompletionPercentage={homeworkCompletionSummary?.completionPercentage ?? null}
+        overallPerformance={overallPerformance}
+      />
 
       {isAdmin && (
         <div className="mb-6">
