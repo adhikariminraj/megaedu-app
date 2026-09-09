@@ -85,6 +85,90 @@ export async function verifySchoolAccess(userId: string, schoolId: string): Prom
   return null;
 }
 
+export type AccessibleOrganization = {
+  organizationId: string;
+  organizationName: string;
+  role: "ORGANIZATION_ADMIN" | "ORGANIZATION_ACCOUNTANT";
+};
+
+export type OrgAccess =
+  | { role: "ORGANIZATION_ADMIN" }
+  | { role: "ORGANIZATION_ACCOUNTANT" };
+
+/**
+ * Organization Institutional Context foundation — the Organization-side
+ * counterpart to getAccessibleSchools()/verifySchoolAccess() above,
+ * approved as "Option A" in the Organization Institutional Context
+ * design report: no new model, no history/status fields.
+ * OrganizationAdmin/OrganizationAccountant (flat join tables, exactly
+ * the same shape as SchoolAdmin/SchoolAccountant) remain the
+ * authoritative institutional-context relationships; this is a
+ * resolution layer over them, not a replacement for them.
+ *
+ * Every Organization this person can currently select — every
+ * OrganizationAdmin link plus every OrganizationAccountant link.
+ * Display/routing input only, never itself a security decision (see
+ * verifyOrgAccess() below). Ordered by id for deterministic output —
+ * OrganizationAdmin/OrganizationAccountant have no createdAt field
+ * (schema unchanged, per the approved kilometer), so id order is the
+ * available deterministic substitute.
+ */
+export async function getAccessibleOrganizations(userId: string): Promise<AccessibleOrganization[]> {
+  const [adminLinks, accountantLinks] = await Promise.all([
+    prisma.organizationAdmin.findMany({
+      where: { userId },
+      include: { organization: { select: { id: true, name: true } } },
+      orderBy: { id: "asc" },
+    }),
+    prisma.organizationAccountant.findMany({
+      where: { userId },
+      include: { organization: { select: { id: true, name: true } } },
+      orderBy: { id: "asc" },
+    }),
+  ]);
+
+  return [
+    ...adminLinks.map((a) => ({
+      organizationId: a.organization.id,
+      organizationName: a.organization.name,
+      role: "ORGANIZATION_ADMIN" as const,
+    })),
+    ...accountantLinks.map((a) => ({
+      organizationId: a.organization.id,
+      organizationName: a.organization.name,
+      role: "ORGANIZATION_ACCOUNTANT" as const,
+    })),
+  ];
+}
+
+/**
+ * The real gate. Re-verifies, fresh, that userId currently has an
+ * exact OrganizationAdmin or OrganizationAccountant link to
+ * organizationId — independent of any prior render, and never
+ * inferred from the global UserRole flag alone (that flag is only a
+ * routing hint — see the design report). Returns null (fail closed)
+ * for no relationship at all with this specific organization.
+ *
+ * This is an institutional-context gate, not a replacement for
+ * requireOrgAdmin()/requireCourseOwner()/requireOrgFinance() — those
+ * remain responsible for their own existing role/resource-specific
+ * authorization decisions and are unchanged by this function's
+ * existence.
+ */
+export async function verifyOrgAccess(userId: string, organizationId: string): Promise<OrgAccess | null> {
+  const admin = await prisma.organizationAdmin.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+  });
+  if (admin) return { role: "ORGANIZATION_ADMIN" };
+
+  const accountant = await prisma.organizationAccountant.findUnique({
+    where: { userId_organizationId: { userId, organizationId } },
+  });
+  if (accountant) return { role: "ORGANIZATION_ACCOUNTANT" };
+
+  return null;
+}
+
 export type StudentViewAccess =
   | { role: "SCHOOL_ADMIN" }
   | { role: "SUBJECT_TEACHER" }

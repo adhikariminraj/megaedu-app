@@ -17,7 +17,7 @@ import { fetchAssessmentResults, toSubjectResultRows, computeUnweightedAveragePe
 import { fetchTodaysHomework, fetchStudentHomeworkHistory } from "@/lib/homework";
 import { computeStudentHomeworkCompletion } from "@/lib/homeworkRollup";
 import { computeAttendanceSummary } from "@/lib/attendance";
-import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
+import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE, getAccessibleOrganizations } from "@/lib/institutionalContext";
 import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
 import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 import SchoolChooser from "@/components/SchoolChooser";
@@ -473,19 +473,52 @@ export default async function DashboardPage() {
   }
 
   if (roles?.includes("ORGANIZATION_ADMIN")) {
-    const orgAdmin = await prisma.organizationAdmin.findFirst({
-      where: { userId },
-      include: {
-        organization: {
-          include: {
-            courses: { include: { approach: true }, orderBy: { createdAt: "desc" } },
-            opportunities: { orderBy: { createdAt: "desc" } },
-            accountants: { include: { user: true } },
+    // Organization Institutional Context foundation (approved
+    // kilometer) — institutional context is resolved via
+    // getAccessibleOrganizations() (OrganizationAdmin links), never an
+    // arbitrary findFirst() pick. The 2+-organization case
+    // intentionally has no chooser UX yet — that UX is a separate,
+    // not-yet-approved decision (see
+    // docs/ORGANIZATION_INSTITUTIONAL_CONTEXT.md). This branch's only
+    // job for that case is to never silently select one of several
+    // organizations.
+    const adminOrgs = (await getAccessibleOrganizations(userId)).filter(
+      (o) => o.role === "ORGANIZATION_ADMIN"
+    );
+
+    if (adminOrgs.length > 1) {
+      return (
+        <div className="max-w-xl mx-auto px-6 py-16 text-center">
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Multiple Organizations</h1>
+          <p className="text-slate-500 mb-4">
+            You administer {adminOrgs.length} organizations. Switching between
+            organizations from this dashboard isn&apos;t available yet.
+          </p>
+          <ul className="text-sm text-slate-600 space-y-1">
+            {adminOrgs.map((o) => (
+              <li key={o.organizationId}>{o.organizationName}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+
+    if (adminOrgs.length === 1) {
+      const orgAdmin = await prisma.organizationAdmin.findUnique({
+        where: { userId_organizationId: { userId, organizationId: adminOrgs[0].organizationId } },
+        include: {
+          organization: {
+            include: {
+              courses: { include: { approach: true }, orderBy: { createdAt: "desc" } },
+              opportunities: { orderBy: { createdAt: "desc" } },
+              accountants: { include: { user: true } },
+            },
           },
         },
-      },
-    });
-    if (orgAdmin) return <OrgDashboard organization={orgAdmin.organization} userName={userName} />;
+      });
+      if (orgAdmin) return <OrgDashboard organization={orgAdmin.organization} userName={userName} />;
+    }
+
     return <CreateOrgPrompt userName={userName} />;
   }
 

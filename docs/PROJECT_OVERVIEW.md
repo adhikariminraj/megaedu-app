@@ -109,7 +109,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the detailed breakdown of this diagra
 - Working on teacher evaluations or Parent-Teacher Meetings? [ASSESSMENT_AND_EVALUATION.md](ASSESSMENT_AND_EVALUATION.md).
 - Working on Homework? [HOMEWORK.md](HOMEWORK.md).
 - Working on Calendar (General/School Calendar, Day Status, Annual/Agenda views)? [CALENDAR.md](CALENDAR.md).
-- Working on My Profile, MEGA ID, or institutional relationships? [MEGA_ID.md](MEGA_ID.md) and [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md).
+- Working on My Profile, MEGA ID, or institutional relationships? [MEGA_ID.md](MEGA_ID.md) and [INSTITUTIONAL_CONTEXT.md](INSTITUTIONAL_CONTEXT.md) (School) / [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md) (Organization).
 - Wondering whether a decision was deliberate? [PRODUCT_RULES.md](PRODUCT_RULES.md) documents every explicitly-approved rule with its rationale.
 - Doing AI-assisted development on this codebase? Read [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md) first.
 - Wondering what's broken or missing? [KNOWN_GAPS.md](KNOWN_GAPS.md).
