@@ -27,6 +27,10 @@ export type HomeworkRow = {
   title: string;
   instructions: string;
   dueDate: string; // "YYYY-MM-DD"
+  status: "COMPLETED" | "PARTIAL" | "NOT_COMPLETED" | "EXCUSED" | null;
+  submissionCount: number;
+  latestAttemptLate: boolean;
+  reviewCount: number;
 };
 
 export type HomeworkHistoryRow = {
@@ -143,7 +147,16 @@ async function fetchApplicableHomeworkInWindow(studentId: string, schoolId: stri
         schoolGrade: { schoolId },
       },
     },
-    include: { homework: { include: { subject: true } } },
+    // Same completion/submission/review shape fetchStudentHomeworkHistory()
+    // (K6) already selects — fetchHomeworkDueForStudent() (Calendar) only
+    // ever reads `a.homework`, so this addition is inert for it; only
+    // fetchTodaysHomework() below maps the new fields.
+    include: {
+      homework: { include: { subject: true } },
+      completion: { select: { status: true } },
+      submissionAttempts: { select: { isLate: true }, orderBy: { attemptNumber: "desc" } },
+      _count: { select: { submissionAttempts: true, reviews: true } },
+    },
   });
 }
 
@@ -169,6 +182,10 @@ export async function fetchTodaysHomework(studentId: string, schoolId: string | 
       title: a.homework.title,
       instructions: a.homework.instructions,
       dueDate: a.homework.dueDate.toISOString().slice(0, 10),
+      status: (a.completion?.status as HomeworkRow["status"]) ?? null,
+      submissionCount: a._count.submissionAttempts,
+      latestAttemptLate: a.submissionAttempts[0]?.isLate ?? false,
+      reviewCount: a._count.reviews,
     }))
     .sort((a, b) => a.subjectName.localeCompare(b.subjectName));
 }
