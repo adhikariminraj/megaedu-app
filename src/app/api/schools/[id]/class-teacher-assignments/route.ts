@@ -49,9 +49,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const [validTeacherIds, validGradeIds, sectionsById] = await Promise.all([
-    prisma.teacher
-      .findMany({ where: { schoolId: params.id, approved: true }, select: { id: true } })
-      .then((r) => new Set(r.map((t) => t.id))),
+    prisma.teacherSchoolAffiliation
+      .findMany({ where: { schoolId: params.id, status: "ACTIVE" }, select: { teacherId: true } })
+      .then((r) => new Set(r.map((a) => a.teacherId))),
     prisma.schoolGrade
       .findMany({ where: { schoolId: params.id }, select: { id: true } })
       .then((r) => new Set(r.map((g) => g.id))),
