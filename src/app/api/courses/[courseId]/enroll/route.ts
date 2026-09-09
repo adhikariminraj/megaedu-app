@@ -8,8 +8,21 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
   const userId = (session?.user as any)?.id as string | undefined;
   if (!userId) return NextResponse.json({ error: "Please log in first." }, { status: 401 });
 
-  const course = await prisma.course.findUnique({ where: { id: params.courseId } });
+  const course = await prisma.course.findUnique({
+    where: { id: params.courseId },
+    include: { organization: { select: { verified: true } } },
+  });
   if (!course || !course.published) {
+    return NextResponse.json({ error: "Course not available." }, { status: 404 });
+  }
+  // Belt-and-suspenders alongside the publish-time check in
+  // /api/courses/[courseId]/route.ts — a course whose organization was
+  // verified at publish time but has since been un-verified (no such
+  // route exists today, but the check should not silently rely on that)
+  // must not accept new enrollments either. Same "not available" wording
+  // as the line above — from the enrolling learner's perspective this is
+  // functionally identical to the course not being published.
+  if (course.organization && !course.organization.verified) {
     return NextResponse.json({ error: "Course not available." }, { status: 404 });
   }
   if (course.priceCents > 0) {

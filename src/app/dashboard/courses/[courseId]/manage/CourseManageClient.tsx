@@ -21,6 +21,7 @@ export default function CourseManageClient({ course }: { course: Course }) {
   const [lessonForms, setLessonForms] = useState<Record<string, { title: string; content: string; videoUrl: string }>>({});
   const [openModuleId, setOpenModuleId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   async function addModule() {
     if (!newModuleTitle.trim()) return;
@@ -47,12 +48,18 @@ export default function CourseManageClient({ course }: { course: Course }) {
 
   async function togglePublish() {
     setPublishing(true);
-    await fetch(`/api/courses/${course.id}`, {
+    setPublishError(null);
+    const res = await fetch(`/api/courses/${course.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ published: !course.published }),
     });
     setPublishing(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setPublishError(body.error || "Something went wrong.");
+      return;
+    }
     router.refresh();
   }
 
@@ -82,6 +89,12 @@ export default function CourseManageClient({ course }: { course: Course }) {
           {publishing ? "..." : course.published ? "Unpublish" : "Publish Course"}
         </button>
       </div>
+
+      {publishError && (
+        <p className="text-sm text-mega-red bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-8">
+          {publishError}
+        </p>
+      )}
 
       {course.published && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 mb-8">
