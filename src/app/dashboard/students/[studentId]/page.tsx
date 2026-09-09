@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
 import StudentHomeworkSummary from "@/components/StudentHomeworkSummary";
+import EditStudentInfoForm from "@/components/EditStudentInfoForm";
 import Avatar from "@/components/Avatar";
 import PersonAddressManager from "@/components/PersonAddressManager";
 import FamilyContactsManager, {
@@ -16,6 +17,16 @@ import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicPr
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
 import { fetchStudentHomeworkHistory } from "@/lib/homework";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
+import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
+
+function formatDateOfBirth(d: Date): string {
+  // UTC, matching this codebase's date-only storage convention — the
+  // value is already UTC-midnight, so displaying in UTC is the only way
+  // to avoid the local viewer's timezone silently shifting the date.
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(
+    d
+  );
+}
 
 export const dynamic = "force-dynamic";
 
@@ -107,11 +118,12 @@ export default async function StudentProfilePage({ params }: { params: { student
     }));
   }
 
-  const [progress, meetings, assessment, homeworkHistory] = await Promise.all([
+  const [progress, meetings, assessment, homeworkHistory, affiliation] = await Promise.all([
     fetchAcademicProgress(student.id, student.schoolId, "STAFF"),
     fetchMeetingsForStudent(student.id, "STAFF"),
     fetchAssessmentResults(student.id, student.schoolId, "STAFF"),
     fetchStudentHomeworkHistory(student.id),
+    resolveOpenStudentAffiliation(student.id, student.schoolId),
   ]);
 
   const placement = student.gradeHistory[0];
@@ -124,7 +136,7 @@ export default async function StudentProfilePage({ params }: { params: { student
         <h1 className="text-2xl font-bold text-slate-800">{student.fullName}</h1>
       </div>
       {student.user?.email && <p className="text-sm text-slate-500 mb-1">{student.user.email}</p>}
-      <p className="text-sm text-slate-500 mb-6">
+      <p className="text-sm text-slate-500 mb-1">
         {placement
           ? `${placement.schoolGrade.displayName}${placement.section ? ` — Section ${placement.section.name}` : ""} · ${placement.academicSession.name}`
           : student.gradeLevel || "No current grade placement"}
@@ -133,6 +145,37 @@ export default async function StudentProfilePage({ params }: { params: { student
           {student.approved ? "Approved" : "Pending School Approval"}
         </span>
       </p>
+
+      <div className="text-sm text-slate-500 mb-2 space-y-0.5">
+        {student.userId && (
+          <p>
+            MEGA ID: <span className="font-mono text-xs text-slate-600">{student.userId}</span>
+          </p>
+        )}
+        <p>
+          Student ID:{" "}
+          {affiliation?.admissionNumber ? affiliation.admissionNumber : <span className="text-slate-400">Not set</span>}
+        </p>
+        <p>
+          Date of Birth:{" "}
+          {student.dateOfBirth ? (
+            formatDateOfBirth(student.dateOfBirth)
+          ) : (
+            <span className="text-slate-400">Not set</span>
+          )}
+        </p>
+      </div>
+
+      {isAdmin && (
+        <div className="mb-6">
+          <EditStudentInfoForm
+            schoolId={student.schoolId}
+            studentId={student.id}
+            initialAdmissionNumber={affiliation?.admissionNumber ?? null}
+            initialDateOfBirth={student.dateOfBirth ? student.dateOfBirth.toISOString().slice(0, 10) : null}
+          />
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 text-xs mb-8">
         <Link href="/dashboard/evaluations" className="text-mega-blue font-medium">

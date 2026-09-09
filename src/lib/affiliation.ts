@@ -242,3 +242,32 @@ export async function endStudentAffiliation(
   await syncStudentBridgeFields(tx, params.studentId);
   return affiliation;
 }
+
+// ---------------------------------------------------------------------
+// AFFILIATION METADATA (not a lifecycle transition)
+// ---------------------------------------------------------------------
+
+/**
+ * Resolves the one StudentSchoolAffiliation row, if any, representing
+ * this student's OPEN (ACTIVE or PENDING) relationship with schoolId —
+ * the consistent resolution point for reading/writing affiliation-
+ * scoped metadata (e.g. admissionNumber), never for a lifecycle
+ * transition (that remains JOIN/LEAVE/TRANSFER/approve's job alone).
+ * Never resolves an ENDED row — a student who has left this school has
+ * no "current" affiliation here, matching the same status filter the
+ * Address route (students/[studentId]/address/route.ts) already
+ * applies inline. Since createStudentAffiliation()'s own duplicate-
+ * guard makes it impossible for a Student to hold two simultaneously
+ * OPEN affiliations (at this school or any other), this can only ever
+ * resolve to at most one row.
+ */
+export async function resolveOpenStudentAffiliation(
+  studentId: string,
+  schoolId: string,
+  tx?: Tx
+): Promise<StudentSchoolAffiliation | null> {
+  const client = tx || prisma;
+  return client.studentSchoolAffiliation.findFirst({
+    where: { studentId, schoolId, status: { in: [...OPEN_STATUSES] } },
+  });
+}
