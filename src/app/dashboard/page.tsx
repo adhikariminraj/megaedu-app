@@ -149,6 +149,11 @@ export default async function DashboardPage() {
                   where: { label: "OFFICIAL" },
                   include: { province: true, district: true, localLevel: true },
                 },
+                // Step 2 — School Educational Approach write path. Reuses
+                // the exact same relation the public /schools/[slug] page
+                // already reads (School.approaches -> SchoolApproach ->
+                // EducationalApproach); no new query shape invented.
+                approaches: { include: { approach: true } },
               },
             },
           },
@@ -157,6 +162,11 @@ export default async function DashboardPage() {
     if (schoolAdmin) {
       const schoolId = schoolAdmin.school.id;
       const activeSession = await prisma.academicSession.findFirst({ where: { schoolId, status: "ACTIVE" } });
+      // The full, platform-wide EducationalApproach catalog — the School
+      // Admin picks FROM this existing list, never creates a new one.
+      // Nothing in this codebase creates EducationalApproach records
+      // outside the seed script; this read does not change that.
+      const allApproaches = await prisma.educationalApproach.findMany({ orderBy: { name: "asc" } });
 
       const schoolGrades = await prisma.schoolGrade.findMany({
         where: { schoolId },
@@ -246,6 +256,7 @@ export default async function DashboardPage() {
             displayName: g.displayName,
             sections: g.sections.map((sec) => ({ id: sec.id, name: sec.name })),
           }))}
+          allApproaches={allApproaches.map((a) => ({ id: a.id, name: a.name }))}
         />
       );
     }

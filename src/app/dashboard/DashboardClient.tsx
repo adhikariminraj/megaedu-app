@@ -57,19 +57,26 @@ type School = {
     streetAddress: string | null;
     houseNumber: string | null;
   }[];
+  // Step 2 — School Educational Approach write path. Many-to-many
+  // (SchoolApproach): a school may hold zero, one, or several of these
+  // simultaneously — never assumed to be a single value.
+  approaches: { approach: { id: string; name: string } }[];
 };
 type SchoolGradeOption = { id: string; displayName: string; sections: { id: string; name: string }[] };
+type ApproachOption = { id: string; name: string };
 
 export default function DashboardClient({
   school,
   userName,
   activeSession,
   schoolGrades,
+  allApproaches,
 }: {
   school: School;
   userName: string;
   activeSession: { id: string; name: string } | null;
   schoolGrades: SchoolGradeOption[];
+  allApproaches: ApproachOption[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"profile" | "programs" | "news" | "opportunities" | "staff" | "students" | "finance">("profile");
@@ -116,6 +123,9 @@ export default function DashboardClient({
   const [assigningPlacement, setAssigningPlacement] = useState(false);
   const [studentQuery, setStudentQuery] = useState("");
   const [staffQuery, setStaffQuery] = useState("");
+  const [addApproachPick, setAddApproachPick] = useState("");
+  const [approachSaving, setApproachSaving] = useState(false);
+  const [approachError, setApproachError] = useState<string | null>(null);
 
   const pendingStaff = school.teachers.filter((x) => !x.approved).length;
   const pendingStudents = school.students.filter((x) => !x.approved).length;
@@ -321,6 +331,36 @@ export default function DashboardClient({
   async function deleteNews(newsId: string) {
     await fetch(`/api/schools/${school.id}/news/${newsId}`, { method: "DELETE" });
     setConfirmDeleteNewsId(null);
+    router.refresh();
+  }
+
+  async function addApproach() {
+    if (!addApproachPick) return;
+    setApproachSaving(true);
+    setApproachError(null);
+    const res = await fetch(`/api/schools/${school.id}/approaches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ approachId: addApproachPick }),
+    });
+    setApproachSaving(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setApproachError(body.error || "Something went wrong.");
+      return;
+    }
+    setAddApproachPick("");
+    router.refresh();
+  }
+
+  async function removeApproach(approachId: string) {
+    setApproachError(null);
+    const res = await fetch(`/api/schools/${school.id}/approaches/${approachId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setApproachError(body.error || "Something went wrong.");
+      return;
+    }
     router.refresh();
   }
 
@@ -582,6 +622,61 @@ export default function DashboardClient({
               initialValue={officialAddressValue}
               onSave={saveOfficialAddress}
             />
+          </div>
+
+          <div className="mt-6 border border-slate-200 rounded-xl p-5">
+            <h3 className="font-semibold text-slate-800 mb-1">Educational Approach</h3>
+            <p className="text-xs text-slate-400 mb-4">
+              Shown on your school's public page. A school may follow more than one approach — choose
+              from MEGA.EDU's existing list; new approaches aren't defined here.
+            </p>
+            {school.approaches.length > 0 ? (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {school.approaches.map((sa) => (
+                  <span
+                    key={sa.approach.id}
+                    className="text-xs bg-blue-50 text-mega-navy rounded-full px-3 py-1 flex items-center gap-2"
+                  >
+                    {sa.approach.name}
+                    <button
+                      onClick={() => removeApproach(sa.approach.id)}
+                      className="text-mega-navy/60 hover:text-mega-navy"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-400 text-sm mb-4">No approach selected yet.</p>
+            )}
+            {approachError && <p className="text-xs text-mega-red mb-3">{approachError}</p>}
+            {allApproaches.filter((a) => !school.approaches.some((sa) => sa.approach.id === a.id)).length > 0 && (
+              <div className="flex gap-2">
+                <select
+                  value={addApproachPick}
+                  onChange={(e) => setAddApproachPick(e.target.value)}
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2"
+                >
+                  <option value="">Select an approach...</option>
+                  {allApproaches
+                    .filter((a) => !school.approaches.some((sa) => sa.approach.id === a.id))
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={addApproach}
+                  disabled={approachSaving || !addApproachPick}
+                  className="text-sm font-semibold text-white bg-mega-navy rounded-lg px-4 py-2 disabled:opacity-50"
+                >
+                  {approachSaving ? "Adding..." : "Add"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
