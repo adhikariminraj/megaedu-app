@@ -331,6 +331,13 @@ model Student {
   // safe moment to drop across every school at once.
   gradeLevel String?
   approved   Boolean  @default(false)
+  // Institutional student data, independent of any User account —
+  // never fabricated/backfilled, nullable indefinitely. Date-only
+  // semantics (stored as UTC-midnight, matching Attendance.date/
+  // AcademicSession.startDate's existing convention) — never a
+  // timezone-relative "now" computation, since a birth date has no
+  // "which timezone is today" ambiguity to resolve.
+  dateOfBirth DateTime?
   createdAt  DateTime @default(now())
 
   // Session in which the student most recently changed (added or
@@ -525,9 +532,27 @@ model StudentSchoolAffiliation {
   endDate         DateTime?
   status          String    @default("PENDING")
 
+  // The school's own institutional/admission identifier for this one
+  // affiliation period — NOT a MEGA ID, and deliberately not named
+  // `studentId`, which throughout this schema always means "FK to
+  // Student.id." School-specific by design: the same value may
+  // legitimately exist at a different school (@@unique below is scoped
+  // per schoolId, never global), and a student who leaves and later
+  // rejoins this same school gets a NEW affiliation row (see
+  // createStudentAffiliation()'s JOIN/re-JOIN behavior) with its own
+  // independent admissionNumber — the earlier, now-ENDED row's value
+  // stays exactly as it was, forever. Nullable indefinitely; treated as
+  // affiliation metadata, not part of the JOIN/LEAVE/TRANSFER/approve
+  // lifecycle itself. SQLite/SQL-standard NULL semantics (NULL is never
+  // equal to another NULL in a unique index) make @@unique below safe
+  // with any number of NULLs at the same school — no application-level
+  // duplicate-null guard needed.
+  admissionNumber String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([schoolId, admissionNumber])
   @@index([studentId])
   @@index([schoolId])
   @@index([studentId, schoolId])
