@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import AcademicProgressPanel from "@/components/AcademicProgressPanel";
+import StudentHomeworkSummary from "@/components/StudentHomeworkSummary";
 import Avatar from "@/components/Avatar";
 import PersonAddressManager from "@/components/PersonAddressManager";
 import FamilyContactsManager, {
@@ -13,6 +14,7 @@ import FamilyContactsManager, {
 import { AddressFormValue } from "@/components/AddressForm";
 import { fetchAcademicProgress, fetchMeetingsForStudent } from "@/lib/academicProgress";
 import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { fetchStudentHomeworkHistory } from "@/lib/homework";
 import { verifySchoolAccess } from "@/lib/institutionalContext";
 
 export const dynamic = "force-dynamic";
@@ -105,10 +107,11 @@ export default async function StudentProfilePage({ params }: { params: { student
     }));
   }
 
-  const [progress, meetings, assessment] = await Promise.all([
+  const [progress, meetings, assessment, homeworkHistory] = await Promise.all([
     fetchAcademicProgress(student.id, student.schoolId, "STAFF"),
     fetchMeetingsForStudent(student.id, "STAFF"),
     fetchAssessmentResults(student.id, student.schoolId, "STAFF"),
+    fetchStudentHomeworkHistory(student.id),
   ]);
 
   const placement = student.gradeHistory[0];
@@ -191,6 +194,8 @@ export default async function StudentProfilePage({ params }: { params: { student
         assessment.subjects.length === 0 && (
           <p className="text-slate-400 text-sm mb-8">No academic activity recorded yet this session.</p>
         )}
+
+      <StudentHomeworkSummary rows={homeworkHistory} />
 
       <p className="text-xs mb-8">
         <Link href={`/dashboard/report-card/${student.id}`} className="text-mega-blue font-medium">
