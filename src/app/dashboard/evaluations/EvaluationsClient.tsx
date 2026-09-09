@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import MeetingActions, { MeetingActionRow } from "@/components/MeetingActions";
 
 type Evaluation = {
@@ -169,7 +170,9 @@ export default function EvaluationsClient({
             return (
               <div key={r.studentId} className="border border-slate-200 rounded-xl p-4">
                 <p className="font-medium text-slate-800 mb-2">
-                  {r.studentName}
+                  <Link href={`/dashboard/students/${r.studentId}`} className="hover:underline">
+                    {r.studentName}
+                  </Link>
                   {r.sectionName ? <span className="text-slate-400 text-sm"> — Section {r.sectionName}</span> : null}
                 </p>
 

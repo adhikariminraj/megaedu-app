@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -100,7 +101,10 @@ export default async function HomeworkProgressPage({ params }: { params: { schoo
                       <div key={hw.homeworkId} className="border border-slate-100 rounded-lg p-3 flex items-center justify-between gap-4 flex-wrap">
                         <div>
                           <p className="text-sm text-slate-800">
-                            {hw.title} — {hw.targetStudentName}
+                            {hw.title} —{" "}
+                            <Link href={`/dashboard/students/${hw.targetStudentId}`} className="hover:underline">
+                              {hw.targetStudentName}
+                            </Link>
                           </p>
                           <p className="text-xs text-slate-400">
                             {hw.subjectName} · Due {hw.dueDate}

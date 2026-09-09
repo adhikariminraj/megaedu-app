@@ -19,7 +19,7 @@ import { fetchAssessmentResults, toSubjectResultRows, computeUnweightedAveragePe
 import { fetchStudentHomeworkHistory } from "@/lib/homework";
 import { computeStudentHomeworkCompletion } from "@/lib/homeworkRollup";
 import { computeAttendanceSummary } from "@/lib/attendance";
-import { verifySchoolAccess } from "@/lib/institutionalContext";
+import { resolveStudentViewAccess } from "@/lib/institutionalContext";
 import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
 import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 
@@ -76,10 +76,13 @@ export default async function StudentProfilePage({ params }: { params: { student
 
   // Never resolved from the Teacher.schoolId/approved bridge fields,
   // which can go stale (see src/lib/affiliation.ts's
-  // syncTeacherBridgeFields doc comment) — verifySchoolAccess() re-
-  // checks a fresh ACTIVE TeacherSchoolAffiliation (or a real
-  // SchoolAdmin link) against this student's own current school.
-  const access = await verifySchoolAccess(userId, student.schoolId);
+  // syncTeacherBridgeFields doc comment). resolveStudentViewAccess()
+  // re-checks a fresh ACTIVE SchoolAdmin link, OR a Teacher whose own
+  // TeacherAcademicAssignment/ClassTeacherAssignment actually covers
+  // this student's current section/grade — no longer "any Teacher at
+  // the school," which the prior verifySchoolAccess()-only check
+  // allowed.
+  const access = await resolveStudentViewAccess(userId, student.id);
   if (!access) redirect("/dashboard");
   const isAdmin = access.role === "SCHOOL_ADMIN";
   const studentAddresses = student.user?.addresses ?? [];

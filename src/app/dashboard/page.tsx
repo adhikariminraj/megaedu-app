@@ -13,9 +13,13 @@ import CreateOrgPrompt from "./CreateOrgPrompt";
 import AccountantDashboard from "./AccountantDashboard";
 import PlatformAdminDashboard from "./PlatformAdminDashboard";
 import { fetchAcademicProgress, fetchMeetingsForStudent, fetchMeetingsForTeacher } from "@/lib/academicProgress";
-import { fetchAssessmentResults, toSubjectResultRows } from "@/lib/assessmentResults";
+import { fetchAssessmentResults, toSubjectResultRows, computeUnweightedAveragePercentage } from "@/lib/assessmentResults";
 import { fetchTodaysHomework, fetchStudentHomeworkHistory } from "@/lib/homework";
+import { computeStudentHomeworkCompletion } from "@/lib/homeworkRollup";
+import { computeAttendanceSummary } from "@/lib/attendance";
 import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE } from "@/lib/institutionalContext";
+import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 import SchoolChooser from "@/components/SchoolChooser";
 
 export const dynamic = "force-dynamic";
@@ -388,20 +392,70 @@ export default async function DashboardPage() {
       // progress is then fetched individually by that server-derived
       // id, so one child's data can never leak into another's.
       const childrenWithProgress = await Promise.all(
-        parent.children.map(async (c) => ({
-          ...c,
-          progress: await fetchAcademicProgress(c.student.id, c.student.schoolId, "PARENT"),
-          meetings: await fetchMeetingsForStudent(c.student.id, "PARENT"),
-          assessment: await fetchAssessmentResults(c.student.id, c.student.schoolId, "PARENT"),
-          // Reuses the exact same shared function the Student branch
-          // above calls for their own view — never a separate
-          // parent-specific visibility algorithm (see src/lib/homework.ts).
-          todaysHomework: await fetchTodaysHomework(c.student.id, c.student.schoolId),
-          // K6 — same reuse principle for the Applicability-based
-          // history: identical function, identical shape, Parent gets
-          // exactly what Student sees for their own linked child.
-          homeworkHistory: await fetchStudentHomeworkHistory(c.student.id),
-        }))
+        parent.children.map(async (c) => {
+          // Same school-and-session-scoped placement resolution the
+          // Student Profile's Academic Snapshot already uses — never a
+          // bare "current" guess — so a Parent's Academic Snapshot for
+          // one child can never accidentally reflect another school's
+          // still-ACTIVE session data.
+          const currentPlacement = c.student.schoolId
+            ? await resolveCurrentPlacement(c.student.id, c.student.schoolId)
+            : null;
+
+          const [
+            progress,
+            meetings,
+            assessment,
+            todaysHomework,
+            homeworkHistory,
+            affiliation,
+            attendanceSummary,
+            homeworkCompletionSummary,
+          ] = await Promise.all([
+            fetchAcademicProgress(c.student.id, c.student.schoolId, "PARENT"),
+            fetchMeetingsForStudent(c.student.id, "PARENT"),
+            fetchAssessmentResults(c.student.id, c.student.schoolId, "PARENT"),
+            // Reuses the exact same shared function the Student branch
+            // above calls for their own view — never a separate
+            // parent-specific visibility algorithm (see src/lib/homework.ts).
+            fetchTodaysHomework(c.student.id, c.student.schoolId),
+            // K6 — same reuse principle for the Applicability-based
+            // history: identical function, identical shape, Parent gets
+            // exactly what Student sees for their own linked child.
+            fetchStudentHomeworkHistory(c.student.id),
+            // Student ID (admissionNumber) — the exact same resolution
+            // the Student Profile page uses; never invented here.
+            c.student.schoolId ? resolveOpenStudentAffiliation(c.student.id, c.student.schoolId) : null,
+            // Academic Snapshot — the exact same functions/formulas the
+            // Student Profile page already uses (eb20e9e), never a
+            // second calculation system.
+            currentPlacement ? computeAttendanceSummary(c.student.id, currentPlacement.academicSessionId) : null,
+            currentPlacement
+              ? computeStudentHomeworkCompletion(c.student.id, currentPlacement.academicSessionId)
+              : null,
+          ]);
+
+          const overallPerformance: { value: number; basis: "GPA" | "PERCENTAGE" } | null =
+            typeof assessment.gpa === "number"
+              ? { value: assessment.gpa, basis: "GPA" }
+              : (() => {
+                  const avg = computeUnweightedAveragePercentage(assessment.subjects);
+                  return typeof avg === "number" ? { value: avg, basis: "PERCENTAGE" } : null;
+                })();
+
+          return {
+            ...c,
+            progress,
+            meetings,
+            assessment,
+            todaysHomework,
+            homeworkHistory,
+            admissionNumber: affiliation?.admissionNumber ?? null,
+            attendancePercentage: attendanceSummary?.attendancePercentage ?? null,
+            homeworkCompletionPercentage: homeworkCompletionSummary?.completionPercentage ?? null,
+            overallPerformance,
+          };
+        })
       );
       return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;
     }

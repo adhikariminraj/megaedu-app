@@ -7,11 +7,23 @@ import AcademicProgressPanel, {
   TestResultRow,
   EvaluationRow,
 } from "@/components/AcademicProgressPanel";
+import AcademicSnapshot from "@/components/AcademicSnapshot";
 import type { MeetingRow } from "@/lib/academicProgress";
 import { toSubjectResultRows, type SubjectResult } from "@/lib/assessmentResults";
 import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
 import HomeworkHistoryPanel, { HomeworkHistoryRow } from "@/components/HomeworkHistoryPanel";
 import MyChildrenTodayPanel from "@/components/MyChildrenTodayPanel";
+
+// Date-only display, matching the exact UTC convention already
+// established for this same field on the Student Profile page
+// (src/app/dashboard/students/[studentId]/page.tsx) — the value is
+// already UTC-midnight, so displaying in UTC is the only way to avoid
+// the viewer's local timezone silently shifting the date.
+function formatDateOfBirth(d: Date): string {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(
+    d
+  );
+}
 
 type Parent = {
   id: string;
@@ -22,7 +34,18 @@ type Parent = {
       gradeLevel: string | null;
       approved: boolean;
       school: { name: string } | null;
+      userId: string | null;
+      dateOfBirth: Date | null;
     };
+    // Student ID (StudentSchoolAffiliation.admissionNumber) — resolved
+    // the same way the Student Profile page resolves it; null when
+    // unset or when the child has no open affiliation to read from.
+    admissionNumber: string | null;
+    // Academic Snapshot — the exact same three figures, computed by
+    // the exact same functions, as the Student Profile page (eb20e9e).
+    attendancePercentage: number | null;
+    homeworkCompletionPercentage: number | null;
+    overallPerformance: { value: number; basis: "GPA" | "PERCENTAGE" } | null;
     progress: {
       attendance: AttendanceRow[];
       teachingProgress: ProgressRow[];
@@ -121,6 +144,34 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
                 >
                   {c.student.approved ? "Approved" : "Pending School Approval"}
                 </span>
+
+                <div className="text-sm text-slate-500 mt-2 space-y-0.5">
+                  {c.student.userId && (
+                    <p>
+                      MEGA ID: <span className="font-mono text-xs text-slate-600">{c.student.userId}</span>
+                    </p>
+                  )}
+                  <p>
+                    Student ID:{" "}
+                    {c.admissionNumber ? c.admissionNumber : <span className="text-slate-400">Not set</span>}
+                  </p>
+                  <p>
+                    Date of Birth:{" "}
+                    {c.student.dateOfBirth ? (
+                      formatDateOfBirth(c.student.dateOfBirth)
+                    ) : (
+                      <span className="text-slate-400">Not set</span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="mt-3">
+                  <AcademicSnapshot
+                    attendancePercentage={c.attendancePercentage}
+                    homeworkCompletionPercentage={c.homeworkCompletionPercentage}
+                    overallPerformance={c.overallPerformance}
+                  />
+                </div>
 
                 <div className="mt-4">
                   <TodaysHomeworkPanel homework={c.todaysHomework} />

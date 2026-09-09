@@ -198,6 +198,7 @@ export type IndividualHomeworkProgressRow = {
   homeworkId: string;
   title: string;
   subjectName: string;
+  targetStudentId: string;
   targetStudentName: string;
   dueDate: string;
   // Deliberately no percentage field — a single-target assignment has
@@ -247,6 +248,7 @@ export async function fetchIndividualHomeworkProgress(
       homeworkId: hw.id,
       title: hw.title,
       subjectName: hw.subject.name,
+      targetStudentId: hw.targetStudentId!,
       targetStudentName: hw.targetStudent?.fullName ?? "",
       dueDate: hw.dueDate.toISOString().slice(0, 10),
       status: (hw.applicability[0]?.completion?.status as IndividualHomeworkProgressRow["status"]) ?? null,

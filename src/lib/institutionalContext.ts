@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { requireTeacherAssignment, requireClassTeacher } from "@/lib/authorize";
+import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 
 /**
  * Phase 4D-1 — institutional context foundation.
@@ -78,6 +80,79 @@ export async function verifySchoolAccess(userId: string, schoolId: string): Prom
       where: { teacherId: teacher.id, schoolId, status: "ACTIVE" },
     });
     if (affiliation) return { role: "TEACHER", teacherId: teacher.id };
+  }
+
+  return null;
+}
+
+export type StudentViewAccess =
+  | { role: "SCHOOL_ADMIN" }
+  | { role: "SUBJECT_TEACHER" }
+  | { role: "CLASS_TEACHER" };
+
+/**
+ * The authorization gate for the Student Profile page
+ * (dashboard/students/[studentId]) — extends beyond
+ * verifySchoolAccess()'s school-wide Admin/Teacher check to the
+ * properly ASSIGNMENT-scoped model this specific page needs: a Subject
+ * Teacher only for a student in a section they hold a
+ * TeacherAcademicAssignment for; a Class Teacher/Grade Coordinator only
+ * for a student in a section/grade they hold a ClassTeacherAssignment
+ * for. School Admin remains school-wide, matching verifySchoolAccess()
+ * exactly — unchanged.
+ *
+ * Parent is deliberately NOT a case here — a Parent's four Academic
+ * Snapshot/identity requirements are satisfied entirely within their
+ * own existing dashboard (ParentDashboard.tsx, gated by the
+ * already-correct Parent.children/ParentStudent relation in
+ * dashboard/page.tsx), never by granting a Parent access to this
+ * shared Admin/Teacher page — which also carries Family & Emergency
+ * Contacts and address-correction affordances no Parent should reach.
+ *
+ * Deliberately does NOT modify or narrow verifySchoolAccess() itself —
+ * that function's coarser "is this person affiliated with this school
+ * at all" check remains correct and unchanged for its own existing
+ * callers (e.g. the Skills route). This is a new, stricter, purpose-
+ * built resolver for exactly one question: "can this user view THIS
+ * SPECIFIC STUDENT's profile."
+ *
+ * Composes existing primitives only — requireTeacherAssignment()/
+ * requireClassTeacher() (src/lib/authorize.ts) against the student's
+ * CURRENT placement (resolveCurrentPlacement(), src/lib/gradeHistory.ts
+ * — the same school-and-session-correct resolution the Academic
+ * Snapshot itself already uses). No new authorization logic is
+ * invented here.
+ *
+ * A student with no current placement (no active GradeHistory row —
+ * e.g. mid-transfer, or never placed) has no assignment-scoped Teacher
+ * to authorize, by definition — only School Admin can view such a
+ * student's profile.
+ */
+export async function resolveStudentViewAccess(
+  userId: string,
+  studentId: string
+): Promise<StudentViewAccess | null> {
+  const student = await prisma.student.findUnique({ where: { id: studentId } });
+  if (!student || !student.schoolId) return null;
+
+  const schoolAccess = await verifySchoolAccess(userId, student.schoolId);
+  if (schoolAccess?.role === "SCHOOL_ADMIN") return { role: "SCHOOL_ADMIN" };
+
+  if (schoolAccess?.role === "TEACHER") {
+    const placement = await resolveCurrentPlacement(studentId, student.schoolId);
+    if (placement) {
+      const scope = {
+        academicSessionId: placement.academicSessionId,
+        schoolGradeId: placement.schoolGradeId,
+        sectionId: placement.sectionId,
+      };
+      if (await requireTeacherAssignment(student.schoolId, scope)) {
+        return { role: "SUBJECT_TEACHER" };
+      }
+      if (await requireClassTeacher(student.schoolId, scope)) {
+        return { role: "CLASS_TEACHER" };
+      }
+    }
   }
 
   return null;
