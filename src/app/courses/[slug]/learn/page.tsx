@@ -17,16 +17,16 @@ export default async function LearnPage({ params }: { params: { slug: string } }
   });
   if (!course) notFound();
 
-  const [teacher, student] = await Promise.all([
-    prisma.teacher.findUnique({ where: { userId } }),
-    prisma.student.findUnique({ where: { userId } }),
-  ]);
-
+  // Kilometer 2A — CourseEnrollment.userId is the authoritative learner
+  // identity (Academy Participation kilometer); the lookup must always
+  // be scoped to it directly. Previously this fell back to an unscoped
+  // {courseId} filter whenever the viewer held neither a Teacher nor a
+  // Student profile — matching (and leaking) ANY enrollment for the
+  // course, by anyone, to a Parent/Organization Admin/Accountant/
+  // unaffiliated learner. Fixed to mirror the identical, already-
+  // correct pattern in ../page.tsx (the course detail page).
   const enrollment = await prisma.courseEnrollment.findFirst({
-    where: {
-      courseId: course.id,
-      ...(teacher ? { teacherId: teacher.id } : student ? { studentId: student.id } : {}),
-    },
+    where: { courseId: course.id, userId },
     include: { certificate: true },
   });
 
