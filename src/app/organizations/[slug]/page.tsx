@@ -45,7 +45,7 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
       <div className="bg-mega-navy text-white">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <div className="flex items-center gap-5">
-            <Avatar name={organization.name} variant="school" size="xl" />
+            <Avatar src={organization.logoUrl} name={organization.name} variant="school" size="xl" />
             <div>
               <h1 className="text-3xl md:text-4xl font-bold">{organization.name}</h1>
               <div className="flex gap-2 mt-2 flex-wrap">

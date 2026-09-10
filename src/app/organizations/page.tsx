@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import Avatar from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -24,17 +25,20 @@ export default async function OrganizationsPage() {
             <Link
               key={o.id}
               href={`/organizations/${o.slug}`}
-              className="block border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
+              className="flex items-start gap-4 border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
             >
-              <h3 className="font-semibold text-slate-800">{o.name}</h3>
-              {o.description && (
-                <p className="text-sm text-slate-500 mt-1 line-clamp-2">{o.description}</p>
-              )}
-              {o.academyParticipant && (
-                <span className="inline-block mt-3 text-xs font-semibold bg-blue-50 text-mega-blue rounded-full px-2.5 py-1">
-                  ✓ MEGA Academy Provider
-                </span>
-              )}
+              <Avatar src={o.logoUrl} name={o.name} variant="school" size="lg" />
+              <div>
+                <h3 className="font-semibold text-slate-800">{o.name}</h3>
+                {o.description && (
+                  <p className="text-sm text-slate-500 mt-1 line-clamp-2">{o.description}</p>
+                )}
+                {o.academyParticipant && (
+                  <span className="inline-block mt-3 text-xs font-semibold bg-blue-50 text-mega-blue rounded-full px-2.5 py-1">
+                    ✓ MEGA Academy Provider
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
 import AccountantGrantForm from "@/components/AccountantGrantForm";
+import OrganizationLogoManager from "@/components/OrganizationLogoManager";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 
 type Organization = {
@@ -12,6 +13,7 @@ type Organization = {
   name: string;
   verified: boolean;
   academyParticipant: boolean;
+  logoUrl: string | null;
   courses: {
     id: string;
     title: string;
@@ -110,6 +112,14 @@ export default function OrgDashboard({ organization, userName }: { organization:
         subtitle={`${organization.name} — ${organization.verified ? "verified" : "pending verification"}.`}
         cards={heroCards.slice(0, 3)}
       />
+
+      <div className="mb-8">
+        <OrganizationLogoManager
+          organizationId={organization.id}
+          organizationName={organization.name}
+          logoUrl={organization.logoUrl}
+        />
+      </div>
 
       <div className="border border-slate-200 rounded-xl p-5 mb-8 space-y-3">
         <div className="flex items-center justify-between">
