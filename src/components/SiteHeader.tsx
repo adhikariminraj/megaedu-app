@@ -7,7 +7,7 @@ import Avatar from "@/components/Avatar";
 
 const NAV_LINKS = [
   { href: "/schools", label: "Schools" },
-  { href: "/courses", label: "Courses" },
+  { href: "/courses", label: "MEGA Academy" },
   { href: "/opportunities", label: "Opportunities" },
   { href: "/about", label: "About" },
 ];
