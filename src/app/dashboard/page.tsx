@@ -535,6 +535,8 @@ export default async function DashboardPage() {
             include: {
               courses: { include: { approach: true }, orderBy: { createdAt: "desc" } },
               opportunities: { orderBy: { createdAt: "desc" } },
+              events: { orderBy: { startsAt: "asc" } },
+              resources: { orderBy: { createdAt: "desc" } },
               accountants: { include: { user: true } },
             },
           },

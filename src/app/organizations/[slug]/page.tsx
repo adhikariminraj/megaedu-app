@@ -31,6 +31,14 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
       // being repeated in the where-clause here.
       courses: { where: { published: true }, orderBy: { createdAt: "desc" } },
       opportunities: { orderBy: { createdAt: "desc" }, take: 5 },
+      // A7 — capped at 5, matching the Opportunities sidebar's existing
+      // convention. Active events only (isActive: true), matching School
+      // Event's own display rule. Gated only by this page's existing
+      // verified && isActive guard below — never by academyParticipant,
+      // which is specific to MEGA Academy course eligibility and has no
+      // bearing on an Organization's general institutional presence.
+      events: { where: { isActive: true }, orderBy: { startsAt: "asc" }, take: 5 },
+      resources: { orderBy: { createdAt: "desc" }, take: 5 },
     },
   });
 
@@ -111,6 +119,30 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
               </p>
             )}
           </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-slate-800 mb-3">Upcoming Events</h2>
+            {organization.events.length === 0 ? (
+              <p className="text-slate-400 text-sm">No events posted yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {organization.events.map((ev) => (
+                  <div key={ev.id} className="border border-slate-200 rounded-xl p-4">
+                    <p className="font-medium text-slate-800">{ev.title}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Kathmandu", dateStyle: "medium" }).format(
+                        new Date(ev.startsAt)
+                      )}
+                      {ev.location ? ` · ${ev.location}` : ""}
+                    </p>
+                    {ev.description && (
+                      <p className="text-sm text-slate-500 mt-1 line-clamp-2">{ev.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         <aside className="space-y-6">
@@ -126,6 +158,26 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
                       {o.type}
                     </span>
                     <p className="font-medium text-slate-800 mt-1">{o.title}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="border border-slate-200 rounded-xl p-5">
+            <h3 className="font-semibold text-slate-800 mb-3">Resources</h3>
+            {organization.resources.length === 0 ? (
+              <p className="text-sm text-slate-400">No resources posted yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {organization.resources.map((r) => (
+                  <li key={r.id} className="text-sm">
+                    <p className="font-medium text-slate-800">{r.title}</p>
+                    {(r.subject || r.gradeLevel) && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {[r.subject, r.gradeLevel].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

@@ -6,6 +6,8 @@ import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
 import AccountantGrantForm from "@/components/AccountantGrantForm";
 import OrganizationLogoManager from "@/components/OrganizationLogoManager";
+import OrganizationEventPoster from "@/components/OrganizationEventPoster";
+import OrganizationResourcePoster from "@/components/OrganizationResourcePoster";
 import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 
 type Organization = {
@@ -23,12 +25,37 @@ type Organization = {
     approach: { name: string } | null;
   }[];
   opportunities: { id: string; title: string; type: string; deadline: string | Date | null }[];
+  events: {
+    id: string;
+    title: string;
+    description: string | null;
+    startsAt: string | Date;
+    isAllDay: boolean;
+    location: string | null;
+    onlineUrl: string | null;
+    isActive: boolean;
+  }[];
+  resources: {
+    id: string;
+    title: string;
+    description: string | null;
+    fileUrl: string | null;
+    subject: string | null;
+    gradeLevel: string | null;
+  }[];
   accountants: { user: { name: string; email: string } }[];
+};
+
+const TAB_LABELS: Record<"courses" | "opportunities" | "events" | "finance", string> = {
+  courses: "Courses",
+  opportunities: "Opportunities",
+  events: "Events & Resources",
+  finance: "Finance",
 };
 
 export default function OrgDashboard({ organization, userName }: { organization: Organization; userName: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"courses" | "opportunities" | "finance">("courses");
+  const [tab, setTab] = useState<"courses" | "opportunities" | "events" | "finance">("courses");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", instructorName: "" });
   const [error, setError] = useState<string | null>(null);
@@ -151,17 +178,17 @@ export default function OrgDashboard({ organization, userName }: { organization:
       </div>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8">
-        {(["courses", "opportunities", "finance"] as const).map((t) => (
+        {(["courses", "opportunities", "events", "finance"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium capitalize border-b-2 transition ${
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition ${
               tab === t
                 ? "border-mega-navy text-mega-navy"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            {t}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -264,6 +291,19 @@ export default function OrgDashboard({ organization, userName }: { organization:
           postEndpoint={`/api/organizations/${organization.id}/opportunities`}
           opportunities={organization.opportunities}
         />
+      )}
+
+      {tab === "events" && (
+        <div className="space-y-10">
+          <OrganizationEventPoster
+            postEndpoint={`/api/organizations/${organization.id}/events`}
+            events={organization.events}
+          />
+          <OrganizationResourcePoster
+            postEndpoint={`/api/organizations/${organization.id}/resources`}
+            resources={organization.resources}
+          />
+        </div>
       )}
 
       {tab === "finance" && (
