@@ -1,7 +1,7 @@
 # Courses & Enrollments (MEGA Academy)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10, against the current codebase.
+> Last verified: 2026-09-10 (K1-K9 reconciliation, plus a MEGA Academy planning-scope reconciliation — Program/D3 and Certificate/D5 distinctions), against the current codebase.
 
 ## Model ✅
 
@@ -76,6 +76,36 @@ The organization/provider name on `/courses`, `/courses/[slug]`, and the homepag
 - `CERTIFICATE_ISSUED` notification follows (best-effort).
 
 The learn page shows a completion banner linking to `/verify/[verificationCode]`; the dashboards link to the designed preview instead (see [CERTIFICATES.md](CERTIFICATES.md)).
+
+## MEGA Academy planning reconciliation — Program scope, Certificate scope, Labs pilot (2026-09-10) 🟡
+
+**Documentation-only reconciliation.** No code, schema, API, or UI changed by this entry — it exists to record a scope decision before any future Academy learning-domain kilometer is authorized. The "D3"/"D5" labels below are as given directly by the person requesting this reconciliation; no separate Master Development Plan document exists in this repository to independently cross-check their exact wording against (confirmed by direct repository search) — they are recorded here as the operative decision for this project going forward, not as a citation of an external document this session has read.
+
+### Academy Program vs. "D3 — Organization-owned Programs" — explicitly not the same scope
+
+A future MEGA Academy learning-domain kilometer may introduce an **Academy Program**, defined as:
+
+> "An Academy learning-domain construct used to organize a structured learning pathway or collection of courses within MEGA Academy."
+
+This is separate and distinct from **D3 — Organization-owned Programs equivalent to the School `Program` model** (an institutional-presence content type, the same shape `School.programs`/`Organization` posts already use elsewhere). **Academy Program does not automatically implement D3.** Specifically, a future Academy Program construct:
+- does **not** establish the broader D3 Organization Program capability;
+- does **not** require or imply C2.2 (historical Organization-affiliation modeling — see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md));
+- does **not** require or imply C2.3 (multi-organization dashboard switching — same document);
+- remains subject to D3's own, separate governance and approval, whenever that is taken up.
+
+Any future kilometer proposing an Academy Program construct must state this distinction explicitly rather than silently broadening scope to cover D3.
+
+### Existing certificate verification reuse vs. "D5 — richer certificate capabilities" — explicitly not the same scope
+
+MEGA Academy's course-completion flow already reuses the existing, real, working certificate architecture described above (`issueCourseCertificate()`, `Certificate.recipientUserId` user-centric identity, the public `/verify/[code]` page) — this reuse is **not** new scope and is not D5. **D5 — richer certificate capabilities (QR-code generation, advanced/PDF certificate presentation, grade-completion certificate variants)** remains a distinct, future, separately-governed item. Any future Academy kilometer must clearly separate:
+- **(A) existing capability being reused as-is** — course-completion certificate issuance and public verification, both already live and unchanged; and
+- **(B) future D5 enhancements** — QR generation, richer/PDF presentation, grade-completion variants — none of which exist today and none of which are authorized by reusing (A).
+
+A kilometer must not present (B) as if it were already part of the MVP simply because (A) exists and works.
+
+### MEGA Academy Labs — pilot principle, not a special architecture
+
+`MEGA Academy Labs` (the demo Organization used throughout this project's Academy-related testing) may continue to serve as the first real Academy provider/pilot once a learning-domain kilometer is built. It must use the exact same `Organization → academyParticipant → Course` architecture every other participating Organization uses — no organization-specific code path, no special-cased model, no bypass of `requireOrgAdmin`/`verified`/`academyParticipant`. The pilot is a validation strategy for the shared architecture, never a separate product model.
 
 ## What's designed but not wired 🔭
 

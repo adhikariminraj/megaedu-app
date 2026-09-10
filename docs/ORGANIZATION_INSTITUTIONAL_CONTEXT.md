@@ -1,7 +1,7 @@
 # Organization Institutional Context
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10 (K1-K8 reconciliation), against the current codebase.
+> Last verified: 2026-09-10 (K1-K8 reconciliation, plus a MEGA Academy planning-scope reconciliation — C2.2/C2.3/D3 status preserved), against the current codebase.
 
 ## Why this exists ✅
 
@@ -89,3 +89,10 @@ These are two independent, deliberately separate facts, both scoped to `Organiza
 - **`requireOrgFinance()` activation** — remains unwired until a real Payments kilometer.
 - **Organization profile editing** (`PATCH /api/organizations/[id]`) — a separate, smaller capability gap, not part of this kilometer.
 - **Generalized audit-trail architecture** spanning School/Organization/Academy — future work, not designed or started here.
+
+### MEGA Academy planning reconciliation — C2.2/C2.3 remain deferred (2026-09-10) 🟡
+
+Recorded explicitly: no future MEGA Academy learning-domain planning (Program, curriculum, assessment, or any other Academy construct) reactivates or authorizes either of the two items above on its own. In particular:
+- **C2.2** (a historical Organization-affiliation model, i.e. `status`/`startDate`/`endDate` on `OrganizationAdmin`/`OrganizationAccountant`) remains **DEFERRED**.
+- **C2.3** (a working 2+-organization chooser/switcher UX, listed as "The 2+-organization chooser UX" above) remains **DEFERRED**.
+- **"D3" — Organization-owned Programs**, a capability distinct from any future Academy Program learning-domain construct, remains separately governed outside this document — see [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md)'s own reconciliation entry for the full Academy-Program-vs-D3 distinction. Nothing in this document authorizes D3.

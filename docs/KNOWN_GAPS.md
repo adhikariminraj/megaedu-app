@@ -1,6 +1,6 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-10 (K1-K8 reconciliation — public Organization provider profile, Academy participation/visibility, Opportunity edit/delete, Course↔Provider reciprocal links, MEGA Academy navigation label, Organization logo management, obsolete certificate backfill script removal, Organization Events & Resources) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-10 (K1-K8 reconciliation — public Organization provider profile, Academy participation/visibility, Opportunity edit/delete, Course↔Provider reciprocal links, MEGA Academy navigation label, Organization logo management, obsolete certificate backfill script removal, Organization Events & Resources; plus a MEGA Academy planning-scope reconciliation adding the K10-K17+ development track and Development Gate mapping) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
 
@@ -208,3 +208,39 @@ No OAuth/SSO, no email verification at registration, no password reset flow, no 
 
 ### `PLATFORM_ADMIN` can only be granted via the seed script or direct database access 🔭
 No in-app route or UI exists to promote a user to Platform Admin, or to revoke it.
+
+## MEGA Academy Development Track — Planned / Awaiting Approval (2026-09-10) 🟡
+
+**Documentation-only planning entry.** Nothing below is implemented, nothing below is authorized for implementation by its presence in this list — this is the tracking record for a proposed future kilometer sequence, added here because this repository has no separate Live Master Development Checklist file (confirmed absent by direct search; see the governing-document note below). These items sit **alongside**, not in place of, the informal A–H/ID structure established earlier in this project's session-based reconciliation audits (e.g. A1–A7, B1–B2, C1–C2.3) — they are a distinct track for a distinct subsystem (the MEGA Academy learning domain proper: curriculum, authoring, learner progress, assessment), not a renumbering or replacement of that structure.
+
+| Kilometer | Scope | Status |
+|---|---|---|
+| K10 | Audit / Design | ☐ Planned |
+| K11 | Learning Schema Foundation | ☐ Planned |
+| K12 | Curriculum & Authoring | ☐ Planned |
+| K13 | Learner & Progress | ☐ Planned |
+| K14 | Assessment | ☐ Planned |
+| K15 | Completion & Certificate Integration | ☐ Planned |
+| K16 | MEGA Academy Labs Pilot | ☐ Planned |
+| K17+ | Future Expansion | ☐ Future |
+
+**None of these are marked completed or approved.** Each is a proposed execution unit only. Each must independently pass the project's Development Gate (below) before any implementation work begins on it — passing K10's own audit does not pre-approve K11, and so on down the list. Two items this track explicitly does **not** cover, because they belong to separately-governed capabilities rather than the Academy learning domain itself: **D3 — Organization-owned Programs** and **D5 — richer certificate capabilities** (QR, PDF, grade-completion variants) — see [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md)'s reconciliation entry for the full distinction, and [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md) for confirmation that C2.2/C2.3 remain deferred regardless of this track's progress.
+
+### Development Gate — mapped to MEGA Academy
+
+The same 12-area gate this project already applies informally to every kilometer (see the audit-first discipline evident throughout `CHANGELOG.md`), mapped explicitly to any future Academy kilometer so a reviewer has a fixed checklist rather than an ad hoc one:
+
+1. **Ecosystem level** — Does Academy fit inside MEGA.EDU rather than becoming a separate LMS? (It must — MEGA Academy is a shared learning/training platform *within* MEGA.EDU, not a separate institution or product.)
+2. **Ownership** — Who owns Programs, Courses, Lessons, Assessments, and learning evidence? (`Organization`, via the existing `Course`→`Organization` relation and whatever new models a learning-domain kilometer introduces — never a duplicate ownership concept.)
+3. **Identity** — Does Academy use existing MEGA ID / `User` identity? (Yes, exclusively — no duplicate Learner/Person/AcademyParticipant identity model may be introduced; `CourseEnrollment.userId` is already the precedent.)
+4. **Institutional context** — How is provider Organization context resolved without creating duplicate affiliation systems? (Via the existing `getAccessibleOrganizations()`/`verifyOrgAccess()`/`requireOrgAdmin` layer — see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md); no parallel resolver.)
+5. **Authorization** — Who may create, publish, teach, grade, and administer? (Must be stated explicitly per kilometer, reusing `requireOrgAdmin`/`requireCourseOwner` patterns where the concept genuinely matches, never inventing an ungated path.)
+6. **Evidence** — What records prove enrollment, progress, assessment, completion, and certification? (Must be traceable to real rows — reusing `CourseEnrollment`/`Certificate` where possible, extended only with clear justification.)
+7. **Security** — Can users access only learning data they are authorized to access? (Every new route needs the same ownership-verification-on-mutation and negative-test discipline every prior kilometer in this project has used.)
+8. **Integration** — Does Academy reuse existing Course, Enrollment, Certificate, and Organization systems? (Must be demonstrated, not assumed — see the Program/D3 and Certificate/D5 reuse-vs-new-scope distinctions above.)
+9. **Scope** — What is the smallest safe Academy kilometer? (Each of K10–K17+ must be independently scoped this way at its own audit/design gate, not pre-decided by this table.)
+10. **Migration / backward compatibility** — Will existing Courses, Enrollments, and Certificates remain intact? (Must be explicitly verified, following this project's nullable-first/additive-only schema-change discipline.)
+11. **Verification** — What positive and negative tests are required? (Full authorization matrix, ownership-forgery attempts, regression checks — matching the pattern every K1–K9 kilometer this session used.)
+12. **Documentation** — Are architecture, implementation, changelog, and checklist records reconciled? (This entry, and the corresponding entries in `COURSES_AND_ENROLLMENTS.md`/`ORGANIZATION_INSTITUTIONAL_CONTEXT.md`, are the current answer — each future kilometer must update them in turn, the same discipline `CHANGELOG.md` already follows.)
+
+**A note on governing documents**: this reconciliation was requested against a five-document hierarchy (an Original Architecture/Master System Design, a Master Development Plan, a Combined Master & Execution Plan, a Live Master Development Checklist, and an Academy V1 planning document) — a direct, exhaustive search of this repository (filenames and content) found none of the five. This entry, and the corresponding entries in `COURSES_AND_ENROLLMENTS.md` and `ORGANIZATION_INSTITUTIONAL_CONTEXT.md`, are recorded here as the closest existing real governance artifacts in this repository, not as a transcription of those external documents' actual text.
