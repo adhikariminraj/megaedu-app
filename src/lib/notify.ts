@@ -6,7 +6,12 @@ export type NotificationType =
   | "STUDENT_APPROVED"
   | "CERTIFICATE_ISSUED"
   | "SCHOOL_VERIFIED"
-  | "ORGANIZATION_VERIFIED";
+  | "ORGANIZATION_VERIFIED"
+  // Parent-Student Linking Trust Boundary kilometer — sent to the
+  // Student when a Parent requests to link, so a pending request is
+  // discoverable and actionable, never silent. Narrowly scoped to this
+  // one flow, not a general notification-system change.
+  | "PARENT_LINK_REQUESTED";
 
 export async function notify(userId: string, type: NotificationType, title: string, body?: string) {
   try {

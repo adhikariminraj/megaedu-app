@@ -72,7 +72,9 @@ export default async function MarkSheetDocumentPage({
     // school, frozen at issuance, unaffected by the student's current
     // affiliation (see PHASE 11, Mark Sheet Kilometer 1).
     const [parentLink, access] = await Promise.all([
-      prisma.parentStudent.findFirst({ where: { studentId: markSheet.studentId, parent: { userId } } }),
+      prisma.parentStudent.findFirst({
+        where: { studentId: markSheet.studentId, parent: { userId }, confirmedAt: { not: null } },
+      }),
       verifySchoolAccess(userId, markSheet.schoolId),
     ]);
     authorized = !!(parentLink || access);

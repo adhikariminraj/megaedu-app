@@ -11,6 +11,7 @@ import AcademicProgressPanel, {
 } from "@/components/AcademicProgressPanel";
 import TodaysHomeworkPanel, { HomeworkRow } from "@/components/TodaysHomeworkPanel";
 import HomeworkHistoryPanel, { HomeworkHistoryRow } from "@/components/HomeworkHistoryPanel";
+import PendingParentRequests, { PendingParentRequest } from "@/components/PendingParentRequests";
 
 type Student = {
   id: string;
@@ -38,6 +39,7 @@ export default function StudentDashboard({
   interestsLocked,
   todaysHomework,
   homeworkHistory,
+  pendingParentRequests,
 }: {
   student: Student;
   userName: string;
@@ -50,6 +52,7 @@ export default function StudentDashboard({
   interestsLocked: boolean;
   todaysHomework: HomeworkRow[];
   homeworkHistory: HomeworkHistoryRow[];
+  pendingParentRequests: PendingParentRequest[];
 }) {
   if (!student.school) {
     return (
@@ -59,6 +62,7 @@ export default function StudentDashboard({
           subtitle="One more step — connect your MEGA ID to your school."
           cards={[]}
         />
+        <PendingParentRequests requests={pendingParentRequests} />
         <div className="mb-6">
           <InterestManager interests={student.user.interests} />
         </div>
@@ -115,6 +119,8 @@ export default function StudentDashboard({
         avatar={{ url: student.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />
+
+      <PendingParentRequests requests={pendingParentRequests} />
 
       <div className="border border-slate-200 rounded-xl p-6 space-y-4 mb-6">
         <div className="flex items-center justify-between">

@@ -12,6 +12,7 @@ const TYPE_ICONS: Record<string, string> = {
   CERTIFICATE_ISSUED: "🎓",
   SCHOOL_VERIFIED: "🏫",
   ORGANIZATION_VERIFIED: "🏢",
+  PARENT_LINK_REQUESTED: "👪",
 };
 
 export default async function NotificationsPage() {

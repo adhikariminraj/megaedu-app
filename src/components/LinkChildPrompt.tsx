@@ -7,6 +7,7 @@ export default function LinkChildPrompt() {
   const router = useRouter();
   const [childEmail, setChildEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -14,6 +15,7 @@ export default function LinkChildPrompt() {
     if (!childEmail.trim()) return;
     setLoading(true);
     setError(null);
+    setSuccess(null);
     const res = await fetch("/api/parent/link-child", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -26,6 +28,14 @@ export default function LinkChildPrompt() {
       return;
     }
     setChildEmail("");
+    // Parent-Student Linking Trust Boundary kilometer — linking is no
+    // longer immediate; the Parent needs to know a request was sent,
+    // not that access was granted.
+    if (data.alreadyLinked) {
+      setSuccess("You're already linked to this child.");
+    } else {
+      setSuccess("Request sent — your child needs to confirm it from their dashboard before you can see their progress.");
+    }
     router.refresh();
   }
 
@@ -51,6 +61,11 @@ export default function LinkChildPrompt() {
       {error && (
         <p className="text-sm text-mega-red bg-red-50 border border-red-200 rounded-lg px-4 py-2">
           {error}
+        </p>
+      )}
+      {success && (
+        <p className="text-sm text-mega-green bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+          {success}
         </p>
       )}
       <button

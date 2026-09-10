@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-07 (Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-09-10 (Parent-Student Linking Trust Boundary kilometer), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -13,7 +13,7 @@ All routes are ✅ implemented. "Auth" means the caller must be logged in (`getS
 | `POST` | `/api/auth/register` | Generic single-role registration | — | — | `{name, email, password, role}`, role is one of `STUDENT`, `TEACHER`, `PARENT`, `SCHOOL_ADMIN`, `ORGANIZATION_ADMIN`. `409` if email exists. Teacher/Student/Parent get an unaffiliated profile created immediately |
 | `POST` | `/api/auth/register-teacher` | Teacher registration + school affiliation in one step | — | — | Requires `schoolId` of an **already-verified** school; `400` otherwise |
 | `POST` | `/api/auth/register-student` | Student registration + school affiliation | — | — | Same verified-school requirement |
-| `POST` | `/api/auth/register-parent` | Parent registration + link to an existing child | — | — | Requires `childEmail` to already belong to a `Student`; `400` if not found |
+| `POST` | `/api/auth/register-parent` | Parent registration + request to link to an existing child | — | — | Requires `childEmail` to already belong to a `Student`; `400` if not found. Creates the `ParentStudent` row with `confirmedAt: null` — no protected access until the Student confirms (see [PARENT_STUDENT_LINKING.md](PARENT_STUDENT_LINKING.md)) |
 | `POST` | `/api/auth/register-organization` | Organization Admin registration + org creation in one step | — | — | Slugifies `orgName`, appends a random suffix on collision |
 
 ## Post-registration affiliation
@@ -26,7 +26,9 @@ All routes are ✅ implemented. "Auth" means the caller must be logged in (`getS
 | `POST` | `/api/student/join-school` | JOIN — creates a new `PENDING` `StudentSchoolAffiliation` | ✅ | inline | Resets `approved: false` |
 | `POST` | `/api/student/leave-school` | LEAVE — ends the student's current `ACTIVE` affiliation at a school | ✅ | inline | `status → ENDED`, `endDate` set to now |
 | `POST` | `/api/student/transfer-school` | TRANSFER — ends the old affiliation and creates a new `PENDING` one atomically | ✅ | inline | Same atomic-with-rollback shape as the teacher route above |
-| `POST` | `/api/parent/link-child` | Link an additional child by email | ✅ | inline (own `Parent` row) | Idempotent — `alreadyLinked: true` |
+| `POST` | `/api/parent/link-child` | Request to link an additional child by email | ✅ | inline (own `Parent` row) | Idempotent — never resets an existing row; `alreadyLinked: true` if already confirmed, `alreadyRequested: true` if already pending. Creates with `confirmedAt: null` — see [PARENT_STUDENT_LINKING.md](PARENT_STUDENT_LINKING.md) |
+| `POST` | `/api/parent-student/[id]/confirm` | Student confirms a pending `ParentStudent` request | ✅ | inline (caller must be the row's own Student) | Sets `confirmedAt: now()`; idempotent (`alreadyConfirmed: true`); `403` for any other user, `404` if the row doesn't exist |
+| `DELETE` | `/api/parent-student/[id]` | Decline (pending) or unlink (confirmed) — one hard delete | ✅ | inline (caller must be the row's Parent or Student) | `403` for any unrelated user, including School/Organization Admins; `404` if the row doesn't exist |
 | `POST` | `/api/schools/create-for-admin` | Create a school for an already-registered `SCHOOL_ADMIN` role holder with no school yet | ✅ | inline (`roles.includes`) | `409` if already administers one |
 | `POST` | `/api/organizations/create-for-admin` | Same, for `ORGANIZATION_ADMIN` | ✅ | inline | `409` if already administers one |
 | `POST` | `/api/schools/register` | Alternate school+admin creation path | — | — | Same shape as `register-organization` for schools |

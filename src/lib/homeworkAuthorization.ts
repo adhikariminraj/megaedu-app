@@ -101,7 +101,7 @@ export async function resolveApplicabilityAccess(
   }
 
   const parentLink = await prisma.parentStudent.findFirst({
-    where: { studentId: applicability.studentId, parent: { userId } },
+    where: { studentId: applicability.studentId, parent: { userId }, confirmedAt: { not: null } },
   });
   if (parentLink) {
     return { role: "PARENT" };

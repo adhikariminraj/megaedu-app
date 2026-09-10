@@ -39,7 +39,9 @@ export default async function MarkSheetIndexPage({ params }: { params: { student
     // checks a fresh ACTIVE TeacherSchoolAffiliation (or a real
     // SchoolAdmin link) against this student's own current school.
     const [parentLink, access] = await Promise.all([
-      prisma.parentStudent.findFirst({ where: { studentId: student.id, parent: { userId } } }),
+      prisma.parentStudent.findFirst({
+        where: { studentId: student.id, parent: { userId }, confirmedAt: { not: null } },
+      }),
       verifySchoolAccess(userId, student.schoolId),
     ]);
     authorized = !!(parentLink || access);

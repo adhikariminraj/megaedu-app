@@ -394,12 +394,23 @@ model Parent {
   children ParentStudent[]
 }
 
+// Parent-Student Linking Trust Boundary kilometer — confirmedAt is the
+// ONLY new relationship state. null means a request exists but does
+// NOT authorize Parent access; a real timestamp means confirmed, with
+// exactly today's Parent access. No PENDING/ACTIVE/ENDED/REJECTED
+// enum, no initiatedBy/respondedAt, no audit table — none has an
+// identified consumer. Unlinking (by either party) and declining (by
+// the Student) are both a hard delete of this row, never a status
+// transition — matching the OrganizationAccountant revoke precedent,
+// since nothing in this codebase consumes "past linked parents"
+// history. See docs/PARENT_STUDENT_LINKING.md.
 model ParentStudent {
-  id        String  @id @default(cuid())
-  parentId  String
-  studentId String
-  parent    Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  parentId    String
+  studentId   String
+  parent      Parent    @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student     Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  confirmedAt DateTime?
 
   @@unique([parentId, studentId])
 }

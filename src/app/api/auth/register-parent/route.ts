@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { notify } from "@/lib/notify";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -42,6 +43,11 @@ export async function POST(req: NextRequest) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
+  // Parent-Student Linking Trust Boundary kilometer — this public,
+  // unauthenticated route is the more permissive of the two creation
+  // paths (no prior login required at all), so it needs the identical
+  // confirmedAt: null treatment: knowing the child's email creates a
+  // request, never immediate protected access.
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: {
@@ -55,9 +61,16 @@ export async function POST(req: NextRequest) {
     const parent = await tx.parent.create({ data: { userId: user.id } });
 
     await tx.parentStudent.create({
-      data: { parentId: parent.id, studentId: childUser.studentProfile!.id },
+      data: { parentId: parent.id, studentId: childUser.studentProfile!.id, confirmedAt: null },
     });
   });
 
-  return NextResponse.json({ ok: true });
+  await notify(
+    childUser.id,
+    "PARENT_LINK_REQUESTED",
+    `${name} wants to link as your parent`,
+    "Review this request from your dashboard. Nothing is shared until you confirm it."
+  );
+
+  return NextResponse.json({ ok: true, pending: true });
 }

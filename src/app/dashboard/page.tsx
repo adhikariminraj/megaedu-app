@@ -366,8 +366,22 @@ export default async function DashboardPage() {
         });
         interestsLocked = !!(activeSession && student.interestsLockedForSessionId === activeSession.id);
       }
+      // Parent-Student Linking Trust Boundary kilometer — pending
+      // requests are read directly from ParentStudent (the single
+      // source of truth), never derived from a Notification record.
+      // The PARENT_LINK_REQUESTED notification is a plain FYI ping;
+      // this is where the Student actually sees and acts on it.
+      const pendingParentRequests = await prisma.parentStudent.findMany({
+        where: { studentId: student.id, confirmedAt: null },
+        include: { parent: { include: { user: { select: { name: true, email: true } } } } },
+      });
       return (
         <StudentDashboard
+          pendingParentRequests={pendingParentRequests.map((r) => ({
+            id: r.id,
+            parentName: r.parent.user.name,
+            parentEmail: r.parent.user.email,
+          }))}
           // Non-null assertion is safe here: this Student was looked up
           // BY the logged-in session's own userId, so it is guaranteed
           // to have a linked User (itself) — a User-less Student could
@@ -389,11 +403,21 @@ export default async function DashboardPage() {
   }
 
   if (roles?.includes("PARENT")) {
+    // Parent-Student Linking Trust Boundary kilometer — only CONFIRMED
+    // ParentStudent rows grant Parent access anywhere, including here.
+    // A still-pending request is invisible to this dashboard entirely
+    // (never partially shown) — ParentDashboard.tsx already renders a
+    // correct "Link your child to get started" empty state when
+    // children.length === 0, so a Parent with only pending requests
+    // sees exactly that, never a broken or half-populated view.
     const parent = await prisma.parent.findUnique({
       where: { userId },
       include: {
         user: true,
-        children: { include: { student: { include: { user: true, school: true } } } },
+        children: {
+          where: { confirmedAt: { not: null } },
+          include: { student: { include: { user: true, school: true } } },
+        },
       },
     });
     if (parent) {
