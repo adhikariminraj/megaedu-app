@@ -52,6 +52,16 @@ If a school-wide or grade-specific bundle purchase model is wanted, it would nee
 
 This is the **only** enrollment access method that exists — there is no invite-only enrollment, no school-assigned bulk enrollment, and no "grade-gated" course visibility. There is also no dedicated dashboard surface for Parent/Organization-Admin/unaffiliated enrolled courses yet — completion and certificates work for them via the same API, but nothing outside `TeacherDashboard`/`StudentDashboard` currently lists "my enrolled courses" (see Deferred, below).
 
+## Public Organization provider profile ✅ (Kilometer 1, 2026-09-10)
+
+`/organizations/[slug]` — public, unauthenticated, mirroring `/schools/[slug]`'s pattern exactly: independently re-verifies `verified && isActive` at the detail-page level (never relying only on `/organizations`'s own list filter — a slug is guessable/shareable). Displays `name`, `description`, `website`, and two **independent** trust badges — "✓ Verified Organization" (always, since the page requires it to exist at all) and "✓ MEGA Academy Provider" (only when `academyParticipant` is also true) — deliberately never combined into one compound status, per the approved Organization ↔ Academy design.
+
+**Academy participation states**: a participating organization (`academyParticipant: true`) shows its `published` courses, each linking to `/courses/[slug]`; a non-participating one shows "Not currently offering courses on MEGA Academy" instead — its existing courses are never unpublished, deleted, or otherwise mutated by this state, only omitted from this one listing. The organization's `Opportunities` are shown regardless of Academy participation, since that relationship is independent of Academy entirely.
+
+`/organizations` now links each card to this profile page and shows the same "MEGA Academy Provider" badge for participating organizations, continuing to list every verified organization regardless of participation (per the approved "Organization existence ≠ Academy participation" decision) — never filtered by `academyParticipant`.
+
+**Explicitly deferred to a later kilometer**: the global `/courses` catalogue and `/courses/[slug]` still key off `published` alone, not yet `organization.verified`/`academyParticipant` — meaning a course from a since-non-participating organization can still appear there, just not be enrollable. This is a known, already-designed, not-yet-implemented gap (see the Provider Profile + Course Activity design), deliberately out of scope for this kilometer.
+
 ## Course completion & certificates ✅
 
 `/courses/[slug]/learn` (login required) shows every module/lesson and a `CompleteButton` once content exists. `POST /api/enrollments/[enrollmentId]/complete`:

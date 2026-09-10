@@ -21,21 +21,21 @@ export default async function OrganizationsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {organizations.map((o) => (
-            <div key={o.id} className="border border-slate-200 rounded-xl p-5">
+            <Link
+              key={o.id}
+              href={`/organizations/${o.slug}`}
+              className="block border border-slate-200 rounded-xl p-5 hover:shadow-md transition"
+            >
               <h3 className="font-semibold text-slate-800">{o.name}</h3>
               {o.description && (
-                <p className="text-sm text-slate-500 mt-1">{o.description}</p>
+                <p className="text-sm text-slate-500 mt-1 line-clamp-2">{o.description}</p>
               )}
-              {o.website && (
-                <Link
-                  href={o.website}
-                  target="_blank"
-                  className="text-sm text-mega-blue mt-2 inline-block"
-                >
-                  Visit website →
-                </Link>
+              {o.academyParticipant && (
+                <span className="inline-block mt-3 text-xs font-semibold bg-blue-50 text-mega-blue rounded-full px-2.5 py-1">
+                  ✓ MEGA Academy Provider
+                </span>
               )}
-            </div>
+            </Link>
           ))}
         </div>
       )}
