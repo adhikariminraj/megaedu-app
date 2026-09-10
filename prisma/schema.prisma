@@ -2194,6 +2194,17 @@ model Organization {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
+  // Organization Academy Participation kilometer — a fact independent
+  // of `verified`. `verified` is the Platform Admin institutional-trust
+  // gate (unchanged); this is the Organization's own self-service
+  // choice to actively offer courses on MEGA Academy. A verified
+  // Organization may exist without ever participating (e.g. one that
+  // only posts Opportunities); publishing/enrollment on this
+  // Organization's courses requires BOTH facts to be true. No status
+  // enum, no history — this is a plain toggle, not a workflow, per the
+  // approved Organization <-> MEGA Academy architecture design.
+  academyParticipant Boolean @default(false)
+
   admins        OrganizationAdmin[]
   accountants   OrganizationAccountant[]
   courses       Course[]

@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10 (Parent-Student Linking Trust Boundary kilometer), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-09-10 (Organization Academy Participation kilometer), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -178,15 +178,16 @@ Auth: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})`
 | `POST` | `/api/organizations/[id]/courses` | Create a course | ✅ | `requireOrgAdmin` | Optional inline `Instructor` creation by name |
 | `POST` | `/api/organizations/[id]/opportunities` | Post an opportunity | ✅ | `requireOrgAdmin` | Same shape as the school version |
 | `GET`/`POST` | `/api/organizations/[id]/accountants` | List / grant Organization Accountant access | ✅ | `requireOrgAdmin` | Same pattern as the school version |
+| `PATCH` | `/api/organizations/[id]` | Update this organization's own settings | ✅ | `requireOrgAdmin` | Today accepts only `academyParticipant` (boolean) — the Organization Admin's self-service MEGA Academy participation toggle, independent of Platform Admin `verified`; `400` if no valid field supplied |
 
 ## Courses & Enrollment
 
 | Method | Endpoint | Purpose | Auth | Authz | Notes |
 |---|---|---|---|---|---|
-| `PATCH` | `/api/courses/[courseId]` | Update course fields (including publish toggle) | ✅ | `requireCourseOwner` | Accepts any of `title, description, published, priceCents` |
+| `PATCH` | `/api/courses/[courseId]` | Update course fields (including publish toggle) | ✅ | `requireCourseOwner` | Accepts any of `title, description, published, priceCents`; setting `published: true` additionally requires the owning organization's `verified` and `academyParticipant` both `true` |
 | `POST` | `/api/courses/[courseId]/modules` | Add a module | ✅ | `requireCourseOwner` | `order` auto-set to current module count |
 | `POST` | `/api/courses/[courseId]/modules/[moduleId]/lessons` | Add a lesson | ✅ | `requireCourseOwner` | `404` if module doesn't belong to the course |
-| `POST` | `/api/courses/[courseId]/enroll` | Enroll the caller (as their Teacher or Student profile) | ✅ | inline (must have a `Teacher` or `Student` profile) | `404` if course not published; `400` if `priceCents > 0` (⚠️ paid enrollment not implemented); idempotent — `alreadyEnrolled: true` |
+| `POST` | `/api/courses/[courseId]/enroll` | Enroll the caller (any authenticated MEGA ID, no institutional role required) | ✅ | inline (login only) | `404` if course not published or the owning organization isn't both `verified` and `academyParticipant`; `400` if `priceCents > 0` (⚠️ paid enrollment not implemented); idempotent — `alreadyEnrolled: true` |
 | `POST` | `/api/enrollments/[enrollmentId]/complete` | Mark an enrollment complete and issue a certificate | ✅ | inline (must own the enrollment) | One transaction: `progress: 100` + `issueCourseCertificate()`; idempotent — `alreadyCompleted: true` with the existing certificate |
 
 ## Identity layer

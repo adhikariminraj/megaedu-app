@@ -10,7 +10,7 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
 
   const course = await prisma.course.findUnique({
     where: { id: params.courseId },
-    include: { organization: { select: { verified: true } } },
+    include: { organization: { select: { verified: true, academyParticipant: true } } },
   });
   if (!course || !course.published) {
     return NextResponse.json({ error: "Course not available." }, { status: 404 });
@@ -22,7 +22,12 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
   // must not accept new enrollments either. Same "not available" wording
   // as the line above — from the enrolling learner's perspective this is
   // functionally identical to the course not being published.
-  if (course.organization && !course.organization.verified) {
+  //
+  // Organization Academy Participation kilometer — the organization
+  // must ALSO still be opted into academyParticipant. Turning
+  // participation off must immediately block new enrollments on that
+  // organization's courses, same as un-verifying would.
+  if (course.organization && (!course.organization.verified || !course.organization.academyParticipant)) {
     return NextResponse.json({ error: "Course not available." }, { status: 404 });
   }
   if (course.priceCents > 0) {

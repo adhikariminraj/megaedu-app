@@ -11,6 +11,7 @@ type Organization = {
   id: string;
   name: string;
   verified: boolean;
+  academyParticipant: boolean;
   courses: {
     id: string;
     title: string;
@@ -30,6 +31,30 @@ export default function OrgDashboard({ organization, userName }: { organization:
   const [form, setForm] = useState({ title: "", description: "", instructorName: "" });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [participantLoading, setParticipantLoading] = useState(false);
+  const [participantError, setParticipantError] = useState<string | null>(null);
+
+  // Organization Academy Participation kilometer — a plain toggle, not
+  // a workflow. Independent of `verified` (Platform Admin's own gate,
+  // untouched here). router.refresh() re-fetches the server component
+  // so heroCards/publish-eligibility below reflect the new value
+  // immediately, matching every other toggle in this dashboard.
+  async function toggleAcademyParticipation() {
+    setParticipantLoading(true);
+    setParticipantError(null);
+    const res = await fetch(`/api/organizations/${organization.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ academyParticipant: !organization.academyParticipant }),
+    });
+    setParticipantLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setParticipantError(data.error || "Something went wrong.");
+      return;
+    }
+    router.refresh();
+  }
 
   async function createCourse(e: React.FormEvent) {
     e.preventDefault();
@@ -85,6 +110,35 @@ export default function OrgDashboard({ organization, userName }: { organization:
         subtitle={`${organization.name} — ${organization.verified ? "verified" : "pending verification"}.`}
         cards={heroCards.slice(0, 3)}
       />
+
+      <div className="border border-slate-200 rounded-xl p-5 mb-8 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-800">MEGA Academy Participation</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {organization.academyParticipant
+                ? "You're offering courses on MEGA Academy."
+                : "Start offering courses on MEGA Academy — separate from your verification status above."}
+            </p>
+          </div>
+          <button
+            onClick={toggleAcademyParticipation}
+            disabled={participantLoading}
+            className={`text-xs font-semibold px-4 py-2 rounded-full transition disabled:opacity-50 ${
+              organization.academyParticipant
+                ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-mega-navy text-white hover:bg-mega-blue"
+            }`}
+          >
+            {participantLoading
+              ? "Saving..."
+              : organization.academyParticipant
+              ? "Stop participating"
+              : "Start participating"}
+          </button>
+        </div>
+        {participantError && <p className="text-sm text-mega-red">{participantError}</p>}
+      </div>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8">
         {(["courses", "opportunities", "finance"] as const).map((t) => (

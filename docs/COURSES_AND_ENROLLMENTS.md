@@ -21,6 +21,8 @@ An Organization Admin creates a course from their dashboard (`OrgDashboard.tsx` 
 
 From `/dashboard/courses/[courseId]/manage` (gated by `requireCourseOwner`), the admin adds `CourseModule`s and `Lesson`s, then toggles `published`. **Publishing requires at least one lesson** — the toggle is disabled otherwise. `Organization.verified` is enforced on the `published: true` transition (`PATCH /api/courses/[courseId]`) — an unverified organization's course cannot be published, and `POST /api/courses/[courseId]/enroll` blocks enrollment as a belt-and-suspenders check in case verification is ever revoked after publish.
 
+**Organization Academy Participation kilometer (2026-09-10):** publishing and enrollment now also require `Organization.academyParticipant === true` — a second, independent fact from `verified` (see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md)). A verified organization that hasn't opted into Academy participation is blocked exactly like an unverified one; toggling participation off immediately blocks new publish/enroll attempts on that organization's courses, with no effect on existing courses, enrollments, or certificates (nothing is deleted or altered — the gate is checked fresh on every request, never cached).
+
 ## Organizations vs. Schools in MEGA Academy ✅
 
 Every course belongs to an `Organization`, never a `School` — schools have no course-authoring capability in the current system. `Certificate.associatedSchoolId` links a certificate to the recipient's school as *informational context*, not as course ownership.
@@ -43,7 +45,7 @@ If a school-wide or grade-specific bundle purchase model is wanted, it would nee
 
 `POST /api/courses/[courseId]/enroll`:
 - Requires login (`401` otherwise). **No institutional role is required** — any authenticated MEGA ID may enroll (Teacher, Student, Parent, Organization Admin, Organization Accountant, School Admin, Platform Admin, or a user with no profile at all). Authorization is simply "Authenticated User → eligible Academy course → enrollment."
-- Requires the course to be `published` and its organization `verified`.
+- Requires the course to be `published` and its organization both `verified` and `academyParticipant` (see Course publishing, above).
 - Blocks any priced course (see above).
 - Idempotent, keyed on `(courseId, userId)`.
 - If the enrolling user holds a `Teacher` or `Student` profile, `teacherId`/`studentId` are populated on the row as contextual enrichment (see Model section above) — this is never a requirement to enroll, only an enrichment when applicable.
