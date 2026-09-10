@@ -50,6 +50,7 @@ All routes are ✅ implemented. "Auth" means the caller must be logged in (`getS
 | `POST` | `/api/schools/[id]/news` | Post a news item | ✅ | `requireSchoolAdmin` | Fires `notifySchoolCommunity()` (best-effort) |
 | `POST` | `/api/schools/[id]/opportunities` | Post an opportunity | ✅ | `requireSchoolAdmin` | `{title, description, type, deadline?, applyUrl?}` |
 | `GET`/`POST` | `/api/schools/[id]/accountants` | List / grant School Accountant access | ✅ | `requireSchoolAdmin` | `POST` by email; auto-adds `ACCOUNTANT` role if missing; `404` if no MEGA ID with that email, `alreadyGranted: true` if already linked |
+| `DELETE` | `/api/schools/[id]/accountants/[userId]` | Revoke School Accountant access | ✅ | `requireSchoolAdmin` | Deletes only the `SchoolAccountant` join row — never the User, School, or global `ACCOUNTANT` role flag; `404` if no such grant exists at this school |
 
 ## Schools — staff & students
 
