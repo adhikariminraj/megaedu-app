@@ -22,8 +22,14 @@ export default async function HomePage() {
       take: 3,
       select: { id: true, slug: true, name: true, location: true, logoUrl: true },
     }),
+    // Kilometer 2B — same organization-eligibility condition as
+    // /courses, so the homepage can never expose a course the public
+    // Academy catalogue would hide.
     prisma.course.findMany({
-      where: { published: true },
+      where: {
+        published: true,
+        organization: { verified: true, academyParticipant: true, isActive: true },
+      },
       include: { organization: true, approach: true },
       orderBy: { createdAt: "desc" },
       take: 3,

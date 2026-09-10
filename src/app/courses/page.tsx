@@ -4,8 +4,19 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 export default async function CoursesPage() {
+  // Kilometer 2B — public visibility now also requires the owning
+  // organization to be currently eligible (verified, an active MEGA
+  // Academy participant, and not deactivated) — three independent
+  // facts on Organization, none of which mutate Course.published or
+  // any course data. A course is never deleted or unpublished by this
+  // check; it simply stops appearing here the moment any of these
+  // three organization-level facts becomes false, and reappears the
+  // moment they're true again.
   const courses = await prisma.course.findMany({
-    where: { published: true },
+    where: {
+      published: true,
+      organization: { verified: true, academyParticipant: true, isActive: true },
+    },
     include: { organization: true, approach: true },
     orderBy: { createdAt: "desc" },
   });

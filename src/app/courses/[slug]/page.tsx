@@ -16,7 +16,17 @@ export default async function CourseDetailPage({ params }: { params: { slug: str
     },
   });
 
-  if (!course || !course.published) notFound();
+  // Kilometer 2B — public visibility now also requires the owning
+  // organization to be currently eligible (verified, an active MEGA
+  // Academy participant, and not deactivated), matching the exact
+  // condition applied on /courses. An organization with none of these
+  // yet true (e.g. a brand-new course whose organizationId is null,
+  // though nothing today creates one that way) is intentionally not
+  // subject to this check — there is no organization to verify.
+  const orgIneligible =
+    !!course?.organization &&
+    (!course.organization.verified || !course.organization.academyParticipant || !course.organization.isActive);
+  if (!course || !course.published || orgIneligible) notFound();
 
   const session = await getServerSession(authOptions);
   const userId = (session?.user as any)?.id as string | undefined;
