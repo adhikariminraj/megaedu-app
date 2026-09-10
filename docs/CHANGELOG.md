@@ -6,6 +6,33 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — Organization Events & Resources (K8, 2026-09-10)
+An Organization Admin can now create/edit/deactivate their own Events and create/edit/delete their own Resources, `requireOrgAdmin`-gated, both reusing the already-polymorphic `Event`/`organizationId` and `Resource`/`organizationId` schema (no schema change). Events mirror School Event's own convention exactly — no `DELETE` route, `isActive: false` is the only removal path; Resources get a real hard `DELETE` (no reverse relations, and the first write path `Resource` has had for either owner type). Managed from a new combined "Events & Resources" tab on the Organization Dashboard; active Events and Resources both display on the public `/organizations/[slug]` profile, capped at 5 each, gated only by the page's existing `verified && isActive` guard — never by `academyParticipant`. Explicitly not a full Organization Calendar subsystem — School's Calendar page/projection layer (`src/lib/events.ts`, `CalendarEventForm.tsx`) were untouched.
+
+### Removed — obsolete certificate backfill script (K7, 2026-09-10)
+Deleted `prisma/backfill-certificates.ts` — a completed one-time Pass-1 migration script whose target model (`CertificateV2`) was long since renamed to plain `Certificate`, leaving the script permanently broken and responsible for all 13 TypeScript errors this project's verification steps had been citing as a standing "pre-existing, unrelated" baseline. Not referenced by `package.json`, application code, or current certificate documentation. `npx tsc --noEmit` baseline improved from 13 errors to 0.
+
+### Added — Organization logo management (K6, 2026-09-10)
+`Organization.logoUrl String?` (nullable, additive), managed via `POST`/`DELETE /api/organizations/[id]/logo`, `requireOrgAdmin`-only — reusing School logo's exact upload infrastructure (`saveUploadedImage`/`deleteUploadedImage`, same validation/replace/delete-ordering) and the existing `Avatar` component's `variant="school"` styling, with no new upload system or Avatar variant. Displayed on the Organization Dashboard, the `/organizations` directory, and `/organizations/[slug]`.
+
+### Changed — public navigation label to "MEGA Academy" (K5, 2026-09-10)
+`SiteHeader.tsx`'s `NAV_LINKS` entry for `/courses` now reads "MEGA Academy" instead of "Courses" — a one-line label change, `href`/route/behavior unchanged, driving both the desktop nav and the mobile menu from the same array.
+
+### Added — Course → Provider reciprocal links (K4, 2026-09-10)
+The organization/provider name on `/courses`, `/courses/[slug]`, and the homepage's "Explore the Network" course cards now links to `/organizations/[organization.slug]`, completing the reverse direction of the K1 provider-profile journey. Where a card's own course-link and the new provider link would otherwise nest, the card was restructured into a wrapper with two independent links rather than one link wrapping the whole card, to avoid invalid nested `<a>` elements — a technical necessity, not a visual redesign.
+
+### Added — Opportunity edit/delete (K3, 2026-09-10)
+`PATCH`/`DELETE` added for both `/api/schools/[id]/opportunities/[opportunityId]` and `/api/organizations/[id]/opportunities/[opportunityId]`, mirroring the existing `Program` route's precedent — explicit field allow-list, ownership re-verified against the URL's school/organization, hard `DELETE` (confirmed safe — `Opportunity` has no reverse relations). `OpportunityPoster.tsx` gained inline edit/delete UI, shared by both School and Organization dashboards.
+
+### Fixed — learner enrollment read authorization (K2A, 2026-09-10)
+`/courses/[slug]/learn`'s enrollment lookup previously fell back to an unscoped `{courseId}` filter for any viewer holding neither a Teacher nor a Student profile — dormant while enrollment required one of those profiles, but a live leak of an arbitrary enrollment id the moment that requirement was lifted (see K2 below). Replaced with a `CourseEnrollment.userId`-scoped lookup, the sole authoritative identity for the row.
+
+### Added — global MEGA Academy read-time visibility (K2B, 2026-09-10)
+`/courses`, `/courses/[slug]`, and the homepage's course query now all require `published && organization.verified && organization.academyParticipant && organization.isActive` — previously only the write side (publish/enroll) was gated, leaving a course from a since-unverified or non-participating organization publicly visible (though not enrollable) on the read side. `/courses/[slug]/learn` (an already-enrolled learner's own historical access) is deliberately exempt.
+
+### Added — public Organization provider profile (K1, 2026-09-10)
+New `/organizations/[slug]` page, mirroring `/schools/[slug]`'s pattern exactly — independently re-verifies `verified && isActive` at the detail-page level, two independent trust badges ("✓ Verified Organization" always; "✓ MEGA Academy Provider" only if `academyParticipant`), published courses shown only when participating, Opportunities shown regardless. `/organizations` now links each card to this profile and shows the same provider badge.
+
 ### Added — Co-Scholastic, Kilometer 1: separate evaluation axis, Mark Sheet grading/co-scholastic snapshots, published-result correction fix (2026-09-07)
 A product+architecture audit against four real school report-card samples (Rosebud School, Modern Indian School) found the existing scholastic assessment engine already sufficiently flexible for real-world component/weight/scale variation — confirmed by tracing the actual teacher entry UI and admin config wizard, not just the schema — but surfaced three genuine gaps: no model for co-scholastic areas (Work Education, Art, Health & Physical Education, Discipline), no historical freeze for grading criteria on an issued Mark Sheet, and a real UI defect where a published result's correction inputs were permanently disabled, making the already-correct, already-audited backend correction path practically unreachable.
 

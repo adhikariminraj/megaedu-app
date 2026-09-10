@@ -2,7 +2,7 @@
 
 > **Audience**: developers, technical team members, system administrators, and future maintainers.
 > **Status legend** (used throughout): **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> **Last verified**: 2026-09-09 (Student Profile Academic Snapshot and its assignment-scoped teacher/Parent visibility extension — added on top of Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1), against the current codebase and the audited `/docs` documentation set.
+> **Last verified**: 2026-09-10 (K1-K8 reconciliation — Organization provider profile, Academy participation/global visibility, user-centric enrollment, Opportunity edit/delete, course↔provider links, MEGA Academy navigation label, Organization logo, Organization Events & Resources, obsolete certificate backfill script removal — added on top of Calendar Kilometer 1/1.1/1.2, My Profile Kilometer 1, Student Profile Academic Snapshot), against the current codebase and the audited `/docs` documentation set.
 > **Source discipline**: every claim in this document is drawn from the existing, individually-audited documents in `/docs` (cross-referenced throughout) and, where a doc was ambiguous, from direct inspection of the implementation. Nothing here describes a planned or hypothetical feature as if it were built. Where something is designed but not implemented, or implemented but deliberately incomplete, that is stated explicitly.
 
 ---
@@ -291,7 +291,7 @@ A recurring, deliberate architectural decision: for any write that must be atomi
 ### Schools & Organizations
 - **`School`** — `verified`/`isActive` flags (⚠️ `isActive` is read in two places but nothing ever sets it `false` — no deactivation action exists), `logoUrl` (uploadable/manageable by an authorized School Admin — see [§24](#24-school-logos--user-profile-photos)).
 - **`SchoolAdmin`/`SchoolAccountant`** — join tables granting access to one school.
-- **`Organization`**, **`OrganizationAdmin`/`OrganizationAccountant`** — the parallel structure for MEGA Academy publishers. ⚠️ `Organization` has no `logoUrl` field in the schema at all.
+- **`Organization`**, **`OrganizationAdmin`/`OrganizationAccountant`** — the parallel structure for MEGA Academy publishers and Opportunity/Event/Resource providers. `verified`/`isActive` flags (same `isActive`-never-written caveat as School), independent `academyParticipant` (self-service MEGA Academy participation toggle — see [§23](#23-certificate-system)), and `logoUrl` (K6 — uploadable/manageable by an Organization Admin, reusing the exact same upload infrastructure as School's `logoUrl` — see [§24](#24-school-logos--user-profile-photos)). No institutional-context history layer exists yet (`OrganizationAdmin`/`OrganizationAccountant` remain flat join tables — see [§10a](#10a-institutional-affiliation--context-architecture)).
 
 ### People
 - **`Teacher`**, **`Student`** — optional 1:1 with `User`, optional `schoolId`, `approved` flag. `Student.gradeLevel` is the **permanent legacy free-text grade fallback** — retained forever, never dropped, no longer written once a school completes Initial Setup.
@@ -335,7 +335,7 @@ A recurring, deliberate architectural decision: for any write that must be atomi
 
 ### Identity layer, content, and other supporting models
 - **`Interest`** (self-declared), **`Skill`** (teacher-attested, `@@unique([studentId, addedByUserId, name])`).
-- **`Program`**, **`NewsPost`**, **`Resource`**, **`Event`**, **`Opportunity`** — simple content types, no approval workflow.
+- **`Program`**, **`NewsPost`**, **`Resource`**, **`Event`**, **`Opportunity`** — simple content types, no approval workflow. `Resource` and `Event` carry both a nullable `schoolId` and a nullable `organizationId` (polymorphic ownership); `Opportunity` the same. All three now have real write paths on both the School and Organization side: `Opportunity` gained Organization/School `PATCH`/`DELETE` (hard delete — no reverse relations) in K3; `Event`/`Resource` gained their Organization-side write paths in K8, `Event` reusing School Event's exact `isActive`-deactivate convention (no `DELETE`), `Resource` using hard `DELETE` (also no reverse relations, and the first write path it has had for either owner type).
 - **`Subscription`**/**`Payment`** 🟡 — fully modeled, **no payment processor is connected**; priced-course enrollment is explicitly blocked.
 - **`Notification`** — written only through `notify()`/`notifySchoolCommunity()`, never directly.
 
@@ -499,6 +499,25 @@ Initial Setup, New Session, Assessment Frameworks, and Assessment Results still 
 ### Where this surfaces in the product — My Profile (My Profile K1)
 
 `/dashboard/profile`'s **My Institutional Relationships** section is the first UI in the product to read `TeacherSchoolAffiliation`/`StudentSchoolAffiliation`/`SchoolAdmin` directly and present them to the person they're about — every relationship, including `ENDED` history, with dates rendered honestly (`startDateSource: "UNKNOWN_MIGRATED"` shows as "Not recorded," never a fabricated date). This is a pure read/presentation layer: it introduces no new query pattern beyond a `prisma.user.findUnique` with the relevant relations included, and does not touch `src/lib/affiliation.ts` or `institutionalContext.ts`. See §24.
+
+### Organization Institutional Context
+
+*(Source: [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md))*
+
+Organization's own, parallel foundation, following the exact `getAccessibleSchools()`/`verifySchoolAccess()` shape above:
+
+```ts
+getAccessibleOrganizations(userId: string): Promise<{ organizationId, organizationName, role: "ORGANIZATION_ADMIN" | "ORGANIZATION_ACCOUNTANT" }[]>
+verifyOrgAccess(userId: string, organizationId: string): Promise<{ role: "ORGANIZATION_ADMIN" } | { role: "ORGANIZATION_ACCOUNTANT" } | null>
+```
+
+`getAccessibleOrganizations()` unions `OrganizationAdmin` with `OrganizationAccountant` links (display/routing input only). `verifyOrgAccess()` is a fresh, fail-closed gate, not yet called by any route — foundation for future organization-scoped gates. **Deliberately no schema change**: `OrganizationAdmin`/`OrganizationAccountant` remain flat join rows with no `status`/history/dates — evaluated and explicitly rejected as a generalized `OrganizationMembership` table (no demonstrated need; School's own admin/accountant tables never got a history upgrade either — only the Teacher/Student *affiliation* layer did, because that gates real academic authority). `dashboard/page.tsx`'s `ORGANIZATION_ADMIN` branch now resolves via `getAccessibleOrganizations()` instead of an arbitrary `organizationAdmin.findFirst({ userId })`: 0 accessible → `CreateOrgPrompt`; 1 → `OrgDashboard`; 2+ → a non-interactive boundary page listing every accessible organization by name (deliberately **not** a chooser — no `OrganizationChooser`, no preference cookie, no URL-scoped route; that UX remains a separate, not-yet-approved decision).
+
+Every existing role/resource-specific helper (`requireOrgAdmin`, `requireCourseOwner`, `requireOrgFinance`) is unchanged by this foundation and remains the actual authorization gate for every write route — `getAccessibleOrganizations()`/`verifyOrgAccess()` are a display/context layer, never themselves a security decision, exactly as `getAccessibleSchools()` is for School.
+
+**Organization logo, Events, and Resources (K6, K8)** — all `requireOrgAdmin`-gated, all reusing this same institutional-context foundation for "who is this Organization's admin," none of them touching `getAccessibleOrganizations()`/`verifyOrgAccess()` directly (they use the resource-specific `requireOrgAdmin` gate, same as every other Organization write route). Full detail: [§23](#23-certificate-system) (Academy participation distinction), [§24](#24-school-logos--user-profile-photos) (logo), [§26](#26-api-architecture--major-routes) (Events/Resources routes).
+
+**Organization institutional context vs. MEGA Academy participation** — two independent facts. This section governs *who* administers an Organization and *what* it may do institutionally (post Opportunities/Events/Resources, once `verified`). `Organization.academyParticipant` (§23) governs *only* whether its MEGA Academy courses are publishable/enrollable/visible — a verified, fully-administered Organization may have `academyParticipant: false` and still operate normally otherwise.
 
 ---
 
@@ -847,7 +866,20 @@ A student never decided stays `ENROLLED` indefinitely. On rollover, they're excl
 
 ## 23. Certificate System
 
-`Certificate` keeps **recipient, instructor, and issuer as separate concepts**, never conflated — `recipientUserId`, optional `instructorId` (an `Instructor` can be named with no MEGA ID at all), `issuerType` (`MEGA_EDU | ORGANIZATION | SCHOOL | JOINT` — only `ORGANIZATION` is reachable today), and a separate `associatedSchoolId` for informational school context.
+### MEGA Academy — Organization provider architecture, participation, and enrollment
+
+*(Source: [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md), [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md))*
+
+`Course` (belongs to an `Organization`, optionally an `EducationalApproach`/`Instructor`) → `CourseModule` → `Lesson`, plus `CourseEnrollment` and its optional 1:1 `Certificate`.
+
+- **User-centric enrollment**: `CourseEnrollment.userId` (required, direct `User` FK) is the enrollment's real identity — any authenticated MEGA ID may enroll, independent of institutional role. `teacherId`/`studentId` remain on the model as **optional contextual enrichment only** (populated when the enrolling user happens to also hold that profile, purely so `TeacherDashboard`/`StudentDashboard`'s reverse-relation queries keep working) — never re-derived as the enrollment's identity, both `null` for a Parent/Organization Admin/Accountant/unaffiliated enrollee. `@@unique([courseId, userId])`.
+- **`Organization.academyParticipant`** — a self-service boolean, independent of `Organization.verified`. Publishing a course (`PATCH /api/courses/[courseId]`, `published: true`) and enrolling (`POST /api/courses/[courseId]/enroll`) both require **both** `verified` and `academyParticipant` to be `true`. Toggled by the Organization Admin (`PATCH /api/organizations/[id]` — accepts only this field), checked fresh on every request, never cached; turning it off blocks new publish/enroll attempts immediately and has zero effect on existing courses, enrollments, or certificates.
+- **Global read-time visibility**: `/courses`, `/courses/[slug]`, and the homepage's course query all key off the identical `published && organization.verified && organization.academyParticipant && organization.isActive` condition — a course disappears from every one of these surfaces the instant any one fact goes false, and reappears the instant it's true again, with the course row/enrollments/certificates never touched. `/courses/[slug]/learn` (an already-enrolled learner's own access) is deliberately exempt from this gate — historical access persists regardless of the organization's current state.
+- **Public Organization provider profile** (`/organizations/[slug]`) — public, unauthenticated, re-verifies `verified && isActive` independently at the detail-page level (never relying only on `/organizations`'s list filter, since a slug is guessable). Two independent badges: "✓ Verified Organization" (always, since the page requires it) and "✓ MEGA Academy Provider" (only if `academyParticipant`) — never combined into one compound status. Shows published courses (only when participating), Opportunities, Events, and Resources (all independent of `academyParticipant` — see below).
+- **Course → Provider reciprocal links** — the organization name on `/courses`, `/courses/[slug]`, and the homepage's course cards links to `/organizations/[organization.slug]`, completing the reverse direction of the provider→course journey the profile page established.
+- **Opportunity, Event, Resource ownership** — all three belong to `Organization` (or `School`) independently of `academyParticipant`; an Organization's general public presence (Opportunities/Events/Resources) is never gated by whether it currently offers MEGA Academy courses. `Opportunity` has full `POST`/`PATCH`/`DELETE` on both School and Organization sides (hard delete — no reverse relations). `Event`/`Resource` gained their Organization-side write paths in K8 — see [§10a](#10a-institutional-affiliation--context-architecture) and [§26](#26-api-architecture--major-routes).
+
+`Certificate` keeps **recipient, instructor, and issuer as separate concepts**, never conflated — `recipientUserId`, optional `instructorId` (an `Instructor` can be named with no MEGA ID at all), `issuerType` (`MEGA_EDU | ORGANIZATION | SCHOOL | JOINT` — only `ORGANIZATION` is reachable today), and a separate `associatedSchoolId` for informational school context. `Certificate.recipientUserId` already addressed recipients by `User.id` natively — the user-centric enrollment work above required no change to certificate issuance.
 
 **Issuance**: `issueCourseCertificate()` (`src/lib/certificates.ts`) is the **only** code path that creates a `Certificate` for a course — called atomically alongside marking a `CourseEnrollment` complete, so an enrollment can never end up "complete" with no certificate or vice versa.
 
@@ -855,7 +887,7 @@ A student never decided stays `ENROLLED` indefinitely. On rollover, they're excl
 
 **Display**: `CertificateDocument.tsx`, a true-to-size A4 landscape layout driven by a pure view-model builder (`buildCertificateViewModel()`), reading only frozen snapshot fields plus a live logo lookup (the one deliberate exception to the snapshot rule — see [§27](#27-business-rules--data-integrity-protections)). Shown at `/dashboard/certificates/[id]/preview` (access-gated to the recipient or a Platform Admin) and publicly, unstyled, at `/verify/[code]`.
 
-**Not built**: PDF export 🔭, QR code generation 🔭 (a space is marked but empty). A school with a logo uploaded (see [§24](#24-school-logos--user-profile-photos)) shows it here; organizations still have no `logoUrl` field at all (see [§37](#37-known-gaps--deliberate-out-of-scope-decisions)), so an organization-issued certificate always renders the name-only fallback — explicitly designed for, not a broken state.
+**Not built**: PDF export 🔭, QR code generation 🔭 (a space is marked but empty). A school with a logo uploaded (see [§24](#24-school-logos--user-profile-photos)) shows it here. `Organization.logoUrl` now exists (K6 — see §24) but was **not** wired into certificate rendering by that kilometer — an organization-issued certificate still always renders the name-only fallback, explicitly unchanged, not a broken state.
 
 *(Source: [CERTIFICATES.md](CERTIFICATES.md))*
 
@@ -870,11 +902,16 @@ An identity/media-upload layer added on top of the existing `School` and `User` 
 - **`School.logoUrl`** (pre-existing field, previously unpopulated) — now actively managed. Displayed on School Directory cards, a school's public profile page, the homepage's "Recently joined schools," and the School Admin dashboard's identity header.
 - **`User.avatarUrl`** (new field) — deliberately placed on the shared `User` model, **not** duplicated onto `Teacher`, `Student`, or `Parent`. This follows MEGA ID's core principle directly: **one identity, many roles** — a person's photo is a property of *them*, not of any one role they hold, so the same avatar automatically appears across every dashboard/list surface regardless of which role is being viewed.
 
+### Organization logo (K6)
+
+`Organization.logoUrl String?` (nullable, `db push`-added — no migration file). `POST`/`DELETE /api/organizations/[id]/logo`, gated by `requireOrgAdmin(organizationId)` only — **not** `requireOrgFinance`, so an Accountant cannot set or remove it. Reuses `saveUploadedImage`/`deleteUploadedImage` from `src/lib/uploads.ts` completely unchanged (same validation, same replace/delete-ordering lifecycle described below), storing under `public/uploads/organizations/{id}/` alongside `public/uploads/schools/{id}/`. Displayed via the same shared `Avatar` component (`variant="school"` — the existing institutional-mark styling; no new variant was added) on the Organization Dashboard, `/organizations`, and `/organizations/[slug]`.
+
 ### API routes & authorization
 
 | Route | Methods | Authorization |
 |---|---|---|
 | `/api/schools/[id]/logo` | `POST` (upload/replace), `DELETE` (remove) | `requireSchoolAdmin(schoolId)` — the same helper every other school-profile write route uses |
+| `/api/organizations/[id]/logo` | `POST` (upload/replace), `DELETE` (remove) | `requireOrgAdmin(organizationId)` — mirrors the School route exactly |
 | `/api/user/avatar` | `GET` (read own), `POST` (upload/replace), `DELETE` (remove) | Session-based self-service only — the caller's own `userId`, inline-checked the same way `/api/interests` already does. There is no route or code path through which one user can set another user's `avatarUrl`. |
 
 ### Upload validation
@@ -1174,10 +1211,8 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | Gap | Detail |
 |---|---|
 | `School.isActive`/`Organization.isActive` never set to `false` | Read in two places, no deactivation action exists anywhere |
-| Organization verification not enforced | Nothing checks `Organization.verified` before course publishing or enrollment |
 | SQLite-specific bulk-write transaction pattern | Would misbehave on PostgreSQL — see [§33](#33-database-migration--update-procedures) |
 | No automated test suite | See [§34](#34-development-workflow--verification) for the manual substitute |
-| `Organization` has no `logoUrl` field | Certificates fall back to name-only for organization-issued certificates |
 | "Roll No." on Class Overview is display-only | Not a persisted schema field — a per-section sequential position computed at render time |
 | School logo / avatar uploads assume a persistent local filesystem | Appropriate for the current dev/traditional-server model; would need an object-storage adapter before serverless deployment — see [§24](#24-school-logos--user-profile-photos), [§31](#31-deployment--setup-requirements) |
 
@@ -1215,7 +1250,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | Filtering | No Grade/Section/Subject or category filtering on the Admin Calendar |
 | Weekly holiday | Hardcoded to Saturday — no `School` field, no per-school configuration |
 | Day Status | Overlapping statuses never blend — one dominant value only, by fixed priority |
-| Organization Calendar | Organizations have no institutional-context parity with Schools — no affiliation-status table, no `verifyOrgAccess()` |
+| Full Organization Calendar subsystem | **Partially resolved (K8)** — Organization Event management (create/edit/deactivate, `requireOrgAdmin`-gated, public display on `/organizations/[slug]`) now exists; what remains missing is the School-equivalent Annual/Agenda multi-view Calendar page and inclusion in the public `/calendar` projection layer (`src/lib/events.ts` untouched by K8) |
 | Interaction model | Recurring events, calendar sync/export/subscriptions, notifications, an interactive Week/Day scheduling grid, drag/drop |
 
 ### 🔭 My Profile (Kilometer 1) — deliberate scope decisions
@@ -1237,7 +1272,7 @@ The complete, individually-re-verified list is maintained in [KNOWN_GAPS.md](KNO
 | Gap | Detail |
 |---|---|
 | Several dashboard areas still resolve school context via the legacy arbitrary-pick pattern | Initial Setup, New Session, Assessment Frameworks, and Assessment Results still use a plain `findFirst({ userId })` pick rather than one of the three proven migration patterns ([§10a](#10a-institutional-affiliation--context-architecture)) — in-progress migration debt, not a security gap (every write route independently re-checks ownership of the resource being changed). `/dashboard/profile` is no longer on this list — My Profile K1 shows every affiliation/administered-school row at once rather than resolving to a single "current" school, so it never needed the chooser pattern in the first place |
-| Organization Admin has the identical arbitrary-pick gap | Every Organization Admin page resolves its organization via `organizationAdmin.findFirst({ userId })` — Phase 4D's institutional-context work was scoped to Schools only; a parallel Organization-side initiative would be needed |
+| Organization 2+-organization chooser UX doesn't exist yet | **Resolved for the arbitrary-pick itself** — `dashboard/page.tsx`'s `ORGANIZATION_ADMIN` branch now resolves via `getAccessibleOrganizations()` (see [§10a](#10a-institutional-affiliation--context-architecture)), never `findFirst()`. What remains missing is a genuine chooser/switcher UX for 2+ organizations — today that case shows a non-interactive boundary listing, not a working switcher |
 | Student simultaneous multi-school affiliation is an undecided product policy | `StudentSchoolAffiliation` permits 2+ simultaneous `ACTIVE` rows (schema-unrestricted, mirroring Teacher), but unlike Teacher this has never been explicitly designed for, tested, or business-approved — nothing blocks it today, nothing was built assuming it happens |
 
 *(Source: [KNOWN_GAPS.md](KNOWN_GAPS.md))*

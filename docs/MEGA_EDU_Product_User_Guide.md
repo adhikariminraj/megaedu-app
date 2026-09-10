@@ -1,7 +1,7 @@
 # MEGA.EDU — Product & User Guide
 
 > **Audience**: school administrators, principals, teachers, staff, parents, and students.
-> **Last verified**: 2026-09-09 (Student Profile Academic Snapshot, assignment-scoped teacher access, and Parent dashboard identity/snapshot fields), against what is actually available in the app today.
+> **Last verified**: 2026-09-10 (K1-K8 reconciliation — organization provider profile, logo, Opportunity edit/delete, Events & Resources, course↔provider navigation), against what is actually available in the app today.
 > This guide describes only features that exist and work in MEGA.EDU right now. Where something is planned for later but not available yet, it is clearly marked **(Coming later)** rather than described as if you can use it today.
 
 ---
@@ -492,7 +492,9 @@ From your school's Calendar page, **+ Add Event** creates a one-time school even
 
 ### What's not here yet (Coming later)
 
-A Bikram Sambat (BS) date alongside the Gregorian date, recurring/repeating events, calendar notifications or reminders, syncing to Google Calendar or another calendar app, filtering by grade/section/subject, and an Organization-level calendar are all planned for later, not available today.
+A Bikram Sambat (BS) date alongside the Gregorian date, recurring/repeating events, calendar notifications or reminders, syncing to Google Calendar or another calendar app, and filtering by grade/section/subject are all planned for later, not available today.
+
+**A note on Organizations**: an Organization Admin can now post and manage their own Events (see [Section 12](#12-certificates-and-mega-academy)), and those Events show on the organization's public profile — but a full Organization-level Calendar page, with the same Annual/Agenda views a school gets, is not part of the current implementation.
 
 ---
 
@@ -512,6 +514,50 @@ If your organization is evaluating MEGA.EDU or training new staff, ask your syst
 
 - **Free online courses** — organizations can publish courses on MEGA Academy; any teacher or student can enroll in a free one and work through its modules and lessons.
 - **Course completion certificates** — completing a free course automatically issues a certificate the moment the enrollment is marked complete. You can view it on a dedicated preview page, or share the public verification link with anyone (no login required for them to check it's real).
+
+### Your organization's public profile
+
+**What is this?** Your organization's own public page on MEGA.EDU — at `/organizations/your-organization-slug` — showing your name, description, website, logo, verification status, and (if you participate) your published MEGA Academy courses, plus your posted Opportunities and Events/Resources.
+
+**Who can see it?** Anyone, once a Platform Administrator has verified your organization — the same one-time review a school goes through.
+
+**How visitors reach it:** From the public Organizations directory, or by clicking your organization's name on any course you publish (the course page and course listing both link back to you).
+
+### MEGA Academy participation
+
+**What is this?** A separate, self-service choice from verification — whether your organization is actively offering courses on MEGA Academy right now.
+
+**Who can use it?** Any Organization Admin, from your dashboard.
+
+**How to use it:** Choose **Start participating**/**Stop participating** on your dashboard at any time. Turning participation off immediately stops your courses from appearing publicly or accepting new enrollments — it never deletes, unpublishes, or otherwise touches your existing courses, enrollments, or certificates, and turning it back on restores public visibility immediately.
+
+### Your organization's logo
+
+**What is this?** Your organization's own logo, shown on the public Organizations directory and your organization's profile page, instead of a generic placeholder — the same treatment a school's logo gets.
+
+**Who can use it?** Any Organization Admin for that organization.
+
+**How to use it:** From your dashboard, find the **Organization Logo** section. Choose **Upload logo** and pick a PNG, JPEG, or WebP image up to 2MB. Uploading a new image replaces the current one; choose **Remove** to clear it.
+
+**No logo yet?** Your organization still looks intentional — MEGA.EDU shows a clean, bordered monogram made from your organization's initials everywhere the logo would otherwise appear.
+
+### Managing your Opportunities
+
+**What is this?** Scholarships, competitions, events, and jobs your organization posts for the network — the same Opportunities feature schools have.
+
+**How to use it:** From your dashboard's Opportunities tab, **+ Post Opportunity** to add one. Each posted opportunity now has **Edit** and **Delete** options, so a mistake or an outdated listing can be corrected or removed directly, rather than left inaccurate.
+
+### Organization Events & Resources
+
+**What is this?** A way for your organization to post its own upcoming Events (an open house, a webinar, an info session) and share Resources (a lesson plan, a guide, a link to a file) with the network — separate from MEGA Academy courses.
+
+**Who can use it?** Any Organization Admin, from your dashboard's **Events & Resources** tab.
+
+**How to use it:** **+ Add Event** to post an event (title, date, optional time, location, or online link). Posted events show **Edit** and **Deactivate** — deactivating removes it from your public profile without deleting the record, the same convention a school's own Events use. **+ Add Resource** to share a resource (title, description, an optional link, subject, and grade level). Resources show **Edit** and **Delete**.
+
+**Where these appear:** Your active Events and your Resources both show on your organization's public profile page, alongside your Opportunities.
+
+**Important rule:** Posting Events or Resources does **not** require MEGA Academy participation — they're a general part of your organization's public presence, available whether or not you currently offer courses.
 
 ### Not available yet (Coming later)
 
@@ -559,6 +605,12 @@ A Unit Test is a quick, informal check tied to one teaching chapter. The Assessm
 **Q: Can I buy a course on MEGA Academy?**
 Not yet — only free courses can currently be enrolled in.
 
+**Q: Can I edit or remove an Opportunity, Event, or Resource I posted for my organization?**
+Opportunities and Resources can be edited or deleted at any time. Events can be edited or deactivated (removed from your public profile) but not permanently deleted, the same as a school's own Events.
+
+**Q: Does my organization need to be a MEGA Academy provider to post Opportunities, Events, or Resources?**
+No — MEGA Academy participation only affects your courses. Opportunities, Events, and Resources are part of your organization's general public presence and work whether or not you currently offer courses.
+
 **Q: Is "Roll No." on the Class Overview a permanent student ID?**
 No — it's simply each student's position in the list within their section, recalculated every time the page is viewed. It isn't stored anywhere as a permanent student record.
 
@@ -600,6 +652,11 @@ That's the day's status — green means a school vacation, orange/amber means an
 | **Parent-Teacher Meeting (PTM)** | A scheduled meeting between a teacher and a parent |
 | **Certificate** | A verifiable credential issued automatically on course completion |
 | **MEGA Academy** | The part of MEGA.EDU where organizations publish free online courses |
+| **Organization** | A training provider/publisher's own institutional identity on MEGA.EDU — independent of School, with its own verification, public profile, logo, Opportunities, Events, and Resources |
+| **MEGA Academy Participation** | An organization's separate, self-service choice to actively offer courses on MEGA Academy — independent of verification; turning it off never affects existing courses, enrollments, or certificates |
+| **Organization Logo** | An organization's uploaded logo, shown on its Directory card and profile; shows as an initials monogram when none is uploaded |
+| **Organization Event** | A one-time event an organization posts (open house, webinar, info session), shown on its public profile; edited or deactivated, never permanently deleted |
+| **Organization Resource** | A lesson plan, guide, or link an organization shares publicly on its profile |
 
 ---
 

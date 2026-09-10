@@ -60,7 +60,13 @@ This is the **only** enrollment access method that exists — there is no invite
 
 `/organizations` now links each card to this profile page and shows the same "MEGA Academy Provider" badge for participating organizations, continuing to list every verified organization regardless of participation (per the approved "Organization existence ≠ Academy participation" decision) — never filtered by `academyParticipant`.
 
-**Explicitly deferred to a later kilometer**: the global `/courses` catalogue and `/courses/[slug]` still key off `published` alone, not yet `organization.verified`/`academyParticipant` — meaning a course from a since-non-participating organization can still appear there, just not be enrollable. This is a known, already-designed, not-yet-implemented gap (see the Provider Profile + Course Activity design), deliberately out of scope for this kilometer.
+## Global Academy read-time visibility ✅
+
+`/courses`, `/courses/[slug]`, and the homepage's course query all key off the identical condition: `published && organization.verified && organization.academyParticipant && organization.isActive`. A course from an organization that later loses any one of those three facts (unverified, stops participating, or deactivated) simply stops appearing at every one of these surfaces the moment the fact changes, and reappears the moment it's true again — the course row itself, its enrollments, and any issued certificates are never touched. `/courses/[slug]/learn` (an already-enrolled learner's own access) is deliberately **not** subject to this gate — historical access is preserved regardless of the organization's current state.
+
+## Course → Provider reciprocal links ✅
+
+The organization/provider name on `/courses`, `/courses/[slug]`, and the homepage's "Explore the Network" course cards is a real link to `/organizations/[organization.slug]` (not plain text), completing the reverse direction of the journey the Public Organization provider profile (above) established — a visitor can now move from a course to its provider and back. Where a card's own link (to the course) and the new provider link would otherwise nest inside one another, the card was restructured into a plain wrapper containing two independent links rather than one link wrapping the whole card — a technical necessity to avoid invalid nested `<a>` elements, not a visual redesign.
 
 ## Course completion & certificates ✅
 

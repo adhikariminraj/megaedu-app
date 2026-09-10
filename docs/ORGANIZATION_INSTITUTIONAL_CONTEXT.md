@@ -1,7 +1,7 @@
 # Organization Institutional Context
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10, against the current codebase.
+> Last verified: 2026-09-10 (K1-K8 reconciliation), against the current codebase.
 
 ## Why this exists ✅
 
@@ -56,6 +56,28 @@ The `ACCOUNTANT` branch (`AccountantDashboard.tsx`) already correctly listed eve
 ## Accountant revoke ✅
 
 `DELETE /api/organizations/[id]/accountants/[userId]` — the smallest capability closing a real, confirmed gap: a grant path for `OrganizationAccountant` existed with no matching revoke path. Gated by the existing `requireOrgAdmin(params.id)` — never by the global `UserRole` flag alone. Deletes only the `OrganizationAccountant` join row (via its own `@@unique([userId, organizationId])` key, the same idiom already used for `SchoolApproach` removal) — never the target `User`, the `Organization`, or their global `ACCOUNTANT` role flag (which may still be earned/needed elsewhere, e.g. a School accountant grant). No history or status is recorded — matching `SchoolAdmin`/`SchoolAccountant`'s existing plain-delete precedent; nothing in this codebase consumes org-role removal history.
+
+## Organization Logo ✅
+
+`Organization.logoUrl String?` (nullable, `db push`-added — no migration file, matching every other schema change in this project). Managed exclusively via `POST`/`DELETE /api/organizations/[id]/logo`, gated by `requireOrgAdmin(params.id)` only (never `requireOrgFinance` — an Accountant cannot set or remove the logo). Reuses the exact upload infrastructure School logos already use (`src/lib/uploads.ts`'s `saveUploadedImage`/`deleteUploadedImage` — magic-byte-validated PNG/JPEG/WebP, 2MB cap, UUID filename, stored under `public/uploads/organizations/{id}/`), no new upload system. Displayed via the shared `Avatar` component (`variant="school"` — the existing institutional-mark styling, not a new variant) on the Organization Dashboard, the `/organizations` directory, and the public `/organizations/[slug]` profile; falls back to the existing bordered-initials-monogram treatment when `null`. Certificates issued by an Organization still render the name-only fallback described in [CERTIFICATES.md](CERTIFICATES.md) — the logo was not wired into certificate rendering by this kilometer.
+
+## Organization Events & Resources ✅
+
+Both `Event` and `Resource` already carried a nullable `organizationId` alongside `schoolId` before this kilometer (polymorphic ownership, unused on the Organization side). This kilometer added the Organization-side write paths only — no schema change.
+
+- **Events**: `POST`/`PATCH /api/organizations/[id]/events(/[eventId])`, `requireOrgAdmin`-only, `organizationId` always taken from the URL (never accepted from the client body). No `DELETE` route — deactivation is `PATCH { isActive: false }`, matching School Event's existing convention on the same shared `Event` model exactly. Managed from a new "Events & Resources" tab on `OrgDashboard.tsx` (`OrganizationEventPoster.tsx`, styled after `OpportunityPoster.tsx`, not School's dedicated Calendar page/`CalendarEventForm.tsx` — those remain untouched). Active events display publicly on `/organizations/[slug]` (capped at 5, ordered by `startsAt`).
+- **Resources**: `POST`/`PATCH`/`DELETE /api/organizations/[id]/resources(/[resourceId])`, `requireOrgAdmin`-only, same URL-derived-ownership and forgery-prevention pattern. Hard `DELETE` is safe — `Resource` has no reverse relations anywhere in the schema (same justification already established for `Opportunity`). This is the *first* write path `Resource` has ever had for either School or Organization. Managed via `OrganizationResourcePoster.tsx`, same tab. Displays publicly on `/organizations/[slug]` (capped at 5).
+
+**Neither is gated by `academyParticipant`.** That flag governs MEGA Academy course publish/enroll/visibility only (see below) — an Organization's Events and Resources are a general institutional-presence fact, visible under the same `verified && isActive` page-level guard `/organizations/[slug]` already enforces for everything else on the page, exactly like Opportunities.
+
+**What this is not**: a full Organization Calendar. No Annual/Agenda multi-view grid, no dedicated `/dashboard/organizations/[id]/calendar`-style page, no inclusion in the public `/calendar` page's projection layer (`src/lib/events.ts` and `CalendarEventForm.tsx` are untouched). See [KNOWN_GAPS.md](KNOWN_GAPS.md) for what remains deferred.
+
+## Organization Institutional Context vs. MEGA Academy Participation — the distinction ✅
+
+These are two independent, deliberately separate facts, both scoped to `Organization` but governing different things:
+
+- **Institutional context** (this document) — *who* has administrative access to an Organization's own data (`OrganizationAdmin`/`OrganizationAccountant`, resolved via `getAccessibleOrganizations()`/`verifyOrgAccess()`) and *what* that Organization is allowed to do as an institution (post Opportunities, Events, Resources, once `verified`). This governs authorization and general public presence.
+- **`Organization.academyParticipant`** (see [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md)) — a separate, self-service boolean, independent of `verified`, that governs *only* whether the Organization's MEGA Academy courses are publishable/enrollable/publicly visible. A verified, fully institutionally-accessible Organization may have `academyParticipant: false` and still post Opportunities/Events/Resources normally — Academy participation is strictly narrower in scope than institutional verification, and nothing in this document's Events/Resources/logo capabilities depends on it.
 
 ## What's intentionally deferred 🔭
 

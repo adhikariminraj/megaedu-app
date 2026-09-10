@@ -1,7 +1,7 @@
 # API Reference
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10 (Organization Academy Participation kilometer), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
+> Last verified: 2026-09-10 (K1-K8 reconciliation), against the current codebase — every route below exists in `src/app/api/**/route.ts` as documented. This is a complete inventory; nothing here is invented.
 
 All routes are ✅ implemented. "Auth" means the caller must be logged in (`getServerSession`). "Authz" is the specific `requireX` helper (see [AUTHENTICATION_AND_AUTHORIZATION.md](AUTHENTICATION_AND_AUTHORIZATION.md)) or inline check used, if any beyond plain login. Response bodies are JSON; a successful response generally includes `{ ok: true, ... }`, an error `{ error: string }`.
 
@@ -49,6 +49,7 @@ All routes are ✅ implemented. "Auth" means the caller must be logged in (`getS
 | `POST` | `/api/schools/[id]/programs` | Add a program | ✅ | `requireSchoolAdmin` | `{name, description}` |
 | `POST` | `/api/schools/[id]/news` | Post a news item | ✅ | `requireSchoolAdmin` | Fires `notifySchoolCommunity()` (best-effort) |
 | `POST` | `/api/schools/[id]/opportunities` | Post an opportunity | ✅ | `requireSchoolAdmin` | `{title, description, type, deadline?, applyUrl?}` |
+| `PATCH`/`DELETE` | `/api/schools/[id]/opportunities/[opportunityId]` | Edit or remove an opportunity | ✅ | `requireSchoolAdmin` | `PATCH` accepts an explicit allow-list (`title, description, type, deadline, applyUrl`) — server-controlled fields (`id`, `schoolId`, `createdAt`) can never be overwritten from the request body; re-verifies the opportunity's own `schoolId` against the URL's school (`404` on mismatch). `DELETE` is a real hard delete — `Opportunity` has no reverse relations anywhere in the schema |
 | `GET`/`POST` | `/api/schools/[id]/accountants` | List / grant School Accountant access | ✅ | `requireSchoolAdmin` | `POST` by email; auto-adds `ACCOUNTANT` role if missing; `404` if no MEGA ID with that email, `alreadyGranted: true` if already linked |
 | `DELETE` | `/api/schools/[id]/accountants/[userId]` | Revoke School Accountant access | ✅ | `requireSchoolAdmin` | Deletes only the `SchoolAccountant` join row — never the User, School, or global `ACCOUNTANT` role flag; `404` if no such grant exists at this school |
 
@@ -177,8 +178,13 @@ Auth: `requireSchoolAdmin(id) || requireTeacherAssignment(id, {..., subjectId})`
 |---|---|---|---|---|---|
 | `POST` | `/api/organizations/[id]/courses` | Create a course | ✅ | `requireOrgAdmin` | Optional inline `Instructor` creation by name |
 | `POST` | `/api/organizations/[id]/opportunities` | Post an opportunity | ✅ | `requireOrgAdmin` | Same shape as the school version |
+| `PATCH`/`DELETE` | `/api/organizations/[id]/opportunities/[opportunityId]` | Edit or remove an opportunity | ✅ | `requireOrgAdmin` | Same shape as the school version above — explicit field allow-list, ownership re-verified (`404` on cross-organization mismatch), hard `DELETE` |
 | `GET`/`POST` | `/api/organizations/[id]/accountants` | List / grant Organization Accountant access | ✅ | `requireOrgAdmin` | Same pattern as the school version |
+| `DELETE` | `/api/organizations/[id]/accountants/[userId]` | Revoke Organization Accountant access | ✅ | `requireOrgAdmin` | Deletes only the `OrganizationAccountant` join row — never the User, Organization, or global `ACCOUNTANT` role flag; `404` if no such grant exists at this organization |
 | `PATCH` | `/api/organizations/[id]` | Update this organization's own settings | ✅ | `requireOrgAdmin` | Today accepts only `academyParticipant` (boolean) — the Organization Admin's self-service MEGA Academy participation toggle, independent of Platform Admin `verified`; `400` if no valid field supplied |
+| `POST`/`DELETE` | `/api/organizations/[id]/logo` | Upload/replace or remove the organization's logo | ✅ | `requireOrgAdmin` | Reuses `saveUploadedImage`/`deleteUploadedImage` unchanged (same PNG/JPEG/WebP, 2MB-cap, magic-byte validation, UUID-filename convention School logos already use); stored under `public/uploads/organizations/{id}/`; old file deleted only after the new DB write succeeds |
+| `POST`/`PATCH` | `/api/organizations/[id]/events(/[eventId])` | Create / edit / deactivate an Organization Event | ✅ | `requireOrgAdmin` | Same shape as `/api/schools/[id]/events` — `organizationId` always from the URL, never the client body; no `DELETE` route, `isActive: false` is the only removal path |
+| `POST`/`PATCH`/`DELETE` | `/api/organizations/[id]/resources(/[resourceId])` | Create / edit / remove an Organization Resource | ✅ | `requireOrgAdmin` | First write path `Resource` has had for either School or Organization; hard `DELETE` — `Resource` has no reverse relations; `fileUrl` remains a plain client-supplied string, no upload infrastructure |
 
 ## Courses & Enrollment
 

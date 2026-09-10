@@ -1,11 +1,8 @@
 # Known Gaps & Issues
 
-> Last verified: 2026-09-09 (Homework v1 — Kilometers 3-6: Submission, Review/Feedback, Rollups, Student/Parent Visibility; plus the Academic Snapshot visibility milestone, which closed the per-student Homework Completion % gap below) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
+> Last verified: 2026-09-10 (K1-K8 reconciliation — public Organization provider profile, Academy participation/visibility, Opportunity edit/delete, Course↔Provider reciprocal links, MEGA Academy navigation label, Organization logo management, obsolete certificate backfill script removal, Organization Events & Resources) — every item below was actively re-checked against the current codebase before being listed (grep/read, not assumption). If an item is ever fixed, move it out of this file rather than leaving it marked open.
 
 ## Data model gaps
-
-### `Organization` has no logo field at all ⚠️
-Unlike `School` (which now has a real, uploadable `logoUrl` — School Admins manage it from their dashboard's Profile tab), `Organization` has no such column in the schema. The certificate system already handles this gracefully (name-only fallback), so it isn't breaking anything today, but it's a real structural gap if organization logos are ever wanted. See [DATABASE.md](DATABASE.md), [CERTIFICATES.md](CERTIFICATES.md).
 
 ### `School.isActive` / `Organization.isActive` are read but never written ⚠️
 Both fields default to `true` and are used as a filter in two places (`schools/search`, Platform Admin dashboard counts), but **no route anywhere ever sets either to `false`**. There is no deactivation action in the app. Confirmed via a direct search: `isActive` appears in exactly three files, all reads.
@@ -146,8 +143,11 @@ Unlike Evaluations (`teacherHoldsSubjectAssignment()`) or the `TeachingUnit` cre
 ### General Calendar data only covers September–December 2026 🔭
 The seeded reference list (`prisma/seed-general-calendar.ts`) was built from a live research pass that found source-cited, dated holiday data for September through December 2026 only. January–August 2026 were deliberately left out rather than guessed, per an explicit instruction not to invent or guess dates. A follow-up curation pass, checked against the Nepal Panchanga Nirnayak Bikash Samiti's determination and the Ministry of Home Affairs' annual holiday gazette, is needed to complete the year.
 
-### No Organization Calendar 🔭
-Organizations have no institutional-context parity with Schools — no affiliation-status table (`OrganizationAdmin`/`OrganizationAccountant` are flat join tables, unlike `TeacherSchoolAffiliation`), and no `verifyOrgAccess()`/`getAccessibleOrganizations()` equivalent to `verifySchoolAccess()`. Building Organization Events/Calendar now would either inherit the same "arbitrary `findFirst()` pick" gap Schools had before Phase 4D, or require building that missing foundation first — deliberately deferred, not attempted in this kilometer. `Event.organizationId` remains unused by any write path.
+### No full Organization Calendar subsystem 🔭
+**Partially resolved** (A7 — Organization Events & Resources kilometer). Organization Event *management* now exists: an Organization Admin can create/edit/deactivate their own Events (`POST`/`PATCH /api/organizations/[id]/events`, `requireOrgAdmin`-gated, `isActive: false` deactivation — no `DELETE`, matching School Event's own convention on the same shared `Event` model), and active Organization Events display publicly on `/organizations/[slug]` (capped at 5, ordered by `startsAt`). What remains genuinely unbuilt is the *School-equivalent Calendar experience* — no Annual/Agenda multi-view grid, no `/dashboard/schools/[id]/calendar`-style dedicated page, no inclusion in the public `/calendar` page's projection layer (`src/lib/events.ts` is untouched by this kilometer, by design), and Organization still has no institutional-context history layer (`OrganizationAdmin`/`OrganizationAccountant` remain flat join tables — see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md)). `getAccessibleOrganizations()`/`verifyOrgAccess()` already exist (Organization Institutional Context kilometer) and are not a blocker for any future Calendar work.
+
+### No Organization Resource management beyond the basic list/create/edit/delete built in A7 🔭
+Organization Resources (`POST`/`PATCH`/`DELETE /api/organizations/[id]/resources`, hard delete — Resource has no reverse relations) now exist and display publicly on `/organizations/[slug]` (capped at 5), but there is no file-upload mechanism for `Resource.fileUrl` (it remains a plain, manually-entered string, unlike `School.logoUrl`/`Organization.logoUrl`, which do have real upload infrastructure) and no subject/grade/approach-based filtering on the public `/resources` page for either School- or Organization-owned resources.
 
 ### No Event public/private visibility flag 🔭
 Every K1-created School Event is public by default, matching `NewsPost`/`Opportunity`'s existing precedent (neither has a privacy flag either). A "keep this internal-only" flag is a small, additive column that can be added later if a school ever asks for it — not built now.
