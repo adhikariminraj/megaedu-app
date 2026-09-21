@@ -8,7 +8,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { courseId: 
 
   const body = await req.json();
   const data: Record<string, unknown> = {};
-  if (typeof body.title === "string") data.title = body.title;
+  if (body.title !== undefined) {
+    const trimmedTitle = typeof body.title === "string" ? body.title.trim() : "";
+    if (!trimmedTitle) {
+      return NextResponse.json({ error: "Course title is required." }, { status: 400 });
+    }
+    data.title = trimmedTitle;
+  }
   if (typeof body.description === "string") data.description = body.description;
   if (typeof body.published === "boolean") data.published = body.published;
   if (typeof body.priceCents === "number") data.priceCents = body.priceCents;
@@ -42,6 +48,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { courseId: 
         { error: "This organization must opt into MEGA Academy participation before publishing a course." },
         { status: 403 }
       );
+    }
+    // A course can be saved as a draft with zero lessons, but never
+    // published without at least one — enforced here, not only in the UI.
+    const lessonCount = await prisma.lesson.count({ where: { module: { courseId: params.courseId } } });
+    if (lessonCount === 0) {
+      return NextResponse.json({ error: "Add at least one lesson before publishing this course." }, { status: 400 });
     }
   }
 
