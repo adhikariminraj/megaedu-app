@@ -65,7 +65,7 @@ export default async function SelfCalendarPage() {
 
   const parent = await prisma.parent.findUnique({
     where: { userId },
-    include: { children: { include: { student: true } } },
+    include: { children: { where: { confirmedAt: { not: null } }, include: { student: true } } },
   });
   if (parent) {
     const general = await fetchGeneralCalendarItems(window);
