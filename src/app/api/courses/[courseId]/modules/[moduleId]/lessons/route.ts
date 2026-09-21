@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCourseOwner } from "@/lib/authorize";
+import { parseVideoUrl } from "@/lib/academyContent";
 
 export async function POST(
   req: NextRequest,
@@ -19,30 +20,14 @@ export async function POST(
     return NextResponse.json({ error: "Title and content are required." }, { status: 400 });
   }
 
-  // videoUrl is optional, but when present it must be an http(s) URL —
-  // rendered to enrolled learners as a link, so any other scheme
-  // (javascript:, data:, ...) is rejected server-side.
-  let safeVideoUrl: string | null = null;
-  if (videoUrl !== undefined && videoUrl !== null && videoUrl !== "") {
-    if (typeof videoUrl !== "string") {
-      return NextResponse.json({ error: "Video link must be an http or https URL." }, { status: 400 });
-    }
-    const trimmedUrl = videoUrl.trim();
-    let protocol: string | null = null;
-    try {
-      protocol = new URL(trimmedUrl).protocol;
-    } catch {
-      protocol = null;
-    }
-    if (trimmedUrl && protocol !== "http:" && protocol !== "https:") {
-      return NextResponse.json({ error: "Video link must be an http or https URL." }, { status: 400 });
-    }
-    safeVideoUrl = trimmedUrl || null;
-  }
+  const video = parseVideoUrl(videoUrl);
+  if (!video.ok) return NextResponse.json({ error: video.error }, { status: 400 });
 
-  const count = await prisma.lesson.count({ where: { moduleId: params.moduleId } });
+  // max + 1 (not the row count) so an order never collides with an
+  // existing lesson once lessons can be deleted.
+  const last = await prisma.lesson.aggregate({ where: { moduleId: params.moduleId }, _max: { order: true } });
   const lesson = await prisma.lesson.create({
-    data: { moduleId: params.moduleId, title, content, videoUrl: safeVideoUrl, order: count },
+    data: { moduleId: params.moduleId, title, content, videoUrl: video.value, order: (last._max.order ?? -1) + 1 },
   });
 
   return NextResponse.json({ ok: true, lesson });

@@ -13,7 +13,7 @@ export default async function CourseDetailPage({ params }: { params: { slug: str
     include: {
       organization: true,
       approach: true,
-      modules: { include: { lessons: true }, orderBy: { order: "asc" } },
+      modules: { include: { lessons: { orderBy: { order: "asc" } } }, orderBy: { order: "asc" } },
     },
   });
 

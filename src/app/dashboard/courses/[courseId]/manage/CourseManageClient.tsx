@@ -22,6 +22,56 @@ export default function CourseManageClient({ course }: { course: Course }) {
   const [openModuleId, setOpenModuleId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editingModuleId, setEditingModuleId] = useState<string | null>(null);
+  const [moduleTitleDraft, setModuleTitleDraft] = useState("");
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [lessonDraft, setLessonDraft] = useState({ title: "", content: "", videoUrl: "" });
+
+  async function authoringCall(url: string, method: "PATCH" | "DELETE", body?: unknown): Promise<boolean> {
+    setActionError(null);
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setActionError(data.error || "Something went wrong.");
+      return false;
+    }
+    router.refresh();
+    return true;
+  }
+
+  async function saveModuleTitle(moduleId: string) {
+    if (!moduleTitleDraft.trim()) return;
+    if (await authoringCall(`/api/courses/${course.id}/modules/${moduleId}`, "PATCH", { title: moduleTitleDraft })) {
+      setEditingModuleId(null);
+    }
+  }
+
+  async function deleteModule(m: CourseModule) {
+    if (!confirm(`Delete module "${m.title}" and its ${m.lessons.length} lesson(s)? This cannot be undone.`)) return;
+    await authoringCall(`/api/courses/${course.id}/modules/${m.id}`, "DELETE");
+  }
+
+  function startEditLesson(l: Lesson) {
+    setEditingLessonId(l.id);
+    setLessonDraft({ title: l.title, content: l.content, videoUrl: l.videoUrl || "" });
+  }
+
+  async function saveLesson(moduleId: string, lessonId: string) {
+    if (!lessonDraft.title.trim() || !lessonDraft.content.trim()) return;
+    if (await authoringCall(`/api/courses/${course.id}/modules/${moduleId}/lessons/${lessonId}`, "PATCH", lessonDraft)) {
+      setEditingLessonId(null);
+    }
+  }
+
+  async function deleteLesson(moduleId: string, l: Lesson) {
+    if (!confirm(`Delete lesson "${l.title}"? This cannot be undone.`)) return;
+    await authoringCall(`/api/courses/${course.id}/modules/${moduleId}/lessons/${l.id}`, "DELETE");
+  }
 
   async function addModule() {
     if (!newModuleTitle.trim()) return;
@@ -107,6 +157,10 @@ export default function CourseManageClient({ course }: { course: Course }) {
 
       <h2 className="text-lg font-semibold text-slate-800 mb-4">Modules &amp; Lessons</h2>
 
+      {actionError && (
+        <p className="text-sm text-mega-red bg-red-50 border border-red-200 rounded-lg px-4 py-2 mb-4">{actionError}</p>
+      )}
+
       <div className="space-y-4 mb-8">
         {course.modules.map((m, i) => (
           <div key={m.id} className="border border-slate-200 rounded-xl p-5">
@@ -120,12 +174,96 @@ export default function CourseManageClient({ course }: { course: Course }) {
               <span className="text-slate-400 text-sm">{openModuleId === m.id ? "−" : "+"}</span>
             </button>
 
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+              {editingModuleId === m.id ? (
+                <>
+                  <input
+                    value={moduleTitleDraft}
+                    onChange={(e) => setModuleTitleDraft(e.target.value)}
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-sm"
+                  />
+                  <button onClick={() => saveModuleTitle(m.id)} className="font-semibold text-mega-green hover:underline">Save</button>
+                  <button onClick={() => setEditingModuleId(null)} className="text-slate-500 hover:underline">Cancel</button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setEditingModuleId(m.id); setModuleTitleDraft(m.title); }}
+                    className="font-semibold text-mega-blue hover:underline"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => authoringCall(`/api/courses/${course.id}/modules/${m.id}`, "PATCH", { move: "up" })}
+                    disabled={i === 0}
+                    className="text-slate-600 hover:underline disabled:opacity-30"
+                  >
+                    ↑ Up
+                  </button>
+                  <button
+                    onClick={() => authoringCall(`/api/courses/${course.id}/modules/${m.id}`, "PATCH", { move: "down" })}
+                    disabled={i === course.modules.length - 1}
+                    className="text-slate-600 hover:underline disabled:opacity-30"
+                  >
+                    ↓ Down
+                  </button>
+                  <button onClick={() => deleteModule(m)} className="font-semibold text-mega-red hover:underline">Delete</button>
+                </>
+              )}
+            </div>
+
             {openModuleId === m.id && (
               <div className="mt-4 space-y-3">
-                {m.lessons.map((l) => (
+                {m.lessons.map((l, li) => (
                   <div key={l.id} className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-sm font-medium text-slate-700">{l.title}</p>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{l.content}</p>
+                    {editingLessonId === l.id ? (
+                      <div className="space-y-2">
+                        <input
+                          value={lessonDraft.title}
+                          onChange={(e) => setLessonDraft({ ...lessonDraft, title: e.target.value })}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <textarea
+                          value={lessonDraft.content}
+                          onChange={(e) => setLessonDraft({ ...lessonDraft, content: e.target.value })}
+                          rows={3}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <input
+                          placeholder="Video URL (optional)"
+                          value={lessonDraft.videoUrl}
+                          onChange={(e) => setLessonDraft({ ...lessonDraft, videoUrl: e.target.value })}
+                          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm"
+                        />
+                        <div className="flex gap-3 text-xs">
+                          <button onClick={() => saveLesson(m.id, l.id)} className="font-semibold text-mega-green hover:underline">Save</button>
+                          <button onClick={() => setEditingLessonId(null)} className="text-slate-500 hover:underline">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-slate-700">{l.title}</p>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{l.content}</p>
+                        <div className="flex gap-3 mt-2 text-xs">
+                          <button onClick={() => startEditLesson(l)} className="font-semibold text-mega-blue hover:underline">Edit</button>
+                          <button
+                            onClick={() => authoringCall(`/api/courses/${course.id}/modules/${m.id}/lessons/${l.id}`, "PATCH", { move: "up" })}
+                            disabled={li === 0}
+                            className="text-slate-600 hover:underline disabled:opacity-30"
+                          >
+                            ↑ Up
+                          </button>
+                          <button
+                            onClick={() => authoringCall(`/api/courses/${course.id}/modules/${m.id}/lessons/${l.id}`, "PATCH", { move: "down" })}
+                            disabled={li === m.lessons.length - 1}
+                            className="text-slate-600 hover:underline disabled:opacity-30"
+                          >
+                            ↓ Down
+                          </button>
+                          <button onClick={() => deleteLesson(m.id, l)} className="font-semibold text-mega-red hover:underline">Delete</button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
 

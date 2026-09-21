@@ -11,9 +11,11 @@ export async function POST(req: NextRequest, { params }: { params: { courseId: s
     return NextResponse.json({ error: "Module title is required." }, { status: 400 });
   }
 
-  const count = await prisma.courseModule.count({ where: { courseId: params.courseId } });
+  // max + 1 (not the row count) so an order never collides with an
+  // existing module once modules can be deleted.
+  const last = await prisma.courseModule.aggregate({ where: { courseId: params.courseId }, _max: { order: true } });
   const courseModule = await prisma.courseModule.create({
-    data: { courseId: params.courseId, title, order: count },
+    data: { courseId: params.courseId, title, order: (last._max.order ?? -1) + 1 },
   });
 
   return NextResponse.json({ ok: true, module: courseModule });
