@@ -32,6 +32,16 @@ type School = {
     position: string;
     fullName: string;
     user: { email: string } | null;
+    // Whole-Ecosystem Refinement B — concise structured responsibility
+    // data (current ACTIVE session only), shown alongside the legacy
+    // free-text `subjects` above, never replacing it.
+    academicAssignments: {
+      id: string;
+      schoolGrade: { displayName: string };
+      section: { name: string } | null;
+      subject: { name: string };
+    }[];
+    isClassTeacher: boolean;
   }[];
   students: {
     id: string;
@@ -71,12 +81,14 @@ export default function DashboardClient({
   activeSession,
   schoolGrades,
   allApproaches,
+  contextNote,
 }: {
   school: School;
   userName: string;
   activeSession: { id: string; name: string } | null;
   schoolGrades: SchoolGradeOption[];
   allApproaches: ApproachOption[];
+  contextNote?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"profile" | "programs" | "news" | "opportunities" | "staff" | "students" | "finance">("profile");
@@ -492,6 +504,7 @@ export default function DashboardClient({
       <DashboardHero
         name={userName}
         subtitle={`Here's what's new at ${school.name}.`}
+        contextNote={contextNote}
         cards={heroCards.slice(0, 3)}
         avatar={{ url: school.logoUrl, label: school.name, variant: "school" }}
       />
@@ -971,8 +984,31 @@ export default function DashboardClient({
                     </div>
                     <p className="text-sm text-slate-500">
                       {t.user?.email}
-                      {t.subjects ? ` · ${t.subjects}` : ""}
+                      {t.academicAssignments.length === 0 && t.subjects ? ` · ${t.subjects}` : ""}
                     </p>
+                    {(t.academicAssignments.length > 0 || t.isClassTeacher) && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {t.academicAssignments.slice(0, 2).map((a) => (
+                          <span
+                            key={a.id}
+                            className="text-xs bg-blue-50 text-mega-blue rounded-full px-2 py-0.5"
+                          >
+                            {a.schoolGrade.displayName} · {a.subject.name}
+                            {a.section ? ` (${a.section.name})` : ""}
+                          </span>
+                        ))}
+                        {t.academicAssignments.length > 2 && (
+                          <span className="text-xs text-slate-400 self-center">
+                            +{t.academicAssignments.length - 2} more
+                          </span>
+                        )}
+                        {t.isClassTeacher && (
+                          <span className="text-xs bg-purple-50 text-purple-700 rounded-full px-2 py-0.5">
+                            Class Teacher
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {t.approved ? (
                     <span className="text-xs font-semibold bg-green-100 text-green-700 rounded-full px-3 py-1">

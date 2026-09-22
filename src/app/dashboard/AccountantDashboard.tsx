@@ -7,16 +7,19 @@ export default function AccountantDashboard({
   userName,
   schoolLinks,
   orgLinks,
+  contextNote,
 }: {
   userName: string;
   schoolLinks: SchoolLink[];
   orgLinks: OrgLink[];
+  contextNote?: string;
 }) {
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
       <DashboardHero
         name={userName}
         subtitle="Finance access — Accountant role"
+        contextNote={contextNote}
         cards={[]}
       />
 

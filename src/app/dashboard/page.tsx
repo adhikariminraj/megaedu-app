@@ -21,6 +21,7 @@ import { getAccessibleSchools, SCHOOL_CONTEXT_COOKIE, getAccessibleOrganizations
 import { resolveOpenStudentAffiliation } from "@/lib/affiliation";
 import { resolveCurrentPlacement } from "@/lib/gradeHistory";
 import SchoolChooser from "@/components/SchoolChooser";
+import { describeOtherRoles } from "@/lib/roleContext";
 
 export const dynamic = "force-dynamic";
 
@@ -205,6 +206,40 @@ export default async function DashboardPage() {
         fullName: a.teacher.fullName,
         user: a.teacher.user,
       }));
+
+      // Whole-Ecosystem Refinement B — concise structured responsibility
+      // data for the Staff list, alongside (never replacing) the legacy
+      // free-text Teacher.subjects still shown above. Scoped to this
+      // school's current ACTIVE session and this school's own affiliated
+      // teachers only — same isolation as the academics page.
+      let academicAssignmentsByTeacherId: Record<
+        string,
+        { id: string; schoolGrade: { displayName: string }; section: { name: string } | null; subject: { name: string } }[]
+      > = {};
+      let classTeacherByTeacherId: Record<string, boolean> = {};
+      if (activeSession && teachers.length > 0) {
+        const teacherIds = teachers.map((t) => t.id);
+        const [assignments, classAssignments] = await Promise.all([
+          prisma.teacherAcademicAssignment.findMany({
+            where: { academicSessionId: activeSession.id, teacherId: { in: teacherIds } },
+            include: { schoolGrade: true, section: true, subject: true },
+            orderBy: { createdAt: "asc" },
+          }),
+          prisma.classTeacherAssignment.findMany({
+            where: { academicSessionId: activeSession.id, teacherId: { in: teacherIds } },
+            select: { teacherId: true },
+          }),
+        ]);
+        for (const a of assignments) {
+          (academicAssignmentsByTeacherId[a.teacherId] ||= []).push({
+            id: a.id,
+            schoolGrade: { displayName: a.schoolGrade.displayName },
+            section: a.section ? { name: a.section.name } : null,
+            subject: { name: a.subject.name },
+          });
+        }
+        for (const c of classAssignments) classTeacherByTeacherId[c.teacherId] = true;
+      }
       const students = studentAffiliations.map((a) => ({
         id: a.student.id,
         approved: a.status === "ACTIVE",
@@ -243,7 +278,11 @@ export default async function DashboardPage() {
         <DashboardClient
           school={{
             ...schoolAdmin.school,
-            teachers,
+            teachers: teachers.map((t) => ({
+              ...t,
+              academicAssignments: academicAssignmentsByTeacherId[t.id] ?? [],
+              isClassTeacher: !!classTeacherByTeacherId[t.id],
+            })),
             students: students.map((s) => ({
               ...s,
               placement: placementByStudentId[s.id] ?? null,
@@ -257,6 +296,7 @@ export default async function DashboardPage() {
             sections: g.sections.map((sec) => ({ id: sec.id, name: sec.name })),
           }))}
           allApproaches={allApproaches.map((a) => ({ id: a.id, name: a.name }))}
+          contextNote={describeOtherRoles(roles, "SCHOOL_ADMIN")}
         />
       );
     }
@@ -334,6 +374,7 @@ export default async function DashboardPage() {
           teacher={{ ...teacher, user: teacher.user! }}
           userName={userName}
           todaysMeetings={todaysMeetings}
+          contextNote={describeOtherRoles(roles, "TEACHER")}
         />
       );
     }
@@ -397,6 +438,7 @@ export default async function DashboardPage() {
           interestsLocked={interestsLocked}
           todaysHomework={todaysHomework}
           homeworkHistory={homeworkHistory}
+          contextNote={describeOtherRoles(roles, "STUDENT")}
         />
       );
     }
@@ -492,7 +534,13 @@ export default async function DashboardPage() {
           };
         })
       );
-      return <ParentDashboard parent={{ ...parent, children: childrenWithProgress }} userName={userName} />;
+      return (
+        <ParentDashboard
+          parent={{ ...parent, children: childrenWithProgress }}
+          userName={userName}
+          contextNote={describeOtherRoles(roles, "PARENT")}
+        />
+      );
     }
   }
 
@@ -533,7 +581,10 @@ export default async function DashboardPage() {
         include: {
           organization: {
             include: {
-              courses: { include: { approach: true }, orderBy: { createdAt: "desc" } },
+              courses: {
+                include: { approach: true, _count: { select: { enrollments: true } } },
+                orderBy: { createdAt: "desc" },
+              },
               opportunities: { orderBy: { createdAt: "desc" } },
               events: { orderBy: { startsAt: "asc" } },
               resources: { orderBy: { createdAt: "desc" } },
@@ -542,7 +593,40 @@ export default async function DashboardPage() {
           },
         },
       });
-      if (orgAdmin) return <OrgDashboard organization={orgAdmin.organization} userName={userName} />;
+      if (orgAdmin) {
+        // Whole-Ecosystem Refinement D — the smallest useful signal for
+        // "what's the current state of our courses": how many learners
+        // are enrolled and how many have completed, per course. Reuses
+        // the enrollment count already fetched above (_count) plus one
+        // groupBy for completions — never a per-enrollment-row fetch, so
+        // this stays cheap regardless of how many learners a course has.
+        // Scoped entirely to this organization's own courses (already
+        // isolated by the `organization.courses` relation above).
+        const courseIds = orgAdmin.organization.courses.map((c) => c.id);
+        const completedGroups = courseIds.length
+          ? await prisma.courseEnrollment.groupBy({
+              by: ["courseId"],
+              where: { courseId: { in: courseIds }, completedAt: { not: null } },
+              _count: { _all: true },
+            })
+          : [];
+        const completedByCourseId = Object.fromEntries(completedGroups.map((g) => [g.courseId, g._count._all]));
+        const organizationWithCounts = {
+          ...orgAdmin.organization,
+          courses: orgAdmin.organization.courses.map((c) => ({
+            ...c,
+            enrollmentCount: c._count.enrollments,
+            completedCount: completedByCourseId[c.id] ?? 0,
+          })),
+        };
+        return (
+          <OrgDashboard
+            organization={organizationWithCounts}
+            userName={userName}
+            contextNote={describeOtherRoles(roles, "ORGANIZATION_ADMIN")}
+          />
+        );
+      }
     }
 
     return <CreateOrgPrompt userName={userName} />;
@@ -554,7 +638,14 @@ export default async function DashboardPage() {
       prisma.organizationAccountant.findMany({ where: { userId }, include: { organization: true } }),
     ]);
     if (schoolLinks.length > 0 || orgLinks.length > 0) {
-      return <AccountantDashboard userName={userName} schoolLinks={schoolLinks} orgLinks={orgLinks} />;
+      return (
+        <AccountantDashboard
+          userName={userName}
+          schoolLinks={schoolLinks}
+          orgLinks={orgLinks}
+          contextNote={describeOtherRoles(roles, "ACCOUNTANT")}
+        />
+      );
     }
   }
 

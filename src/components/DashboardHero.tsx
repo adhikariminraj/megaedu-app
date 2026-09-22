@@ -32,6 +32,7 @@ export default function DashboardHero({
   name,
   title,
   subtitle,
+  contextNote,
   cards,
   avatar,
 }: {
@@ -39,6 +40,10 @@ export default function DashboardHero({
   /** Overrides the default "{greeting}, {firstName}." heading when set. */
   title?: string;
   subtitle?: string;
+  /** Whole-Ecosystem Refinement F — an optional, purely informational line
+   * ("Your MEGA ID is also linked as X.") clarifying which of several
+   * roles this resolved dashboard belongs to. Never a switcher. */
+  contextNote?: string;
   cards: HeroCard[];
   /** Optional identity badge — a School's logo, or a person's own
    * profile photo — shown next to the greeting. Omit where there's
@@ -63,6 +68,7 @@ export default function DashboardHero({
               {title || `${timeGreeting()}, ${firstName}.`}
             </h1>
             {subtitle && <p className="text-slate-100 mt-1 drop-shadow">{subtitle}</p>}
+            {contextNote && <p className="text-slate-200/80 text-xs mt-2 drop-shadow">{contextNote}</p>}
           </div>
         </div>
       </div>

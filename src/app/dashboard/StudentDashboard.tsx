@@ -40,6 +40,7 @@ export default function StudentDashboard({
   todaysHomework,
   homeworkHistory,
   pendingParentRequests,
+  contextNote,
 }: {
   student: Student;
   userName: string;
@@ -53,6 +54,7 @@ export default function StudentDashboard({
   todaysHomework: HomeworkRow[];
   homeworkHistory: HomeworkHistoryRow[];
   pendingParentRequests: PendingParentRequest[];
+  contextNote?: string;
 }) {
   if (!student.school) {
     return (
@@ -116,6 +118,7 @@ export default function StudentDashboard({
       <DashboardHero
         name={userName}
         subtitle={`Student${student.gradeLevel ? ` · ${student.gradeLevel}` : ""} at ${student.school.name}`}
+        contextNote={contextNote}
         avatar={{ url: student.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />

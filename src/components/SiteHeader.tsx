@@ -88,6 +88,12 @@ export default function SiteHeader() {
               >
                 Dashboard
               </Link>
+              <Link
+                href="/dashboard/my-courses"
+                className="text-sm font-medium text-slate-700 hover:text-mega-navy"
+              >
+                My Courses
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-sm font-medium text-slate-500 hover:text-mega-red"
@@ -164,6 +170,9 @@ export default function SiteHeader() {
                 </Link>
                 <Link href="/dashboard" onClick={() => setMenuOpen(false)} className="py-2.5">
                   Dashboard
+                </Link>
+                <Link href="/dashboard/my-courses" onClick={() => setMenuOpen(false)} className="py-2.5">
+                  My Courses
                 </Link>
                 <Link
                   href="/dashboard/profile"

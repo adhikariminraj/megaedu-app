@@ -51,6 +51,31 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
   const isAdmin = access.role === "SCHOOL_ADMIN";
   const teacherAddresses = teacher.user?.addresses ?? [];
 
+  // Whole-Ecosystem Refinement A — current teaching responsibilities,
+  // read from the same structured models TeacherDashboard already
+  // renders for the teacher themselves (TeacherAcademicAssignment /
+  // ClassTeacherAssignment), scoped to THIS teacher's id and the
+  // school's current ACTIVE session only. Never the viewer's own
+  // assignments — this answers "what does THIS teacher do", not
+  // "what do I do".
+  const activeSession = await prisma.academicSession.findFirst({
+    where: { schoolId: teacher.schoolId, status: "ACTIVE" },
+  });
+  const [academicAssignments, classTeacherAssignments] = activeSession
+    ? await Promise.all([
+        prisma.teacherAcademicAssignment.findMany({
+          where: { teacherId: teacher.id, academicSessionId: activeSession.id },
+          include: { schoolGrade: true, section: true, subject: true },
+          orderBy: { createdAt: "asc" },
+        }),
+        prisma.classTeacherAssignment.findMany({
+          where: { teacherId: teacher.id, academicSessionId: activeSession.id },
+          include: { schoolGrade: true, section: true },
+          orderBy: { createdAt: "asc" },
+        }),
+      ])
+    : [[], []];
+
   function toAddressValue(a: (typeof teacherAddresses)[number] | undefined): AddressFormValue | null {
     if (!a) return null;
     return {
@@ -107,14 +132,67 @@ export default async function TeacherProfilePage({ params }: { params: { teacher
         </span>
       </p>
 
-      <div className="flex flex-wrap gap-3 text-xs mb-8">
-        <Link href="/dashboard/academics" className="text-mega-blue font-medium">
-          Manage subjects & assignments →
-        </Link>
-        <Link href="/dashboard/meetings" className="text-mega-blue font-medium">
-          Manage meetings →
-        </Link>
-      </div>
+      {isAdmin && (
+        <div className="flex flex-wrap gap-3 text-xs mb-8">
+          {/* Whole-Ecosystem Refinement C — these actions operate on the
+              SCHOOL's academics/meetings surfaces (an Admin capability),
+              not a per-teacher management context that doesn't exist yet.
+              Scoped to this teacher (?teacher=) where the target page
+              supports it; relabeled honestly where it doesn't, so a School
+              Admin never mistakes a school-wide action for one confined to
+              the profile they're viewing. Hidden entirely from a fellow
+              Teacher viewer, who holds no authority on either page. */}
+          <Link href="/dashboard/academics" className="text-mega-blue font-medium">
+            Manage school's subjects & assignments →
+          </Link>
+          <Link href={`/dashboard/meetings?teacher=${teacher.id}`} className="text-mega-blue font-medium">
+            View this teacher's meetings →
+          </Link>
+        </div>
+      )}
+
+      {teacher.approved && (
+        <div className="mb-8">
+          <h3 className="font-semibold text-slate-800 mb-1">Current Responsibilities</h3>
+          <p className="text-xs text-slate-400 mb-4">
+            {activeSession
+              ? `Academic assignments for the current session (${activeSession.name}).`
+              : "This school has no active academic session yet."}
+          </p>
+          {academicAssignments.length === 0 && classTeacherAssignments.length === 0 ? (
+            <p className="text-slate-400 text-sm">
+              {activeSession
+                ? "No academic assignments for the current session."
+                : "Nothing to show until an academic session is active."}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {academicAssignments.map((a) => (
+                <div
+                  key={a.id}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700"
+                >
+                  {a.schoolGrade.displayName} — {a.subject.name} —{" "}
+                  <span className="text-slate-400">
+                    {a.section ? `Section ${a.section.name}` : "All sections"}
+                  </span>
+                </div>
+              ))}
+              {classTeacherAssignments.map((c) => (
+                <div
+                  key={c.id}
+                  className="border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700"
+                >
+                  {c.schoolGrade.displayName} —{" "}
+                  <span className="text-slate-400">
+                    {c.section ? `Class Teacher — Section ${c.section.name}` : "Grade Coordinator"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <h3 className="font-semibold text-slate-800 mb-1">Official Address on Record</h3>

@@ -68,7 +68,15 @@ type Parent = {
   }[];
 };
 
-export default function ParentDashboard({ parent, userName }: { parent: Parent; userName: string }) {
+export default function ParentDashboard({
+  parent,
+  userName,
+  contextNote,
+}: {
+  parent: Parent;
+  userName: string;
+  contextNote?: string;
+}) {
   const childNames = parent.children.map((c) => c.student.fullName.split(" ")[0]).join(", ");
 
   const heroCards: HeroCard[] = [
@@ -101,6 +109,7 @@ export default function ParentDashboard({ parent, userName }: { parent: Parent; 
             ? `Following ${childNames}'s progress.`
             : "Link your child to get started."
         }
+        contextNote={contextNote}
         avatar={{ url: parent.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards}
       />

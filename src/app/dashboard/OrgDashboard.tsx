@@ -23,6 +23,11 @@ type Organization = {
     published: boolean;
     priceCents: number;
     approach: { name: string } | null;
+    // Whole-Ecosystem Refinement D — the smallest useful attention signal
+    // for a provider: how many learners this course actually has, and how
+    // many have finished. Not a full analytics surface.
+    enrollmentCount: number;
+    completedCount: number;
   }[];
   opportunities: { id: string; title: string; type: string; deadline: string | Date | null }[];
   events: {
@@ -53,7 +58,15 @@ const TAB_LABELS: Record<"courses" | "opportunities" | "events" | "finance", str
   finance: "Finance",
 };
 
-export default function OrgDashboard({ organization, userName }: { organization: Organization; userName: string }) {
+export default function OrgDashboard({
+  organization,
+  userName,
+  contextNote,
+}: {
+  organization: Organization;
+  userName: string;
+  contextNote?: string;
+}) {
   const router = useRouter();
   const [tab, setTab] = useState<"courses" | "opportunities" | "events" | "finance">("courses");
   const [showForm, setShowForm] = useState(false);
@@ -137,6 +150,7 @@ export default function OrgDashboard({ organization, userName }: { organization:
       <DashboardHero
         name={userName}
         subtitle={`${organization.name} — ${organization.verified ? "verified" : "pending verification"}.`}
+        contextNote={contextNote}
         cards={heroCards.slice(0, 3)}
       />
 
@@ -270,6 +284,10 @@ export default function OrgDashboard({ organization, userName }: { organization:
                     <p className="text-xs text-slate-400">
                       {c.priceCents === 0 ? "Free" : `NPR ${(c.priceCents / 100).toFixed(0)}`}
                       {c.approach ? ` · ${c.approach.name}` : ""}
+                      {" · "}
+                      {c.enrollmentCount === 0
+                        ? "No learners yet"
+                        : `${c.enrollmentCount} enrolled${c.completedCount > 0 ? ` · ${c.completedCount} completed` : ""}`}
                     </p>
                   </div>
                   <span

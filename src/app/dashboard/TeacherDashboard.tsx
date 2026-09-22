@@ -39,10 +39,12 @@ export default function TeacherDashboard({
   teacher,
   userName,
   todaysMeetings,
+  contextNote,
 }: {
   teacher: Teacher;
   userName: string;
   todaysMeetings: TeacherMeetingRow[];
+  contextNote?: string;
 }) {
   if (!teacher.school) {
     return (
@@ -102,6 +104,7 @@ export default function TeacherDashboard({
       <DashboardHero
         name={userName}
         subtitle={`${teacher.position} at ${teacher.school.name}`}
+        contextNote={contextNote}
         avatar={{ url: teacher.user.avatarUrl, label: userName, variant: "person" }}
         cards={heroCards.slice(0, 3)}
       />
