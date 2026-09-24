@@ -13,6 +13,9 @@ import DashboardHero, { HeroCard } from "@/components/DashboardHero";
 type Organization = {
   id: string;
   name: string;
+  slug: string;
+  description: string | null;
+  website: string | null;
   verified: boolean;
   academyParticipant: boolean;
   logoUrl: string | null;
@@ -75,6 +78,34 @@ export default function OrgDashboard({
   const [loading, setLoading] = useState(false);
   const [participantLoading, setParticipantLoading] = useState(false);
   const [participantError, setParticipantError] = useState<string | null>(null);
+  const [profile, setProfile] = useState({
+    description: organization.description || "",
+    website: organization.website || "",
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  // Self-service profile edit — same route as the participation toggle
+  // (requireOrgAdmin). Name/slug are intentionally not editable here.
+  async function saveProfile() {
+    setProfileSaving(true);
+    setProfileError(null);
+    setProfileSaved(false);
+    const res = await fetch(`/api/organizations/${organization.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(profile),
+    });
+    setProfileSaving(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setProfileError(data.error || "Something went wrong.");
+      return;
+    }
+    setProfileSaved(true);
+    router.refresh();
+  }
 
   // Organization Academy Participation kilometer — a plain toggle, not
   // a workflow. Independent of `verified` (Platform Admin's own gate,
@@ -189,6 +220,48 @@ export default function OrgDashboard({
           </button>
         </div>
         {participantError && <p className="text-sm text-mega-red">{participantError}</p>}
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-5 mb-8 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-slate-800">Organization Profile</p>
+          {organization.verified && (
+            <a href={`/organizations/${organization.slug}`} className="text-xs text-mega-blue font-medium">
+              View public profile →
+            </a>
+          )}
+        </div>
+        <p className="text-xs text-slate-400">
+          Shown on your public profile and in the Organizations directory. Your organization&apos;s
+          name is fixed after registration.
+        </p>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Description</label>
+          <textarea
+            value={profile.description}
+            onChange={(e) => setProfile({ ...profile, description: e.target.value })}
+            rows={3}
+            className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-mega-blue"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Website</label>
+          <input
+            value={profile.website}
+            onChange={(e) => setProfile({ ...profile, website: e.target.value })}
+            placeholder="https://..."
+            className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-mega-blue"
+          />
+        </div>
+        {profileError && <p className="text-sm text-mega-red">{profileError}</p>}
+        {profileSaved && !profileError && <p className="text-sm text-mega-green">Profile saved.</p>}
+        <button
+          onClick={saveProfile}
+          disabled={profileSaving}
+          className="bg-mega-navy text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-mega-blue transition disabled:opacity-50"
+        >
+          {profileSaving ? "Saving..." : "Save Profile"}
+        </button>
       </div>
 
       <div className="flex gap-1 border-b border-slate-200 mb-8">

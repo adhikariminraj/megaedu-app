@@ -1,7 +1,7 @@
 # Courses & Enrollments (MEGA Academy)
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10 (K1-K9 reconciliation, plus a MEGA Academy planning-scope reconciliation — Program/D3 and Certificate/D5 distinctions), against the current codebase.
+> Last verified: 2026-09-24 (Organization-strengthening block — enrollment `isActive` check, `/approaches` course filtering, `/dashboard/my-courses` correction), against the current codebase. Previous: 2026-09-10 (K1-K9 reconciliation, plus a MEGA Academy planning-scope reconciliation — Program/D3 and Certificate/D5 distinctions).
 
 ## Model ✅
 
@@ -45,24 +45,26 @@ If a school-wide or grade-specific bundle purchase model is wanted, it would nee
 
 `POST /api/courses/[courseId]/enroll`:
 - Requires login (`401` otherwise). **No institutional role is required** — any authenticated MEGA ID may enroll (Teacher, Student, Parent, Organization Admin, Organization Accountant, School Admin, Platform Admin, or a user with no profile at all). Authorization is simply "Authenticated User → eligible Academy course → enrollment."
-- Requires the course to be `published` and its organization both `verified` and `academyParticipant` (see Course publishing, above).
+- Requires the course to be `published` and its organization `verified`, `academyParticipant`, and `isActive` (see Course publishing, above) — the same condition the read-time visibility rule below uses (`isActive` added 2026-09-24; it was previously checked for visibility but not for enrollment).
 - Blocks any priced course (see above).
 - Idempotent, keyed on `(courseId, userId)`.
 - If the enrolling user holds a `Teacher` or `Student` profile, `teacherId`/`studentId` are populated on the row as contextual enrichment (see Model section above) — this is never a requirement to enroll, only an enrichment when applicable.
 
-This is the **only** enrollment access method that exists — there is no invite-only enrollment, no school-assigned bulk enrollment, and no "grade-gated" course visibility. There is also no dedicated dashboard surface for Parent/Organization-Admin/unaffiliated enrolled courses yet — completion and certificates work for them via the same API, but nothing outside `TeacherDashboard`/`StudentDashboard` currently lists "my enrolled courses" (see Deferred, below).
+This is the **only** enrollment access method that exists — there is no invite-only enrollment, no school-assigned bulk enrollment, and no "grade-gated" course visibility.
+
+**My Courses ✅ (2026-09-22):** `/dashboard/my-courses`, linked from the site header for every signed-in user, lists the viewer's own enrollments (`CourseEnrollment.findMany({ where: { userId } })` — never a route parameter), with progress, "Continue"/"Review" links to `/courses/[slug]/learn`, and a certificate link when one exists. It is role-agnostic by construction, so Parents, School Admins, Accountants, Organization Admins, and unaffiliated learners can find their courses; `TeacherDashboard`/`StudentDashboard` keep their existing inline course lists.
 
 ## Public Organization provider profile ✅ (Kilometer 1, 2026-09-10)
 
-`/organizations/[slug]` — public, unauthenticated, mirroring `/schools/[slug]`'s pattern exactly: independently re-verifies `verified && isActive` at the detail-page level (never relying only on `/organizations`'s own list filter — a slug is guessable/shareable). Displays `name`, `description`, `website`, and two **independent** trust badges — "✓ Verified Organization" (always, since the page requires it to exist at all) and "✓ MEGA Academy Provider" (only when `academyParticipant` is also true) — deliberately never combined into one compound status, per the approved Organization ↔ Academy design.
+`/organizations/[slug]` — public, unauthenticated, mirroring `/schools/[slug]`'s pattern exactly: independently re-verifies `verified && isActive` at the detail-page level (never relying only on `/organizations`'s own list filter — a slug is guessable/shareable). Displays `name`, `description`, `website` (as a link only when it is a valid `http(s)` URL — see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md), Public link safety), and two **independent** trust badges — "✓ Verified Organization" (always, since the page requires it to exist at all) and "✓ MEGA Academy Provider" (only when `academyParticipant` is also true) — deliberately never combined into one compound status, per the approved Organization ↔ Academy design.
 
 **Academy participation states**: a participating organization (`academyParticipant: true`) shows its `published` courses, each linking to `/courses/[slug]`; a non-participating one shows "Not currently offering courses on MEGA Academy" instead — its existing courses are never unpublished, deleted, or otherwise mutated by this state, only omitted from this one listing. The organization's `Opportunities` are shown regardless of Academy participation, since that relationship is independent of Academy entirely.
 
-`/organizations` now links each card to this profile page and shows the same "MEGA Academy Provider" badge for participating organizations, continuing to list every verified organization regardless of participation (per the approved "Organization existence ≠ Academy participation" decision) — never filtered by `academyParticipant`.
+`/organizations` now links each card to this profile page and shows the same "MEGA Academy Provider" badge for participating organizations, continuing to list every verified organization regardless of participation (per the approved "Organization existence ≠ Academy participation" decision) — never filtered by `academyParticipant` by default. Since 2026-09-24 the directory also requires `isActive` (matching the detail page) and offers search plus an opt-in "MEGA Academy providers only" filter chosen by the visitor (see [ORGANIZATION_INSTITUTIONAL_CONTEXT.md](ORGANIZATION_INSTITUTIONAL_CONTEXT.md)).
 
 ## Global Academy read-time visibility ✅
 
-`/courses`, `/courses/[slug]`, and the homepage's course query all key off the identical condition: `published && organization.verified && organization.academyParticipant && organization.isActive`. A course from an organization that later loses any one of those three facts (unverified, stops participating, or deactivated) simply stops appearing at every one of these surfaces the moment the fact changes, and reappears the moment it's true again — the course row itself, its enrollments, and any issued certificates are never touched. `/courses/[slug]/learn` (an already-enrolled learner's own access) is deliberately **not** subject to this gate — historical access is preserved regardless of the organization's current state.
+`/courses`, `/courses/[slug]`, the homepage's course query, and (since 2026-09-24) `/approaches/[slug]`'s course list and `/approaches`' course counts all key off the identical condition: `published && organization.verified && organization.academyParticipant && organization.isActive` — `/approaches/[slug]` previously listed every course tagged to the approach, including unpublished drafts. A course from an organization that later loses any one of those three facts (unverified, stops participating, or deactivated) simply stops appearing at every one of these surfaces the moment the fact changes, and reappears the moment it's true again — the course row itself, its enrollments, and any issued certificates are never touched. `/courses/[slug]/learn` (an already-enrolled learner's own access) is deliberately **not** subject to this gate — historical access is preserved regardless of the organization's current state.
 
 ## Course → Provider reciprocal links ✅
 
@@ -121,7 +123,7 @@ Per the Phase 2 design brief, this system was untouched by the Academic Sessions
 
 Explicitly out of scope for that change, left for future work:
 - **Instructor ↔ Teacher unification.** `Instructor` (plain-text, course-authoring) and `Teacher` (institutional, MEGA ID-backed) remain two separate concepts; not touched.
-- **A dedicated enrolled-courses dashboard surface for Parents/Organization Admins/Accountants/unaffiliated learners.** They can enroll and complete courses via the API today, but no UI lists "my enrolled courses" for them the way `TeacherDashboard`/`StudentDashboard` do.
+- ~~**A dedicated enrolled-courses dashboard surface for Parents/Organization Admins/Accountants/unaffiliated learners.**~~ Resolved 2026-09-22 by `/dashboard/my-courses` (see Enrollment, above).
 - **Organization institutional-context maturity** (historical affiliation model, `verifyOrgAccess()` equivalent) — flagged in the Master Ecosystem Map audit, not addressed here.
 - **Audit-trail generalization** for enrollment/completion events beyond the existing `CERTIFICATE_ISSUED` notification.
 - **A unified Person/Learner identity layer** spanning all roles — considered and explicitly rejected as larger than this problem (Option C in the design session); `User.id` already serves as that anchor for enrollment purposes.

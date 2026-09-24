@@ -10,7 +10,7 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
 
   const course = await prisma.course.findUnique({
     where: { id: params.courseId },
-    include: { organization: { select: { verified: true, academyParticipant: true } } },
+    include: { organization: { select: { verified: true, academyParticipant: true, isActive: true } } },
   });
   if (!course || !course.published) {
     return NextResponse.json({ error: "Course not available." }, { status: 404 });
@@ -26,8 +26,13 @@ export async function POST(_req: Request, { params }: { params: { courseId: stri
   // Organization Academy Participation kilometer — the organization
   // must ALSO still be opted into academyParticipant. Turning
   // participation off must immediately block new enrollments on that
-  // organization's courses, same as un-verifying would.
-  if (course.organization && (!course.organization.verified || !course.organization.academyParticipant)) {
+  // organization's courses, same as un-verifying would. isActive is
+  // checked too, so enrollment eligibility matches the exact condition
+  // /courses and /courses/[slug] use for visibility.
+  if (
+    course.organization &&
+    (!course.organization.verified || !course.organization.academyParticipant || !course.organization.isActive)
+  ) {
     return NextResponse.json({ error: "Course not available." }, { status: 404 });
   }
   if (course.priceCents > 0) {

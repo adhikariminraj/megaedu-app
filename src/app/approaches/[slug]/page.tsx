@@ -1,16 +1,27 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { eligibleContentOwnerWhere } from "@/lib/publicVisibility";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApproachPage({ params }: { params: { slug: string } }) {
+  // Each list applies the same public rule its own directory already
+  // enforces: schools as on /schools, courses as on /courses (published +
+  // eligible organization), resources as on /resources. Previously all
+  // three were unfiltered, so unpublished course titles and unverified
+  // schools were publicly listed here.
   const approach = await prisma.educationalApproach.findUnique({
     where: { slug: params.slug },
     include: {
-      schools: { include: { school: true } },
-      courses: true,
-      resources: true,
+      schools: { where: { school: { verified: true, isActive: true } }, include: { school: true } },
+      courses: {
+        where: {
+          published: true,
+          organization: { verified: true, academyParticipant: true, isActive: true },
+        },
+      },
+      resources: { where: eligibleContentOwnerWhere() },
     },
   });
 

@@ -6,6 +6,15 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Changed — Organization domain strengthening, 10-km block (2026-09-24)
+No schema change, no new model, no authorization-semantics change — every rule reuses one already proven elsewhere in the codebase.
+- **Fixed — public owner eligibility.** `/opportunities`, the homepage's opportunities, `/resources`, and `/approaches/[slug]` now require the owning School/Organization to be `verified && isActive` (shared `eligibleContentOwnerWhere()`, `src/lib/publicVisibility.ts`). `/approaches/[slug]` previously listed unpublished course titles and unverified schools; it and the `/approaches` counts now use the same rules as `/courses` and `/schools`. `/organizations` now also requires `isActive`.
+- **Fixed — public link safety.** `Organization.website` and `Opportunity.applyUrl` are rendered as public links; they are now validated as `http(s)` on every Organization write path and rendered only through a render-time guard (`src/lib/safeUrl.ts`), so a `javascript:`/`data:` value can never become a live link. Both links gained `rel="noopener noreferrer"`.
+- **Added — Organization directory search** (`?q=`, `?academy=1`) mirroring `/schools`, and an "Organizations" entry in the site header (the directory previously had no inbound link).
+- **Added — Organization profile self-editing** of `description`/`website` via the existing `requireOrgAdmin`-gated `PATCH /api/organizations/[id]`, from a new "Organization Profile" card on the Organization Dashboard. `name`/`slug` intentionally not editable.
+- **Changed — Academy enrollment eligibility** now also checks `Organization.isActive`, matching the course visibility condition (inert today — nothing sets `isActive: false`).
+- **Docs** — also corrected pre-existing statements that no role-agnostic "my enrolled courses" surface exists (`/dashboard/my-courses` shipped 2026-09-22) and that only teachers/students can enroll.
+
 ### Added — Organization Events & Resources (K8, 2026-09-10)
 An Organization Admin can now create/edit/deactivate their own Events and create/edit/delete their own Resources, `requireOrgAdmin`-gated, both reusing the already-polymorphic `Event`/`organizationId` and `Resource`/`organizationId` schema (no schema change). Events mirror School Event's own convention exactly — no `DELETE` route, `isActive: false` is the only removal path; Resources get a real hard `DELETE` (no reverse relations, and the first write path `Resource` has had for either owner type). Managed from a new combined "Events & Resources" tab on the Organization Dashboard; active Events and Resources both display on the public `/organizations/[slug]` profile, capped at 5 each, gated only by the page's existing `verified && isActive` guard — never by `academyParticipant`. Explicitly not a full Organization Calendar subsystem — School's Calendar page/projection layer (`src/lib/events.ts`, `CalendarEventForm.tsx`) were untouched.
 

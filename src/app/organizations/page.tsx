@@ -4,11 +4,33 @@ import Avatar from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
-export default async function OrganizationsPage() {
+export const metadata = {
+  title: "Organizations — MEGA.EDU",
+  description: "Discover verified training providers and education organizations across the MEGA.EDU network.",
+};
+
+export default async function OrganizationsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; academy?: string };
+}) {
+  const q = searchParams.q?.trim() || "";
+  const academyOnly = searchParams.academy === "1";
+
+  // Same verified && isActive guard /organizations/[slug] already enforces
+  // (previously this directory checked `verified` only). Search and filter
+  // mirror /schools' query-param form — no new search infrastructure.
   const organizations = await prisma.organization.findMany({
-    where: { verified: true },
+    where: {
+      verified: true,
+      isActive: true,
+      ...(q ? { OR: [{ name: { contains: q } }, { description: { contains: q } }] } : {}),
+      ...(academyOnly ? { academyParticipant: true } : {}),
+    },
     orderBy: { name: "asc" },
   });
+
+  const hasFilters = q || academyOnly;
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
@@ -17,8 +39,39 @@ export default async function OrganizationsPage() {
         Verified training providers, publishers and education organizations.
       </p>
 
+      <form className="mb-8 flex flex-wrap gap-3 items-end">
+        <div className="flex-1 min-w-[220px]">
+          <label className="block text-xs font-medium text-slate-500 mb-1">Search</label>
+          <input
+            name="q"
+            defaultValue={q}
+            placeholder="Organization name or description..."
+            className="w-full border border-slate-300 rounded-full px-5 py-2.5 focus:outline-none focus:ring-2 focus:ring-mega-blue"
+          />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm text-slate-600 px-2 py-2.5">
+          <input type="checkbox" name="academy" value="1" defaultChecked={academyOnly} />
+          MEGA Academy providers only
+        </label>
+
+        <button
+          type="submit"
+          className="bg-mega-navy text-white font-semibold px-6 py-2.5 rounded-full hover:bg-mega-blue transition"
+        >
+          Search
+        </button>
+        {hasFilters && (
+          <Link href="/organizations" className="text-sm text-slate-500 hover:text-slate-700 px-2 py-2.5">
+            Clear
+          </Link>
+        )}
+      </form>
+
       {organizations.length === 0 ? (
-        <p className="text-slate-400">No verified organizations yet.</p>
+        <p className="text-slate-400">
+          {hasFilters ? "No organizations match these filters." : "No verified organizations yet."}
+        </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {organizations.map((o) => (

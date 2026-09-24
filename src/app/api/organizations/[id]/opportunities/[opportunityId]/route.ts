@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireOrgAdmin } from "@/lib/authorize";
+import { parseOptionalHttpUrl } from "@/lib/safeUrl";
 
 /**
  * Edit or remove one Opportunity — Organization Admin only. Mirrors
@@ -46,7 +47,11 @@ export async function PATCH(
     data.type = trimmed;
   }
   if (body.deadline !== undefined) data.deadline = body.deadline ? new Date(body.deadline) : null;
-  if (typeof body.applyUrl === "string") data.applyUrl = body.applyUrl.trim() || null;
+  if (typeof body.applyUrl === "string") {
+    const apply = parseOptionalHttpUrl(body.applyUrl, "Apply link");
+    if (!apply.ok) return NextResponse.json({ error: apply.error }, { status: 400 });
+    data.applyUrl = apply.value;
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });

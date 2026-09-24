@@ -1,12 +1,28 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { eligibleContentOwnerWhere } from "@/lib/publicVisibility";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApproachesPage() {
+  // Counts use the same public rules as /approaches/[slug]'s own lists,
+  // so a card never advertises items the detail page won't show.
   const approaches = await prisma.educationalApproach.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { schools: true, courses: true, resources: true } } },
+    include: {
+      _count: {
+        select: {
+          schools: { where: { school: { verified: true, isActive: true } } },
+          courses: {
+            where: {
+              published: true,
+              organization: { verified: true, academyParticipant: true, isActive: true },
+            },
+          },
+          resources: { where: eligibleContentOwnerWhere() },
+        },
+      },
+    },
   });
 
   return (

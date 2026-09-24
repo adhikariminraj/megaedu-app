@@ -1,7 +1,7 @@
 # Organization Institutional Context
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-10 (K1-K8 reconciliation, plus a MEGA Academy planning-scope reconciliation — C2.2/C2.3/D3 status preserved), against the current codebase.
+> Last verified: 2026-09-24 (Organization-strengthening 10-km block — public visibility & link safety, directory search, profile self-editing; C2.2/C2.3/D3 status preserved), against the current codebase. Previous: 2026-09-10 (K1-K8 reconciliation).
 
 ## Why this exists ✅
 
@@ -79,6 +79,33 @@ These are two independent, deliberately separate facts, both scoped to `Organiza
 - **Institutional context** (this document) — *who* has administrative access to an Organization's own data (`OrganizationAdmin`/`OrganizationAccountant`, resolved via `getAccessibleOrganizations()`/`verifyOrgAccess()`) and *what* that Organization is allowed to do as an institution (post Opportunities, Events, Resources, once `verified`). This governs authorization and general public presence.
 - **`Organization.academyParticipant`** (see [COURSES_AND_ENROLLMENTS.md](COURSES_AND_ENROLLMENTS.md)) — a separate, self-service boolean, independent of `verified`, that governs *only* whether the Organization's MEGA Academy courses are publishable/enrollable/publicly visible. A verified, fully institutionally-accessible Organization may have `academyParticipant: false` and still post Opportunities/Events/Resources normally — Academy participation is strictly narrower in scope than institutional verification, and nothing in this document's Events/Resources/logo capabilities depends on it.
 
+## Public visibility of Organization-owned content ✅ (2026-09-24)
+
+The institution-level `verified && isActive` rule this document describes is now applied wherever Organization- (or School-) owned content is listed publicly, not only on `/organizations/[slug]`:
+
+- **Opportunities and Resources** — `/opportunities`, the homepage's "Explore the Network" opportunities, `/resources`, and `/approaches/[slug]` all require the owning School or Organization to be `verified && isActive` (shared rule: `eligibleContentOwnerWhere()` in `src/lib/publicVisibility.ts`). Content with no owner at all is never public. Deliberately **not** gated by `academyParticipant`, matching the distinction below.
+- **`/approaches` and `/approaches/[slug]`** — previously unfiltered. Schools now require `verified && isActive` (as on `/schools`); courses require the exact `/courses` condition (`published && organization.verified && organization.academyParticipant && organization.isActive`), so unpublished course titles are no longer listed; resources use the owner rule above. The `/approaches` card counts apply the same filters, so a card never advertises items its detail page won't show.
+- **`/organizations` directory** — now `verified && isActive` (previously `verified` only), matching its own detail page.
+
+Nothing is deleted or altered by any of these rules — an item reappears the moment its owner is eligible again.
+
+## Public link safety ✅ (2026-09-24)
+
+Two user-supplied URLs are rendered as public links: `Organization.website` (on `/organizations/[slug]`) and `Opportunity.applyUrl` (on `/opportunities`). Both now go through `src/lib/safeUrl.ts`:
+
+- **Write time** — `parseOptionalHttpUrl()` accepts only full `http://`/`https://` links (empty clears the field; `javascript:`, `data:`, bare `www.…` and every other form are rejected with a 400 and a readable message). Applied on every Organization write path: `POST /api/organizations/create-for-admin`, `POST /api/auth/register-organization`, `PATCH /api/organizations/[id]`, and `POST`/`PATCH /api/organizations/[id]/opportunities(/[opportunityId])`.
+- **Render time** — `safeHttpHref()` renders the link only if the stored value is http(s); otherwise the item still displays, just without a link. This also neutralizes any value stored before validation existed, and School-owned `applyUrl` values (School opportunity routes were deliberately not changed by this Organization-focused work — see [KNOWN_GAPS.md](KNOWN_GAPS.md)). Both links now carry `rel="noopener noreferrer"`.
+
+Same rule as Academy's lesson `videoUrl` (`parseVideoUrl`, `src/lib/academyContent.ts`), which was left untouched.
+
+## Organization directory search ✅ (2026-09-24)
+
+`/organizations` accepts `?q=` (name/description) and `?academy=1` (MEGA Academy providers only) through a plain GET form, mirroring `/schools`' existing query-param search — no new search infrastructure. "Organizations" is now in the site header navigation (desktop and mobile share the same `NAV_LINKS` array); before this the directory had no inbound link anywhere.
+
+## Organization profile self-editing ✅ (2026-09-24)
+
+`PATCH /api/organizations/[id]` — still `requireOrgAdmin`-only, still rejecting Organization Accountants — now also accepts `description` and `website` alongside `academyParticipant`, managed from an "Organization Profile" card on the Organization Dashboard. Mirrors the School Admin's own profile edit (`PATCH /api/schools/[id]`), which likewise never edits name or slug. **`name` and `slug` are deliberately not editable**: the name is what a Platform Admin verified and the slug is the public URL, so changing either after verification is a trust decision, not a form field (see deferred list).
+
 ## What's intentionally deferred 🔭
 
 - **The 2+-organization chooser UX** — explicitly out of scope for this kilometer; needs its own approval.
@@ -87,7 +114,7 @@ These are two independent, deliberately separate facts, both scoped to `Organiza
 - **`OrganizationMembership`/unified-role table** — evaluated and rejected (see above); not needed for any currently demonstrated case.
 - **History/status/`effectiveFrom`-`effectiveTo` fields on `OrganizationAdmin`/`OrganizationAccountant`** — not needed; nothing would consume them.
 - **`requireOrgFinance()` activation** — remains unwired until a real Payments kilometer.
-- **Organization profile editing** (`PATCH /api/organizations/[id]`) — a separate, smaller capability gap, not part of this kilometer.
+- **Organization name/slug editing** — description/website self-editing now exists (above); renaming or re-slugging a verified organization needs a decision on whether it requires Platform Admin re-verification.
 - **Generalized audit-trail architecture** spanning School/Organization/Academy — future work, not designed or started here.
 
 ### MEGA Academy planning reconciliation — C2.2/C2.3 remain deferred (2026-09-10) 🟡

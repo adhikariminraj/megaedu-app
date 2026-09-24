@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { eligibleContentOwnerWhere } from "@/lib/publicVisibility";
 import HomeHero from "@/components/home/HomeHero";
 import WhyMegaEdu from "@/components/home/WhyMegaEdu";
 import HowItWorks from "@/components/home/HowItWorks";
@@ -34,7 +35,10 @@ export default async function HomePage() {
       orderBy: { createdAt: "desc" },
       take: 3,
     }),
+    // Same owner-eligibility rule as /opportunities, so the homepage can
+    // never surface an opportunity the public listing would hide.
     prisma.opportunity.findMany({
+      where: eligibleContentOwnerWhere(),
       include: { school: true, organization: true },
       orderBy: { createdAt: "desc" },
       take: 3,

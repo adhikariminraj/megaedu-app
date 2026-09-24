@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalHttpUrl } from "@/lib/safeUrl";
 
 function slugify(input: string) {
   return input
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
   if (!orgName?.trim()) {
     return NextResponse.json({ error: "Organization name is required." }, { status: 400 });
   }
+  const site = parseOptionalHttpUrl(website, "Website");
+  if (!site.ok) return NextResponse.json({ error: site.error }, { status: 400 });
 
   let slug = slugify(orgName);
   const slugTaken = await prisma.organization.findUnique({ where: { slug } });
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const organization = await prisma.$transaction(async (tx) => {
     const created = await tx.organization.create({
-      data: { name: orgName, slug, description, website, verified: false },
+      data: { name: orgName, slug, description, website: site.value, verified: false },
     });
     await tx.organizationAdmin.create({ data: { userId, organizationId: created.id } });
     return created;

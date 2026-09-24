@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { eligibleContentOwnerWhere } from "@/lib/publicVisibility";
+import { safeHttpHref } from "@/lib/safeUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ export default async function OpportunitiesPage({
   const typeFilter = searchParams.type;
 
   const opportunities = await prisma.opportunity.findMany({
-    where: typeFilter ? { type: typeFilter } : undefined,
+    where: { ...eligibleContentOwnerWhere(), ...(typeFilter ? { type: typeFilter } : {}) },
     include: { school: true, organization: true },
     orderBy: { createdAt: "desc" },
   });
@@ -63,7 +65,9 @@ export default async function OpportunitiesPage({
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {opportunities.map((o) => (
+          {opportunities.map((o) => {
+            const applyHref = safeHttpHref(o.applyUrl);
+            return (
             <div key={o.id} className="border border-slate-200 rounded-xl p-5">
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-semibold text-slate-800">{o.title}</h3>
@@ -84,10 +88,11 @@ export default async function OpportunitiesPage({
                   {o.deadline &&
                     ` · Deadline: ${new Date(o.deadline).toLocaleDateString()}`}
                 </span>
-                {o.applyUrl && (
+                {applyHref && (
                   <a
-                    href={o.applyUrl}
+                    href={applyHref}
                     target="_blank"
+                    rel="noopener noreferrer"
                     className="text-sm font-semibold text-mega-blue"
                   >
                     Learn more →
@@ -95,7 +100,8 @@ export default async function OpportunitiesPage({
                 )}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

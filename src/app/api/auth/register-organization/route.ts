@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalHttpUrl } from "@/lib/safeUrl";
 
 const schema = z.object({
   adminName: z.string().min(2),
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const { adminName, adminEmail, adminPassword, orgName, description, website } = parsed.data;
+  const site = parseOptionalHttpUrl(website, "Website");
+  if (!site.ok) return NextResponse.json({ error: site.error }, { status: 400 });
   const email = adminEmail.toLowerCase();
 
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
     });
 
     const organization = await tx.organization.create({
-      data: { name: orgName, slug, description, website, verified: false },
+      data: { name: orgName, slug, description, website: site.value, verified: false },
     });
 
     await tx.organizationAdmin.create({

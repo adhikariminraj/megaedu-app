@@ -512,7 +512,8 @@ If your organization is evaluating MEGA.EDU or training new staff, ask your syst
 
 ### What's actually available today
 
-- **Free online courses** — organizations can publish courses on MEGA Academy; any teacher or student can enroll in a free one and work through its modules and lessons.
+- **Free online courses** — organizations can publish courses on MEGA Academy; anyone signed in with a MEGA ID (teacher, student, parent, school or organization staff, or an independent learner) can enroll in a free one and work through its modules and lessons.
+- **My Courses** — the **My Courses** link at the top of every page lists the courses you've enrolled in, with your progress, a **Continue**/**Review** button, and a link to your certificate once you've completed a course.
 - **Course completion certificates** — completing a free course automatically issues a certificate the moment the enrollment is marked complete. You can view it on a dedicated preview page, or share the public verification link with anyone (no login required for them to check it's real).
 
 ### Your organization's public profile
@@ -521,7 +522,17 @@ If your organization is evaluating MEGA.EDU or training new staff, ask your syst
 
 **Who can see it?** Anyone, once a Platform Administrator has verified your organization — the same one-time review a school goes through.
 
-**How visitors reach it:** From the public Organizations directory, or by clicking your organization's name on any course you publish (the course page and course listing both link back to you).
+**How visitors reach it:** From the public Organizations directory (the **Organizations** link at the top of every page — visitors can search it by name or description, or show only MEGA Academy providers), or by clicking your organization's name on any course you publish (the course page and course listing both link back to you).
+
+### Editing your organization's profile
+
+**What is this?** Your organization's public description and website link.
+
+**Who can use it?** Any Organization Admin for that organization (not Organization Accountants).
+
+**How to use it:** From your dashboard, find the **Organization Profile** section, update the description or website, and choose **Save Profile**. The website must be a full link beginning with `http://` or `https://` (for example `https://www.example.org`) — anything else is rejected with a message so a broken or unsafe link never appears on your public page. Leave it empty to remove the link.
+
+**Important rule:** Your organization's **name** can't be changed here — it's the name a Platform Administrator verified.
 
 ### MEGA Academy participation
 

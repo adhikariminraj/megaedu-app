@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/prisma";
+import { eligibleContentOwnerWhere } from "@/lib/publicVisibility";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResourcesPage() {
   const resources = await prisma.resource.findMany({
+    where: eligibleContentOwnerWhere(),
     orderBy: { createdAt: "desc" },
     include: { approach: true, school: true, organization: true },
     take: 50,

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import { safeHttpHref } from "@/lib/safeUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,8 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
   // someone knows its URL. Mirrors /schools/[slug]'s identical guard.
   if (!organization || !organization.verified || !organization.isActive) notFound();
 
+  const websiteHref = safeHttpHref(organization.website);
+
   return (
     <div>
       <div className="bg-mega-navy text-white">
@@ -68,10 +71,11 @@ export default async function OrganizationProfilePage({ params }: { params: { sl
               </div>
             </div>
           </div>
-          {organization.website && (
+          {websiteHref && (
             <Link
-              href={organization.website}
+              href={websiteHref}
               target="_blank"
+              rel="noopener noreferrer"
               className="inline-block text-sm text-slate-300 mt-4 underline underline-offset-2"
             >
               Visit website →
