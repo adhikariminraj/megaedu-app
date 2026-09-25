@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
@@ -150,6 +150,13 @@ export default function OrgDashboard({
 
   const publishedCount = organization.courses.filter((c) => c.published).length;
 
+  // The hero cards change what's shown in the tab area far below them, so
+  // bring that area into view — otherwise the click looks like it did nothing.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  function scrollToTabs() {
+    requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   const heroCards: HeroCard[] = [];
   if (!organization.verified) {
     heroCards.push({
@@ -163,7 +170,7 @@ export default function OrgDashboard({
     icon: "➕",
     title: "Create a new course",
     description: `You have ${publishedCount} published so far.`,
-    onClick: () => { setTab("courses"); setShowForm(true); },
+    onClick: () => { setTab("courses"); setShowForm(true); scrollToTabs(); },
     cta: "Start a course",
     accent: "navy",
   });
@@ -171,7 +178,7 @@ export default function OrgDashboard({
     icon: "📢",
     title: "Post an opportunity",
     description: "Scholarships, competitions, or jobs for the network.",
-    onClick: () => setTab("opportunities"),
+    onClick: () => { setTab("opportunities"); scrollToTabs(); },
     cta: "Post now",
     accent: "purple",
   });
@@ -264,7 +271,7 @@ export default function OrgDashboard({
         </button>
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200 mb-8">
+      <div ref={tabsRef} className="flex gap-1 border-b border-slate-200 mb-8 scroll-mt-20">
         {(["courses", "opportunities", "events", "finance"] as const).map((t) => (
           <button
             key={t}
