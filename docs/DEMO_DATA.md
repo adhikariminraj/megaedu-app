@@ -21,13 +21,19 @@ npm run db:seed:demo    # this demo environment
 npm run db:verify:demo  # optional: confirm everything is consistent
 ```
 
-**Fully reset and rebuild from scratch:**
+**Fully rebuild from scratch (PostgreSQL):** `npx prisma db push --force-reset` was the SQLite-era reset and is retired (decision D5). Build into a **new, empty** database instead — dropping or recreating the live `megaedu_dev` loses its current data and is never done without an explicit decision and a fresh `pg_dump` backup:
 
-```bash
-npx prisma db push --force-reset
+```powershell
+psql -h localhost -U postgres -c "CREATE DATABASE <new_db> ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+powershell -NoProfile -ExecutionPolicy Bypass -File prisma\apply-migrations.ps1 -Database <new_db>
+npx prisma generate
 npm run db:seed
 npm run db:seed:demo
+npm run db:seed:calendar
+npm run db:verify:demo
 ```
+
+with `DATABASE_URL` pointing at `<new_db>` for the four `npm` commands — supplied to that process, because the scripts do not read `.env.local` (see the README's environment section). This is runbook RB2 in [DEPLOYMENT.md](DEPLOYMENT.md#database-rollback--recovery-runbook-), rehearsed in PG-KM10 with all three seed steps (`db:seed`, `db:seed:demo`, `db:seed:calendar`). Expect `db:verify:demo` to pass **16 of 18 checks** on a freshly seeded database (2 of 18 fail) — see the F7 note under [Verifying the demo data](#verifying-the-demo-data).
 
 `seed-demo.ts` is **idempotent and self-sufficient** — it re-derives every account, grade, subject, and assignment it needs from `seed.ts`'s bootstrap alone (it does not assume any other data already exists), and every write is either an upsert on the model's own natural unique key or guarded by a deterministic, stable id. Running it against an already-seeded database, or a completely fresh one, produces byte-identical results — verified directly (row counts diffed as identical across repeated runs, in both scenarios).
 
@@ -133,6 +139,26 @@ Checks, against the live database and the **real production calculation function
 - Certificates exist for both completed courses
 
 Exits non-zero if any check fails.
+
+### Known mismatch on a freshly seeded database (finding F7) ⚠️
+
+`verify-demo-data.ts` checks the **current** development dataset, not what a fresh `seed-demo.ts` run produces:
+
+| | Class 9 sections | Unassigned | `db:verify:demo` |
+|---|---|---|---|
+| Fresh `seed-demo.ts` run (two unassigned students by design) | A 9, B 8, C 8, D 8 | **2** | 16 of 18 checks — fails "Sections A/B have 9 students, C/D have 8" and "1 student remains Unassigned" |
+| Current dataset (`dev.db`, and `megaedu_dev` copied from it) | A 9, B 9, C 8, D 8 | **1** | 18 of 18 checks |
+
+What the evidence shows:
+
+- `seed-demo.ts` intentionally produces two Class 9 students with no section.
+- The current dataset contains one unassigned Class 9 student.
+- A read-only audit query (PG-KM10, `GradeHistoryAudit`) found a later, explicit reassignment of Kalpana Thapa from no section to Section B through the app's audited reassignment path (recorded 2026-09-07).
+- `verify-demo-data.ts` checks that later/current state, not the freshly seeded one.
+
+The audit trail records a later explicit reassignment that explains the observed current state, while the verifier retains a historical comment attributing the difference to RNG non-determinism. The two explanations are not reconciled in this change.
+
+F7 therefore remains a demo-data/verification consistency finding — open, low severity, and **not a PostgreSQL defect**: the PostgreSQL rebuild itself succeeds. The same mismatch is expected on SQLite, because the mismatch is between the seed output and the verification expectations, not PostgreSQL behavior (an inference — RB2 was rehearsed on PostgreSQL only). Recorded in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7). Documentation-only treatment for now; a code/verification fix remains undecided and unapproved, and neither script's behavior has been changed.
 
 ---
 

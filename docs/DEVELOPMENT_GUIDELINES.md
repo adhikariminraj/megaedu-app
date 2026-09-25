@@ -20,7 +20,18 @@
 - **Preserve historical records.** `GradeHistory`, `GradeHistoryAudit`, and `Certificate` rows are permanent by design — no route deletes them, and none should be added that does, without an explicit, separate decision to do so. If a student leaves a school, that's a new `status` on their record (`TRANSFERRED`/`LEFT`), never a deleted row.
 - **Avoid destructive migrations.** This project's discipline (see [PRODUCT_RULES.md](PRODUCT_RULES.md)) is additive-first: add new fields/models without touching existing ones, verify no data conflicts with a throwaway script before applying anything with a new constraint, and only clean up afterward — sometimes not even then (`Student.gradeLevel` is intentionally permanent).
 - **Test migrations before removing old fields.** Before adding a `@@unique` constraint or any other constraint that could reject existing data, write a one-off script that checks the real database for conflicts first. This exact practice caught and prevented a real issue during the `Skill` duplicate-prevention fix.
-- **Never use a Prisma `enum`.** SQLite's connector doesn't support them, even unused ones — this has broken a migration before. Use a plain `String` field with the valid values documented in a comment above it.
+- **Never use a Prisma `enum`.** Originally because SQLite's connector doesn't support them, even unused ones — this broke a migration before. The project now runs on PostgreSQL, but the plain-`String` convention stays by choice: use a plain `String` field with the valid values documented in a comment above it.
+
+## Schema changes (PostgreSQL)
+
+Decision D5: `prisma migrate` with a reviewed baseline; **`prisma db push` is retired** (the `db:push` script still exists in `package.json` but must not be used). Prisma's schema engine cannot run on the Windows development machine (Smart App Control), so schema-engine work happens only in GitHub Actions (decision D1.a). The sequence for any schema change:
+
+1. Edit `prisma/schema.prisma` on `pg-foundation` (additive-first, as below) and push the branch.
+2. The `Prisma migrations (PostgreSQL)` workflow prints the SQL the change needs (and fails if `schema.prisma` has changes no migration covers). Create a new `prisma/migrations/<timestamp>_<name>/migration.sql` from that SQL, **review it** — in particular that it never drops the two hand-written partial unique indexes — and commit it.
+3. The workflow then applies every migration with the real `prisma migrate deploy` to a temporary database, checks drift, and saves reference files (download the artifact while signed in to GitHub).
+4. Apply locally with `prisma/apply-migrations.ps1` (optionally `-ReferenceRows` pointing at the artifact's `prisma-migrations-rows.csv`, so checksums must match CI), then run `npx prisma generate`.
+
+Rules: every migration containing custom SQL, partial indexes or other constructs Prisma cannot express is reviewed before it is applied; never edit a migration after it has been applied; migration files stay LF-only (`.gitattributes`); never hand-edit `_prisma_migrations`. Full detail and the rollback runbook: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Don't invent
 

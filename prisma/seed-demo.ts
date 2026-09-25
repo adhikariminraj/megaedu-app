@@ -12,10 +12,18 @@
 // natural key) a stable, deterministic `id`. Re-running this script against
 // an already-seeded database is safe and makes no duplicate rows.
 //
-// Reset recipe:
-//   npx prisma db push --force-reset
+// Rebuild recipe (PostgreSQL; `prisma db push` is retired — decision D5):
+//   create a NEW empty database (UTF-8, C collation, TEMPLATE template0),
+//   apply the reviewed migrations with prisma/apply-migrations.ps1,
+//   point DATABASE_URL at it, then:
+//   npx prisma generate
 //   npm run db:seed
 //   npm run db:seed:demo
+// Never drop the live development database without a fresh pg_dump backup
+// and an explicit decision. Full procedure: docs/DEPLOYMENT.md (runbook RB2).
+// Note: a fresh run leaves 2 Class 9 students unassigned, so
+// `npm run db:verify:demo` passes 16 of 18 checks on it (finding F7, open,
+// documented only — see docs/DEMO_DATA.md).
 //
 // All data is fictional. Every account uses the shared password below.
 
@@ -247,7 +255,7 @@ async function main() {
   // present. demo2.teacher@megaedu.local ("Bimla") is NOT in seed.ts (she was
   // created by earlier manual testing); this script must be able to (re)create
   // her from a bare seed.ts baseline too, so it's fully self-sufficient on a
-  // fresh `db push --force-reset`.
+  // freshly created, freshly migrated database.
   const demoTeacherUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.teacher@megaedu.local" } });
   const demoTeacher = await prisma.teacher.findUniqueOrThrow({ where: { userId: demoTeacherUser.id } });
 

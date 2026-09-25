@@ -15,7 +15,18 @@ There is no test framework installed — no Jest, Vitest, Playwright, or Cypress
 
 ## Development database testing ✅
 
-All verification runs against the real `prisma/dev.db` SQLite file with real Prisma calls — not a mocked/in-memory database. This is deliberate: it's how the SQLite-vs-Postgres transaction-abort issue (see [PRODUCT_RULES.md](PRODUCT_RULES.md)) was actually discovered, not theorized.
+All verification runs against the real development database with real Prisma calls — not a mocked/in-memory database. Until the PostgreSQL move that was the `prisma/dev.db` SQLite file (still the database on `main`); on branch `pg-foundation` it is the local PostgreSQL database `megaedu_dev` (PG-KM8 onward). This is deliberate: it's how the SQLite-vs-Postgres transaction-abort issue (see [PRODUCT_RULES.md](PRODUCT_RULES.md)) was first identified during SQLite testing. The timeline since then: PG-KM2 (commit `60b23b5`) implemented the fix and was verified on SQLite; compatibility test T07 afterwards confirmed on a real PostgreSQL 18 instance that catching a constraint error and continuing inside a transaction fails; the corrected routes were then exercised against PostgreSQL in PG-KM8 and PG-KM9.
+
+## PostgreSQL verification (PG-KM1–PG-KM10, branch `pg-foundation`) ✅
+
+The move to PostgreSQL was verified in ten kilometers with scripts kept **outside the repository**, under `C:\MEGA_DB_Backup\PG-KM1` … `PG-KM10` on the development machine (each folder holds its scripts, run logs, backups and results). Methods that are now reusable:
+
+- **Content fingerprint** — every row of all 83 models, sorted by primary key and hashed per model, then combined. The baseline for the current dataset is `38e3ad866b225f698a3de46a4e5362d96dc0f00a9b86176396847af81f3569ad` (3,085 rows), established on SQLite in PG-KM1 and reproduced on PostgreSQL after the data copy (PG-KM6), after every test cleanup (PG-KM8, PG-KM9), and on a restored backup (PG-KM10).
+- **PG-KM7 integrity suite** (`PG-KM7\pgkm7.ps1`, read-only, runs inside a `READ ONLY` transaction) — database encoding/collation, migration history, all 202 foreign keys validated plus an orphan scan, all 149 primary/unique keys checked for duplicates, the two partial unique indexes, spot checks of certificates, mark sheets and grade history, then `db:verify:demo`, then the fingerprint again.
+- **Test writes with exact cleanup** (PG-KM8, PG-KM9) — take a full `pg_dump` backup and a snapshot of every primary key first; afterwards, a dry run lists every row whose key did not exist before (and stops if any original row changed or disappeared), cleanup deletes exactly those rows in one transaction, and the fingerprint must return to the baseline.
+- **Concurrency testing** (PG-KM9) — simultaneous HTTP requests fired from one start barrier against the running app, a PostgreSQL connection sampler, and a benchmark of the homework-completion save limit calling the app's own functions.
+
+Results in brief: application checks for six demo roles passed (PG-KM8); 315 HTTP requests, including 303 requests issued in concurrent bursts, with no `5xx`, no deadlocks and no pool timeouts (PG-KM9); backup restore, rebuild from seeds and SQLite↔PostgreSQL switching rehearsed (PG-KM10). Findings F1–F7 are in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7).
 
 ## Seeded demo accounts (the de facto manual test fixtures) ✅
 
@@ -50,8 +61,9 @@ Each test used real throwaway fixture data against the actual database and, wher
 ## Known testing limitations ⚠️
 
 - No automated regression protection — every verification above was manual and one-time; a future change could silently break any of it without a test suite catching it.
-- No load/concurrency testing beyond the single deliberate two-tab race condition test (the `alreadyActive` session-creation check).
-- No testing against PostgreSQL — everything above ran on SQLite; the one known behavioral difference (transaction-abort-on-error) is documented but not empirically verified against a real Postgres instance, since none exists in this project.
+- Concurrency testing exists only as the one-off PG-KM9 runs on PostgreSQL (development mode, each race run once — timing-dependent races can pass one run and fail another; see F2 and F6 in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7)), plus the earlier SQLite two-tab race test (the `alreadyActive` session-creation check). No repeatable load-testing harness exists.
+- PostgreSQL has been tested in development only (PG-KM1–PG-KM10); the affected routes were fixed in PG-KM2 (verified on SQLite), the transaction-abort-on-error behavior was then confirmed on a real PostgreSQL instance (compatibility test T07), and the fixed routes were exercised against PostgreSQL in PG-KM8/PG-KM9. No staging/production environment exists to test against.
+- `db:verify:demo` validates the current dataset's state, not a freshly seeded database — a freshly seeded database passes 16 of 18 checks (2 of 18 fail), while the current dataset passes 18 of 18 (finding F7 — open, documented only, not fixed).
 - No accessibility, performance, or cross-browser testing.
 
 ## Future/planned 🔭

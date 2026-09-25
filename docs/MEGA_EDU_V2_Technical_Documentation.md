@@ -3,6 +3,7 @@
 > **Audience**: the project owner, developers, maintainers, and anyone planning future MEGA.EDU development.
 > **Baseline**: repository commit `120316d` (2026-09-24). Written 2026-09-25 from a read-only audit of the current code, Prisma schema (83 models), routes, and existing `/docs`.
 > **Role of this document**: the principal technical reference for **MEGA.EDU V2** — the whole platform in one place, with honest status for every area. It does **not** replace the detailed subsystem documents in `/docs` (each remains the authoritative deep reference for its own area and is linked throughout), and it does not replace the historical [MEGA_EDU_Technical_Documentation.md](MEGA_EDU_Technical_Documentation.md), which is preserved as-is. Where an older document disagrees with the code, see [Appendix B](#appendix-b--documentation-reconciliation-notes).
+> **Database update (2026-09-25, PostgreSQL block PG-KM1–PG-KM10)**: only the database statements below were revised, to reflect branch `pg-foundation` (local PostgreSQL in development, not yet merged into `main`, which still uses SQLite). Everything else remains at the `120316d` baseline. Details: [DEPLOYMENT.md](DEPLOYMENT.md), [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7).
 > **Companion V2 documents**: [Product User Guide](MEGA_EDU_V2_Product_User_Guide.md) · [Development Status](MEGA_EDU_V2_Development_Status.md) · [Master Roadmap](MEGA_EDU_V2_Master_Roadmap.md).
 
 ### Status legend (used in all four V2 documents)
@@ -117,8 +118,8 @@ A `Course` belongs to an `Organization`, never to a `School`; the two meet only 
 |---|---|---|
 | Framework | Next.js 14 (App Router), React 18, TypeScript | Server components by default; client components for dashboards/forms |
 | Styling | Tailwind CSS | No CSS-in-JS |
-| ORM / database | Prisma 5.20 · SQLite in development (`prisma/dev.db`) | PostgreSQL is the intended production target — **never configured or tested** ⚠️ |
-| Schema changes | `prisma db push` | No `prisma migrate`, no migrations folder |
+| ORM / database | Prisma 5.20 · PostgreSQL in development (local PostgreSQL 18, `megaedu_dev`, branch `pg-foundation`); `main` still SQLite (`prisma/dev.db`) | Tested in development only (PG-KM1–PG-KM10); staging/production not configured — hosting decision (D3) open ⚠️ |
+| Schema changes | Reviewed migrations in `prisma/migrations/` (branch `pg-foundation`) | `prisma db push` retired (D5); migrations generated/checked in GitHub Actions, applied locally with `prisma/apply-migrations.ps1` — see [DEPLOYMENT.md](DEPLOYMENT.md#schema-changes-migrations-) |
 | Authentication | NextAuth 4, Credentials provider, JWT sessions | See [§4](#4-authentication-and-authorization) |
 | Validation | `zod` on registration routes; hand-written checks elsewhere | |
 | File uploads | Local filesystem (`public/uploads/`, `private-uploads/`) | ⚠️ needs object storage before serverless deployment |
@@ -498,7 +499,7 @@ Detail: [CALENDAR.md](CALENDAR.md).
 
 ## 30. Database architecture
 
-✅ 83 Prisma models (SQLite; `db push`). Grouped:
+✅ 83 Prisma models (PostgreSQL with reviewed migrations on `pg-foundation`; SQLite with `db push` at the `120316d` baseline). Grouped:
 
 | Group | Models |
 |---|---|
@@ -514,7 +515,7 @@ Detail: [CALENDAR.md](CALENDAR.md).
 | Shared content | `Resource`, `Event`, `Opportunity`, `GeneralCalendarEntry`, `SchoolCalendarEntry` |
 | Commerce (unused) | `Subscription`, `Payment` |
 
-**Conventions**: no Prisma enums (plain strings with documented values); frozen `*Snapshot` fields on permanent documents (certificates, mark sheets, grade-history audit); append-only audit tables; soft-deactivate (`isActive`) instead of delete for structural/historical records; the nullable scope-discriminator idiom (`sectionId`/`gradeSubjectId`/`periodId` null = general); explicit application pre-checks for the SQLite `NULL ≠ NULL` unique-index gap; additive-first schema changes. ⚠️ Two bulk-write routes rely on SQLite transaction behaviour that PostgreSQL does not share.
+**Conventions**: no Prisma enums (plain strings with documented values); frozen `*Snapshot` fields on permanent documents (certificates, mark sheets, grade-history audit); append-only audit tables; soft-deactivate (`isActive`) instead of delete for structural/historical records; the nullable scope-discriminator idiom (`sectionId`/`gradeSubjectId`/`periodId` null = general); explicit application pre-checks for the `NULL ≠ NULL` unique-index gap (same on SQLite and PostgreSQL — NULL-distinct kept by decision D7; these pre-checks are not concurrency-safe, findings F1/F2); additive-first schema changes. The two bulk-write routes that relied on SQLite transaction behaviour were fixed in PG-KM2 (`60b23b5`).
 
 Detail: [DATABASE.md](DATABASE.md), [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
@@ -569,7 +570,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Schools**: no in-app way to add a second School Admin; four areas still on legacy single-school resolution.
 - **Navigation**: Students and Parents have no dashboard link to Report Card / Mark Sheet.
 - **Shared services**: no Resources search or school-side posting; school `applyUrl` write validation; no website templating.
-- **Engineering**: no automated tests; nothing deployed; PostgreSQL untested; local-filesystem uploads.
+- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, findings F1–F7 open (F1 high); local-filesystem uploads.
 - **Commerce**: payments/marketplace absent.
 
 ## 34. Future architectural direction
@@ -580,7 +581,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Academy maturity** — evidence-based progress (lesson completion keyed to `CourseEnrollment`), certificate issuer expansion using the existing `issuerType` field, a real Instructor capability only after an explicit design.
 - **Payments** — entitlements keyed to `CourseEnrollment`/`User.id` and to `Organization`; the existing `Subscription`/`Payment` models to be reviewed, not assumed fit.
 - **Trust & Safety** — use `isActive` (already read everywhere) with a real, audited deactivation action.
-- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL readiness (fix the two SQLite-specific bulk routes); an automated test harness.
+- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — F1–F7 decisions, merge, hosting (D3); an automated test harness.
 
 ## 35. Development history and milestones
 
