@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import OpportunityPoster from "@/components/OpportunityPoster";
@@ -163,13 +163,20 @@ export default function DashboardClient({
       ? school.teachers.filter((t) => t.fullName.toLowerCase().includes(trimmedStaffQuery.toLowerCase()))
       : school.teachers;
 
+  // The in-page hero cards switch a tab far below them, so bring the tab
+  // area into view — otherwise the click looks like it did nothing.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  function scrollToTabs() {
+    requestAnimationFrame(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   const heroCards: HeroCard[] = [];
   if (pendingTotal > 0) {
     heroCards.push({
       icon: "✅",
       title: `${pendingTotal} waiting for approval`,
       description: `${pendingStaff} staff, ${pendingStudents} students ready for review.`,
-      onClick: () => setTab(pendingStaff > 0 ? "staff" : "students"),
+      onClick: () => { setTab(pendingStaff > 0 ? "staff" : "students"); scrollToTabs(); },
       cta: "Review now",
       accent: "gold",
     });
@@ -179,7 +186,7 @@ export default function DashboardClient({
       icon: "⏳",
       title: "Your school is pending verification",
       description: "A Platform Admin needs to verify you before you're public.",
-      onClick: () => setTab("profile"),
+      onClick: () => { setTab("profile"); scrollToTabs(); },
       cta: "View profile",
       accent: "gold",
     });
@@ -541,9 +548,25 @@ export default function DashboardClient({
         <a href={`/dashboard/schools/${school.id}/calendar`} className="text-mega-blue hover:underline">
           Calendar →
         </a>
+        {" · "}
+        <a href={`/dashboard/schools/${school.id}/attendance`} className="text-mega-blue hover:underline">
+          Attendance →
+        </a>
+        {" · "}
+        <a href={`/dashboard/schools/${school.id}/evaluations`} className="text-mega-blue hover:underline">
+          Evaluations →
+        </a>
+        {" · "}
+        <a href={`/dashboard/schools/${school.id}/meetings`} className="text-mega-blue hover:underline">
+          Meetings →
+        </a>
+        {" · "}
+        <a href="/dashboard/assessment-results" className="text-mega-blue hover:underline">
+          Assessment Results →
+        </a>
       </p>
 
-      <div className="flex gap-1 border-b border-slate-200 mb-8 flex-wrap">
+      <div ref={tabsRef} className="flex gap-1 border-b border-slate-200 mb-8 flex-wrap scroll-mt-20">
         {(["profile", "programs", "news", "opportunities", "staff", "students", "finance"] as const).map((t) => {
           const pendingCount =
             t === "staff"
