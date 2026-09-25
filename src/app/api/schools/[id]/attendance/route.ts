@@ -65,24 +65,39 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
   const placementByStudent = new Map(placements.map((p) => [p.studentId, p]));
 
-  const { created, skipped } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let skipped = 0;
-    for (const r of records) {
-      if (!ATTENDANCE_STATUSES.includes(r.status as any)) {
-        skipped++;
-        continue;
-      }
-      const placement = placementByStudent.get(r.studentId);
-      if (!placement || placement.schoolGradeId !== schoolGradeId) {
-        skipped++; // not enrolled in this grade this session
-        continue;
-      }
-      if (targetSectionId && placement.sectionId !== targetSectionId) {
-        skipped++; // not in the section this marking pass targets
-        continue;
-      }
-      try {
+  // Duplicates (@@unique([studentId, date])) are pre-checked, never caught
+  // mid-transaction: on PostgreSQL one failed statement aborts the whole
+  // transaction, so catching P2002 and continuing is not portable.
+  // `marked` is read inside the transaction and extended as rows are
+  // created, so a student repeated within this same batch is also skipped.
+  // A P2002 can now only mean a concurrent request marked the same student
+  // first — the whole batch rolls back and the caller is asked to retry.
+  let outcome: { created: number; skipped: number };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const marked = await tx.attendance
+        .findMany({ where: { studentId: { in: studentIds }, date: attendanceDate }, select: { studentId: true } })
+        .then((rows) => new Set(rows.map((row) => row.studentId)));
+      let created = 0;
+      let skipped = 0;
+      for (const r of records) {
+        if (!ATTENDANCE_STATUSES.includes(r.status as any)) {
+          skipped++;
+          continue;
+        }
+        const placement = placementByStudent.get(r.studentId);
+        if (!placement || placement.schoolGradeId !== schoolGradeId) {
+          skipped++; // not enrolled in this grade this session
+          continue;
+        }
+        if (targetSectionId && placement.sectionId !== targetSectionId) {
+          skipped++; // not in the section this marking pass targets
+          continue;
+        }
+        if (marked.has(r.studentId)) {
+          skipped++; // already marked for this student on this date
+          continue;
+        }
         await tx.attendance.create({
           data: {
             studentId: r.studentId,
@@ -95,17 +110,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             markedByUserId: userId,
           },
         });
+        marked.add(r.studentId);
         created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // already marked for this student on this date
-          continue;
-        }
-        throw err;
       }
+      return { created, skipped };
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "Attendance for this date was just saved by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return { created, skipped };
-  });
+    throw err;
+  }
 
-  return NextResponse.json({ ok: true, created, skipped });
+  return NextResponse.json({ ok: true, ...outcome });
 }

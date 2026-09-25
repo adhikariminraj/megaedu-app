@@ -66,25 +66,37 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]);
 
   // One transaction for the whole batch — a single commit instead of one
-  // per row. Note: this relies on SQLite tolerating a caught statement
-  // error without poisoning the rest of the transaction, which is NOT
-  // true on Postgres (the schema's eventual production target) — there,
-  // one failed statement aborts the transaction until rollback, so this
-  // same per-item try/catch would start reporting every subsequent item
-  // as failed too. Revisit this when migrating off SQLite.
-  const { created, skipped } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let skipped = 0;
-    for (const p of placements) {
-      if (!validStudentIds.has(p.studentId) || !validGradeIds.has(p.schoolGradeId)) {
-        skipped++;
-        continue;
-      }
-      if (p.sectionId && !activeSectionsByGrade.get(p.schoolGradeId)?.has(p.sectionId)) {
-        skipped++; // section doesn't belong to this grade, isn't active, or doesn't exist
-        continue;
-      }
-      try {
+  // per row. Students already placed this session
+  // (@@unique([studentId, academicSessionId])) are pre-checked inside the
+  // transaction, never caught mid-transaction: on PostgreSQL one failed
+  // statement aborts the whole transaction. `placed` is extended as rows
+  // are created, so a student repeated within this same batch is also
+  // skipped. A P2002 can now only mean a concurrent request placed the
+  // same student first — the batch rolls back with a 409.
+  let outcome: { created: number; skipped: number };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const placed = await tx.gradeHistory
+        .findMany({
+          where: { academicSessionId, studentId: { in: placements.map((p) => p.studentId) } },
+          select: { studentId: true },
+        })
+        .then((rows) => new Set(rows.map((row) => row.studentId)));
+      let created = 0;
+      let skipped = 0;
+      for (const p of placements) {
+        if (!validStudentIds.has(p.studentId) || !validGradeIds.has(p.schoolGradeId)) {
+          skipped++;
+          continue;
+        }
+        if (p.sectionId && !activeSectionsByGrade.get(p.schoolGradeId)?.has(p.sectionId)) {
+          skipped++; // section doesn't belong to this grade, isn't active, or doesn't exist
+          continue;
+        }
+        if (placed.has(p.studentId)) {
+          skipped++; // already placed for this session
+          continue;
+        }
         await tx.gradeHistory.create({
           data: {
             studentId: p.studentId,
@@ -94,17 +106,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             status: "ENROLLED",
           },
         });
+        placed.add(p.studentId);
         created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // already placed for this session
-          continue;
-        }
-        throw err;
       }
+      return { created, skipped };
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "Some of these students were just placed by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return { created, skipped };
-  });
+    throw err;
+  }
 
-  return NextResponse.json({ ok: true, created, skipped });
+  return NextResponse.json({ ok: true, ...outcome });
 }

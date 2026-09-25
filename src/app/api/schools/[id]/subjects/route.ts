@@ -20,27 +20,42 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Enter at least one subject name." }, { status: 400 });
   }
 
+  // Existing names (@@unique([schoolId, name])) are pre-checked inside the
+  // transaction, never caught mid-transaction: on PostgreSQL one failed
+  // statement aborts the whole transaction. cleanNames is already
+  // de-duplicated. A P2002 can now only mean a concurrent request created
+  // the same subject first — the batch rolls back with a 409.
   let created = 0;
   let skipped = 0;
-  const subjects = await prisma.$transaction(async (tx) => {
-    const out = [];
-    for (const name of cleanNames) {
-      try {
+  let subjects;
+  try {
+    subjects = await prisma.$transaction(async (tx) => {
+      const existingNames = await tx.subject
+        .findMany({ where: { schoolId: params.id, name: { in: cleanNames } }, select: { name: true } })
+        .then((rows) => new Set(rows.map((row) => row.name)));
+      const out = [];
+      for (const name of cleanNames) {
+        if (existingNames.has(name)) {
+          skipped++; // a subject with this name already exists at this school
+          continue;
+        }
         const subject = await tx.subject.create({
           data: { schoolId: params.id, name },
         });
         out.push(subject);
         created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // a subject with this name already exists at this school
-          continue;
-        }
-        throw err;
       }
+      return out;
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "One of these subjects was just added by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return out;
-  });
+    throw err;
+  }
 
   return NextResponse.json({ ok: true, subjects, created, skipped });
 }

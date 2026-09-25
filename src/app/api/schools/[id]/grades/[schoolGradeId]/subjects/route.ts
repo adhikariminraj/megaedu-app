@@ -46,31 +46,50 @@ export async function POST(
 
   const cleanIds = [...new Set(subjectIds)];
 
+  // Subjects already offered (@@unique([schoolGradeId, subjectId,
+  // academicSessionId])) are pre-checked inside the transaction, never
+  // caught mid-transaction: on PostgreSQL one failed statement aborts the
+  // whole transaction. cleanIds is already de-duplicated. A P2002 can now
+  // only mean a concurrent request offered the same subject first — the
+  // batch rolls back with a 409.
   let created = 0;
   let skipped = 0;
-  const gradeSubjects = await prisma.$transaction(async (tx) => {
-    const out = [];
-    for (const subjectId of cleanIds) {
-      if (!validSubjectIds.has(subjectId)) {
-        skipped++; // not a real, active subject at this school
-        continue;
-      }
-      try {
+  let gradeSubjects;
+  try {
+    gradeSubjects = await prisma.$transaction(async (tx) => {
+      const offered = await tx.gradeSubject
+        .findMany({
+          where: { schoolGradeId: params.schoolGradeId, academicSessionId, subjectId: { in: cleanIds } },
+          select: { subjectId: true },
+        })
+        .then((rows) => new Set(rows.map((row) => row.subjectId)));
+      const out = [];
+      for (const subjectId of cleanIds) {
+        if (!validSubjectIds.has(subjectId)) {
+          skipped++; // not a real, active subject at this school
+          continue;
+        }
+        if (offered.has(subjectId)) {
+          skipped++; // already offered at this grade this session
+          continue;
+        }
         const gradeSubject = await tx.gradeSubject.create({
           data: { schoolGradeId: params.schoolGradeId, subjectId, academicSessionId },
         });
         out.push(gradeSubject);
         created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // already offered at this grade this session
-          continue;
-        }
-        throw err;
       }
+      return out;
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "These subjects were just changed by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return out;
-  });
+    throw err;
+  }
 
   return NextResponse.json({ ok: true, gradeSubjects, created, skipped });
 }

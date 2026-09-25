@@ -24,9 +24,13 @@ type AssignmentInput = { teacherId: string; schoolGradeId: string; sectionId?: s
  * value there), but — same NULL-in-unique-index caveat as
  * TeacherAcademicAssignment's grade-wide overlap rule — does NOT by
  * itself catch a second GRADE-WIDE row for the same grade/session,
- * since SQL treats NULL as distinct from NULL. So grade-wide slots are
- * pre-checked explicitly below, app-level, before the DB constraint
- * gets a chance to (not) catch it.
+ * since SQL treats NULL as distinct from NULL. So every slot, grade-wide
+ * or section-specific, is pre-checked explicitly below, inside the
+ * transaction, against the slots already filled for this session
+ * (including ones filled earlier in this same batch). Duplicates are
+ * never caught mid-transaction: on PostgreSQL one failed statement
+ * aborts the whole transaction. A P2002 can now only mean a concurrent
+ * request filled the same slot first — the batch rolls back with a 409.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
@@ -63,50 +67,52 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .then((rows) => new Map(rows.map((s) => [s.id, s]))),
   ]);
 
-  const { created, skipped } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let skipped = 0;
-    for (const a of assignments) {
-      if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
-        skipped++;
-        continue;
-      }
-      const sectionId = a.sectionId || null;
-      if (sectionId) {
-        const section = sectionsById.get(sectionId);
-        if (!section || section.schoolGradeId !== a.schoolGradeId || !section.isActive) {
+  // A slot is its grade plus its section ("*" = grade-wide, sectionId null).
+  const slotKey = (schoolGradeId: string, sectionId: string | null) => `${schoolGradeId}:${sectionId ?? "*"}`;
+
+  let outcome: { created: number; skipped: number };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const filledSlots = await tx.classTeacherAssignment
+        .findMany({ where: { academicSessionId }, select: { schoolGradeId: true, sectionId: true } })
+        .then((rows) => new Set(rows.map((row) => slotKey(row.schoolGradeId, row.sectionId))));
+      let created = 0;
+      let skipped = 0;
+      for (const a of assignments) {
+        if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
           skipped++;
           continue;
         }
-      } else {
-        // Grade-wide slot — the DB unique constraint can't reliably
-        // catch a second sectionId: null row for this grade/session
-        // (NULL isn't distinct from NULL in a unique index), so check
-        // explicitly. Runs inside the transaction so it also sees a
-        // grade-wide row created earlier in this SAME batch.
-        const existingGradeWide = await tx.classTeacherAssignment.findFirst({
-          where: { schoolGradeId: a.schoolGradeId, sectionId: null, academicSessionId },
-        });
-        if (existingGradeWide) {
-          skipped++;
-          continue;
+        const sectionId = a.sectionId || null;
+        if (sectionId) {
+          const section = sectionsById.get(sectionId);
+          if (!section || section.schoolGradeId !== a.schoolGradeId || !section.isActive) {
+            skipped++;
+            continue;
+          }
         }
-      }
-      try {
-        await tx.classTeacherAssignment.create({
-          data: { teacherId: a.teacherId, academicSessionId, schoolGradeId: a.schoolGradeId, sectionId },
-        });
-        created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const slot = slotKey(a.schoolGradeId, sectionId);
+        if (filledSlots.has(slot)) {
           skipped++; // this slot (grade or section, this session) already has a Grade Coordinator/Class Teacher
           continue;
         }
-        throw err;
+        await tx.classTeacherAssignment.create({
+          data: { teacherId: a.teacherId, academicSessionId, schoolGradeId: a.schoolGradeId, sectionId },
+        });
+        filledSlots.add(slot);
+        created++;
       }
+      return { created, skipped };
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "These assignments were just changed by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return { created, skipped };
-  });
+    throw err;
+  }
 
-  return NextResponse.json({ ok: true, created, skipped });
+  return NextResponse.json({ ok: true, ...outcome });
 }

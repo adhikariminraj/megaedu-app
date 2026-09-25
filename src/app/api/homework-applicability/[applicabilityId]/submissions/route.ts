@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -115,6 +116,13 @@ export async function POST(req: NextRequest, { params }: { params: { applicabili
   } catch (err) {
     if (err instanceof HomeworkSubmissionValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Another submission for this homework took the same attemptNumber at the same moment.
+      return NextResponse.json(
+        { error: "Another submission was saved at the same moment — please refresh and try again." },
+        { status: 409 }
+      );
     }
     throw err;
   }

@@ -26,6 +26,15 @@ import { carryForwardEligibleStudents } from "@/lib/gradeRollover";
  * `priorSession` lookup); that stale read let two concurrent rollovers
  * each independently believe they were closing the one true active
  * session, producing two.
+ *
+ * That race-safety is a property of SQLite's single writer. PostgreSQL's
+ * default READ COMMITTED isolation does NOT serialize these
+ * transactions, so there two concurrent calls could both see "no ACTIVE
+ * session". The approved PostgreSQL backstop (database-foundation
+ * decision D8.2) is a partial unique index on schoolId WHERE
+ * status = 'ACTIVE', added with the PostgreSQL schema conversion. The
+ * transition closes the old session before creating the new one, so
+ * that index never fires on a normal rollover.
  */
 export class AcademicSessionTransitionError extends Error {
   constructor(public status: number, message: string) {
@@ -152,7 +161,9 @@ export async function transitionAcademicSession(
  * still holding the write lock when this one's busy_timeout expired —
  * a real but rare contention case under this school's own traffic, not
  * a bug — surfaced as a clear, retryable 503 rather than a raw 500.
- * Anything else is rethrown, never swallowed.
+ * The SQLITE_BUSY / "database is locked" match is SQLite-only; on
+ * PostgreSQL, serialization failures and deadlocks also reach Prisma as
+ * P2034. Anything else is rethrown, never swallowed.
  */
 export function academicSessionTransitionErrorResponse(err: unknown): NextResponse {
   if (err instanceof AcademicSessionTransitionError) {

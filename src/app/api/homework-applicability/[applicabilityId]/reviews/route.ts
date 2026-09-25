@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -101,6 +102,13 @@ export async function POST(req: NextRequest, { params }: { params: { applicabili
   } catch (err) {
     if (err instanceof HomeworkReviewValidationError) {
       return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Another review for this homework took the same reviewNumber at the same moment.
+      return NextResponse.json(
+        { error: "Another review was saved at the same moment — please refresh and try again." },
+        { status: 409 }
+      );
     }
     throw err;
   }

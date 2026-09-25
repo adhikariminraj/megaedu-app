@@ -25,6 +25,8 @@ import { runWithConcurrencyLimit } from "@/lib/concurrency";
  * rows (well beyond MEGA's largest real class sizes, ~30-35 students) at
  * comparable elapsed time. 5 was chosen for a little more throughput
  * headroom than 3 while staying well clear of the failure cliff at 8.
+ * These numbers are SQLite-specific: re-benchmark against PostgreSQL
+ * before the cutover (database-foundation decision D8.7).
  */
 const COMPLETION_SAVE_CONCURRENCY = 5;
 

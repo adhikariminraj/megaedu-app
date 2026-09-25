@@ -95,8 +95,9 @@ export async function recordOrCorrectCompletion(
       } catch (err) {
         // Database-level backstop: someone else's first recording won
         // the race in the instant between our findUnique() read and this
-        // create() (should not happen given Prisma+SQLite's proven
-        // transaction serialization, but never silently swallowed).
+        // create(). SQLite serializes these transactions so it should not
+        // happen there; on PostgreSQL it can, and is reported as a
+        // conflict — rethrown, never continued, so the transaction ends.
         throw new HomeworkCompletionConflictError(
           "This homework's completion was just recorded by someone else — please refresh and try again."
         );

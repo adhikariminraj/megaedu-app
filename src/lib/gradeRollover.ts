@@ -108,27 +108,31 @@ export async function carryForwardEligibleStudents(
     if (!mostRecentByStudent.has(h.studentId)) mostRecentByStudent.set(h.studentId, h);
   }
 
+  // Every student who already has a row in the target session
+  // (@@unique([studentId, academicSessionId])) — even one that isn't their
+  // most recent by startDate — is skipped up front. This is always called
+  // inside a transaction, and a P2002 must never be caught and continued
+  // there: on PostgreSQL one failed statement aborts the whole transaction.
+  const alreadyInTarget = new Set(
+    allHistories.filter((h) => h.academicSessionId === targetSessionId).map((h) => h.studentId)
+  );
+
   let placed = 0;
   for (const [studentId, mostRecent] of mostRecentByStudent) {
-    if (mostRecent.academicSessionId === targetSessionId) continue; // already placed this session
+    if (alreadyInTarget.has(studentId)) continue; // already placed this session
     const eligible =
       (mostRecent.status === "COMPLETED" || mostRecent.status === "REPEATED") && mostRecent.outcomeGradeId;
     if (!eligible) continue; // still ENROLLED (pending) or TRANSFERRED/LEFT (no outcome, correctly stays unplaced)
 
-    try {
-      await client.gradeHistory.create({
-        data: {
-          studentId,
-          schoolGradeId: mostRecent.outcomeGradeId!,
-          academicSessionId: targetSessionId,
-          status: "ENROLLED",
-        },
-      });
-      placed++;
-    } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
-      throw err;
-    }
+    await client.gradeHistory.create({
+      data: {
+        studentId,
+        schoolGradeId: mostRecent.outcomeGradeId!,
+        academicSessionId: targetSessionId,
+        status: "ENROLLED",
+      },
+    });
+    placed++;
   }
 
   return { placed };

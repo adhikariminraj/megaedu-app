@@ -42,35 +42,49 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]);
 
   // One transaction for the whole batch — a single commit instead of one
-  // per row. Note: this relies on SQLite tolerating a caught statement
-  // error without poisoning the rest of the transaction, which is NOT
-  // true on Postgres (the schema's eventual production target) — there,
-  // one failed statement aborts the transaction until rollback, so this
-  // same per-item try/catch would start reporting every subsequent item
-  // as failed too. Revisit this when migrating off SQLite.
-  const { created, skipped } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let skipped = 0;
-    for (const a of assignments) {
-      if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
-        skipped++;
-        continue;
-      }
-      try {
-        await tx.teacherGradeAssignment.create({
-          data: { teacherId: a.teacherId, schoolGradeId: a.schoolGradeId, academicSessionId },
-        });
-        created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+  // per row. Existing pairings (@@unique([teacherId, schoolGradeId,
+  // academicSessionId])) are pre-checked inside the transaction, never
+  // caught mid-transaction: on PostgreSQL one failed statement aborts the
+  // whole transaction. `paired` is extended as rows are created, so a
+  // pairing repeated within this same batch is also skipped. A P2002 can
+  // now only mean a concurrent request created the same pairing first —
+  // the batch rolls back with a 409.
+  const pairKey = (teacherId: string, schoolGradeId: string) => `${teacherId}:${schoolGradeId}`;
+  let outcome: { created: number; skipped: number };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const paired = await tx.teacherGradeAssignment
+        .findMany({ where: { academicSessionId }, select: { teacherId: true, schoolGradeId: true } })
+        .then((rows) => new Set(rows.map((row) => pairKey(row.teacherId, row.schoolGradeId))));
+      let created = 0;
+      let skipped = 0;
+      for (const a of assignments) {
+        if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
           skipped++;
           continue;
         }
-        throw err;
+        const pair = pairKey(a.teacherId, a.schoolGradeId);
+        if (paired.has(pair)) {
+          skipped++;
+          continue;
+        }
+        await tx.teacherGradeAssignment.create({
+          data: { teacherId: a.teacherId, schoolGradeId: a.schoolGradeId, academicSessionId },
+        });
+        paired.add(pair);
+        created++;
       }
+      return { created, skipped };
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "These assignments were just changed by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
-    return { created, skipped };
-  });
+    throw err;
+  }
 
-  return NextResponse.json({ ok: true, created, skipped });
+  return NextResponse.json({ ok: true, ...outcome });
 }

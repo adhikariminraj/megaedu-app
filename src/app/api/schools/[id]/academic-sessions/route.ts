@@ -7,8 +7,8 @@ import { transitionAcademicSession, academicSessionTransitionErrorResponse } fro
  * ACTIVE session at a time" is enforced by transitionAcademicSession()
  * (src/lib/academicSession.ts) — the existence check and the create
  * happen inside one transaction there, never here, and never outside a
- * transaction at all (see that module's own comment for why this
- * matters on SQLite specifically).
+ * transaction at all (see that module's own comment for why this is
+ * race-safe on SQLite, and the PostgreSQL backstop that replaces it).
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);

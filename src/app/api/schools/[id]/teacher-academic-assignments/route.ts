@@ -33,7 +33,11 @@ type AssignmentInput = {
  * Runs as one transaction with a sequential per-item loop (not
  * parallel) so each item's overlap check sees rows created earlier in
  * the SAME batch, not just what was already in the database before the
- * request started.
+ * request started. The same check also skips an exact duplicate, so a
+ * duplicate is never caught mid-transaction (on PostgreSQL one failed
+ * statement aborts the whole transaction). A P2002 can now only mean a
+ * concurrent request created the same row first — the batch rolls back
+ * with a 409.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
@@ -76,49 +80,50 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .then((rows) => new Map(rows.map((gs) => [`${gs.schoolGradeId}:${gs.subjectId}`, gs.id]))),
   ]);
 
-  const { created, skipped } = await prisma.$transaction(async (tx) => {
-    let created = 0;
-    let skipped = 0;
+  let outcome: { created: number; skipped: number };
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      let created = 0;
+      let skipped = 0;
 
-    for (const a of assignments) {
-      if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
-        skipped++;
-        continue;
-      }
-
-      const sectionId = a.sectionId || null;
-      if (sectionId) {
-        const section = sectionsById.get(sectionId);
-        if (!section || section.schoolGradeId !== a.schoolGradeId || !section.isActive) {
-          skipped++; // wrong grade, deactivated, or doesn't exist
+      for (const a of assignments) {
+        if (!validTeacherIds.has(a.teacherId) || !validGradeIds.has(a.schoolGradeId)) {
+          skipped++;
           continue;
         }
-      }
 
-      const gradeSubjectId = gradeSubjectsByKey.get(`${a.schoolGradeId}:${a.subjectId}`);
-      if (!gradeSubjectId) {
-        skipped++; // this subject isn't offered at this grade this session
-        continue;
-      }
+        const sectionId = a.sectionId || null;
+        if (sectionId) {
+          const section = sectionsById.get(sectionId);
+          if (!section || section.schoolGradeId !== a.schoolGradeId || !section.isActive) {
+            skipped++; // wrong grade, deactivated, or doesn't exist
+            continue;
+          }
+        }
 
-      const existing = await tx.teacherAcademicAssignment.findMany({
-        where: {
-          teacherId: a.teacherId,
-          academicSessionId,
-          schoolGradeId: a.schoolGradeId,
-          subjectId: a.subjectId,
-        },
-        select: { sectionId: true },
-      });
-      const overlaps = sectionId
-        ? existing.some((e) => e.sectionId === null) // section-specific request vs. an existing grade-wide row
-        : existing.length > 0; // grade-wide request vs. ANY existing row
-      if (overlaps) {
-        skipped++;
-        continue;
-      }
+        const gradeSubjectId = gradeSubjectsByKey.get(`${a.schoolGradeId}:${a.subjectId}`);
+        if (!gradeSubjectId) {
+          skipped++; // this subject isn't offered at this grade this session
+          continue;
+        }
 
-      try {
+        const existing = await tx.teacherAcademicAssignment.findMany({
+          where: {
+            teacherId: a.teacherId,
+            academicSessionId,
+            schoolGradeId: a.schoolGradeId,
+            subjectId: a.subjectId,
+          },
+          select: { sectionId: true },
+        });
+        const overlaps = sectionId
+          ? existing.some((e) => e.sectionId === null || e.sectionId === sectionId) // existing grade-wide row, or exact duplicate
+          : existing.length > 0; // grade-wide request vs. ANY existing row
+        if (overlaps) {
+          skipped++;
+          continue;
+        }
+
         await tx.teacherAcademicAssignment.create({
           data: {
             teacherId: a.teacherId,
@@ -130,17 +135,19 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
         });
         created++;
-      } catch (err) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-          skipped++; // exact duplicate (same teacher/session/grade/section/subject)
-          continue;
-        }
-        throw err;
       }
+
+      return { created, skipped };
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "These assignments were just changed by someone else — please refresh and try again." },
+        { status: 409 }
+      );
     }
+    throw err;
+  }
 
-    return { created, skipped };
-  });
-
-  return NextResponse.json({ ok: true, created, skipped });
+  return NextResponse.json({ ok: true, ...outcome });
 }

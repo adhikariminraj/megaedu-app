@@ -7,6 +7,9 @@
  * lock queue depth within Prisma's interactive-transaction timeout, see
  * the empirical benchmark below — or (b) collapsing them into one
  * all-or-nothing transaction, which would break per-item independence.
+ * Callers' limits were benchmarked against SQLite; they must be
+ * re-benchmarked against PostgreSQL's connection pool before the
+ * cutover (database-foundation decision D8.7).
  *
  * Deliberately generic and tiny — no external queue library, no retry
  * logic, no backoff. Each item's own promise is caught individually via

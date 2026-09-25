@@ -15,7 +15,9 @@ export class HomeworkReviewValidationError extends Error {}
  * trusted from a stale client read) — the same idiom already used by
  * createSubmissionAttempt()'s attemptNumber. The
  * @@unique([homeworkApplicabilityId, reviewNumber]) constraint is the
- * database-level backstop behind this.
+ * database-level backstop behind this: if two concurrent reviews compute
+ * the same reviewNumber, the loser fails with P2002, never caught here,
+ * and the reviews route turns it into a 409.
  *
  * submissionAttemptId is optional and purely informational — a review
  * may exist for a purely offline-checked homework with zero online

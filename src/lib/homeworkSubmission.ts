@@ -15,7 +15,10 @@ export class HomeworkSubmissionValidationError extends Error {}
  * constraint is the database-level backstop behind this, exactly the
  * same "belt and suspenders" relationship already used throughout this
  * schema (HomeworkApplicability's own unique constraint behind
- * publishHomework(), HomeworkCompletion's behind its CAS guard).
+ * publishHomework(), HomeworkCompletion's behind its CAS guard). Two
+ * truly concurrent submissions can compute the same attemptNumber (on
+ * PostgreSQL the count is not serialized); the loser fails with P2002,
+ * never caught here, and the submissions route turns it into a 409.
  *
  * isLate is derived once here, from submittedAt vs. the parent
  * Homework's own dueDate (already frozen post-publish) — never

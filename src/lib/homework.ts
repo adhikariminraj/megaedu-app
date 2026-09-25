@@ -395,45 +395,46 @@ async function resolveIndividualTarget(
  * sectionId change submitted alongside publish resolves the roster
  * against the NEW section, never a stale pre-edit one.
  *
- * Verified empirically (not assumed) against this repository's actual
- * SQLite configuration, mirroring the exact methodology already proven
- * for AcademicSession transitions (src/lib/academicSession.ts) and
- * assessment-result corrections (src/lib/assessmentResults.ts): a
- * second concurrent call to this function for the SAME homeworkId does
- * not even begin its own read until the first has fully committed, so
- * the fresh `homework.status === "PUBLISHED"` check below is what
- * actually prevents a duplicate Applicability batch — never merely a
- * defensive nicety. @@unique([homeworkId, studentId]) on
- * HomeworkApplicability remains the database-level backstop behind it,
- * exactly as intended, for any path this reasoning hasn't anticipated.
+ * Compare-and-set, so it is race-safe on any database: the first write
+ * is a conditional updateMany() that flips DRAFT -> PUBLISHED (with any
+ * fieldUpdates) only if the row is STILL DRAFT at that moment. Of two
+ * concurrent calls for the same homeworkId, exactly one claims the row;
+ * the other matches zero rows and returns the published homework as
+ * alreadyPublished — the same result as a later re-publish request,
+ * never a raw database error. On SQLite the second call waits for the
+ * first to commit; on PostgreSQL the second UPDATE waits on the row lock
+ * and then re-checks status = 'DRAFT' against the committed row. Any
+ * failure after the claim (e.g. HomeworkPublishError from target
+ * resolution) rolls the whole transaction back, so the homework stays
+ * DRAFT. @@unique([homeworkId, studentId]) on HomeworkApplicability
+ * remains the database-level backstop behind it.
  */
 export async function publishHomework(
   homeworkId: string,
   fieldUpdates?: { title?: string; instructions?: string; dueDate?: Date; sectionId?: string | null }
 ): Promise<PublishHomeworkResult> {
   return prisma.$transaction(async (tx) => {
-    let homework = await tx.homework.findUniqueOrThrow({ where: { id: homeworkId } });
+    const assignedAt = new Date();
+    const claim = await tx.homework.updateMany({
+      where: { id: homeworkId, status: "DRAFT" },
+      data: { ...fieldUpdates, status: "PUBLISHED", publishedAt: assignedAt },
+    });
 
-    if (homework.status === "PUBLISHED") {
+    if (claim.count === 0) {
+      // Already PUBLISHED (DRAFT | PUBLISHED are the only statuses) —
+      // possibly by a concurrent call that just won. Throws if the
+      // homework doesn't exist, as before.
+      const homework = await tx.homework.findUniqueOrThrow({ where: { id: homeworkId } });
       return { homework, alreadyPublished: true };
     }
 
-    if (fieldUpdates && Object.keys(fieldUpdates).length > 0) {
-      homework = await tx.homework.update({ where: { id: homeworkId }, data: fieldUpdates });
-    }
-
-    const assignedAt = new Date();
-    const studentIds = homework.targetStudentId
-      ? await resolveIndividualTarget(tx, homework)
-      : await resolveRegularRoster(tx, homework);
+    const published = await tx.homework.findUniqueOrThrow({ where: { id: homeworkId } });
+    const studentIds = published.targetStudentId
+      ? await resolveIndividualTarget(tx, published)
+      : await resolveRegularRoster(tx, published);
 
     await tx.homeworkApplicability.createMany({
-      data: studentIds.map((studentId) => ({ homeworkId: homework.id, studentId, assignedAt })),
-    });
-
-    const published = await tx.homework.update({
-      where: { id: homeworkId },
-      data: { status: "PUBLISHED", publishedAt: assignedAt },
+      data: studentIds.map((studentId) => ({ homeworkId: published.id, studentId, assignedAt })),
     });
 
     return { homework: published, alreadyPublished: false };
