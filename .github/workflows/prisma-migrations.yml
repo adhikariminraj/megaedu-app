@@ -57,6 +57,7 @@ jobs:
       ALLOWED_DRIFT: |
         DROP INDEX "AcademicSession_one_active_per_school";
         DROP INDEX "StudentSchoolAffiliation_one_open_per_student";
+        DROP INDEX "ClassTeacherAssignment_one_grade_wide_per_session";
     steps:
       # The `job` context is only available inside steps, not in job-level env.
       - name: Locate the PostgreSQL service container

@@ -143,7 +143,7 @@
 |---|---|
 | Automated test suite | ⚠️ none (manual verification discipline) |
 | Production deployment | ⚠️ none |
-| PostgreSQL readiness | 🟡 development database on PostgreSQL (branch `pg-foundation`, not merged; verified PG-KM1–PG-KM10); bulk routes fixed (PG-KM2); findings F1–F7 open ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7)); staging/production undecided (updated 2026-09-25) |
+| PostgreSQL readiness | 🟡 development database on PostgreSQL (branch `pg-foundation`, not merged; verified PG-KM1–PG-KM10); bulk routes fixed (PG-KM2); F1 fixed (PG-F1), findings F2–F7 open ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7)); staging/production undecided (updated 2026-09-25) |
 | File storage | ⚠️ local filesystem only |
 | Documentation | ✅ extensive; see Technical Documentation Appendix B for stale older docs |
 

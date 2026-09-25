@@ -6,6 +6,13 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Fixed — F1: duplicate Grade Coordinator assignments under simultaneous requests (PG-F1, 2026-09-25)
+Branch `pg-foundation` only, not merged — `main` (SQLite) is unchanged.
+- **Fixed**: migration `2_class_teacher_grade_wide_unique` adds the partial unique index `ClassTeacherAssignment_one_grade_wide_per_session` on `("schoolGradeId", "academicSessionId") WHERE "sectionId" IS NULL` — at most one grade-wide `ClassTeacherAssignment` (Grade Coordinator) per grade per session. Approved as an explicit exception to decision D7. No application code change: the create route already maps `P2002` to `409`, so a request that loses a simultaneous race now gets `409` and its whole batch rolls back (before, it created a duplicate row).
+- **Changed**: the migrations workflow's `ALLOWED_DRIFT` tolerates the new index's `DROP INDEX` line (Prisma 5.20 cannot express partial indexes).
+- **Verified** (evidence `C:\MEGA_DB_Backup\PG-F1`): fresh `pg_dump` backup first, with 0 existing duplicates; on a copy restored from it, the PG-KM9 race reproduced 10 rows, the migration refused to apply over them, and after the migration the same race gave exactly 1 row with 9 rejections; applied to `megaedu_dev` with the data unchanged (fingerprint `38e3ad86…`); HTTP tests T1–T9 passed (3 simultaneous losing requests rejected by the index with `409` and nothing left behind); test rows removed exactly; integrity suite, `db:verify:demo` (18 of 18) and read-only smoke checks passed.
+- F2–F7 are unchanged.
+
 ### Changed — PostgreSQL foundation, 10-km block PG-KM1–PG-KM10 (2026-09-25)
 Development database moved from SQLite to local PostgreSQL 18. PG-KM2 is on `main`; everything from PG-KM3 onward is on branch **`pg-foundation`, not merged** — `main` still runs on SQLite. Staging/production hosting (D3) remains undecided; nothing is deployed.
 - **Fixed — database-neutral duplicate/concurrency handling** (PG-KM2, `60b23b5`, `main`). Bulk and create routes no longer rely on SQLite continuing a transaction after a caught unique-constraint error (PostgreSQL aborts it). PG-KM2 was verified on SQLite; compatibility test T07 then confirmed the abort behavior on PostgreSQL 18, and PG-KM8/PG-KM9 exercised the fixed routes on PostgreSQL. Routes: `grade-placements`, `teacher-assignments`, attendance, class-teacher and teacher-academic assignments, sections, subjects, homework, rollover. `verify-demo-data.ts`'s raw-SQL duplicate check was replaced with Prisma `groupBy` (`0478155`, `main`).

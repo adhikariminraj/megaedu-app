@@ -30,18 +30,18 @@ What has been **proven** on PostgreSQL (evidence under `C:\MEGA_DB_Backup\PG-KM1
 | Concurrency: 0 deadlocks, no pool timeouts, the two partial unique indexes turn real races into clean `409`s; completion save limit 5 is safe | PG-KM9 |
 | Backup restore, rebuild from migrations + seeds, and local SQLite ↔ PostgreSQL switching | PG-KM10 (see [runbook](#database-rollback--recovery-runbook-)) |
 
-Known findings from this work (F1–F7) are listed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7); none has been fixed yet.
+Known findings from this work (F1–F7) are listed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7). F1 is fixed on this branch by migration `2_class_teacher_grade_wide_unique` (PG-F1, 2026-09-25); F2–F7 remain open.
 
 ## Schema changes (migrations) ✅
 
 `prisma migrate` with a reviewed baseline replaces `db push` (decision D5). Because Windows Smart App Control blocks Prisma's schema engine on the development machine, **schema-engine operations run only in GitHub Actions** (decision D1.a), never locally:
 
 1. **`.github/workflows/prisma-migrations.yml`** runs on pushes to `pg-foundation` that change `prisma/**`, the workflow file itself (`.github/workflows/prisma-migrations.yml`), `package.json` or `package-lock.json`, and can also be started manually (`workflow_dispatch`). On a Linux runner with a temporary PostgreSQL 18 service container — it never connects to a developer machine and uses no secrets — it prints the SQL any schema change still needs, applies all migrations with the real `prisma migrate deploy`, checks for drift against `schema.prisma`, and saves reference files (schema dump, `_prisma_migrations` rows, structure counts) as a downloadable artifact. Artifacts can only be downloaded by a signed-in GitHub user.
-2. **Migrations** live in `prisma/migrations/` (`0_init` = the unmodified CI-generated baseline; `1_integrity_partial_indexes` = the two reviewed partial unique indexes). `.gitattributes` keeps them LF-only so their checksums are identical everywhere.
+2. **Migrations** live in `prisma/migrations/` (`0_init` = the unmodified CI-generated baseline; `1_integrity_partial_indexes` = the two reviewed partial unique indexes; `2_class_teacher_grade_wide_unique` = the reviewed F1 partial unique index, PG-F1). `.gitattributes` keeps them LF-only so their checksums are identical everywhere.
 3. **Locally**, `prisma/apply-migrations.ps1` applies pending migrations to the local database with PostgreSQL's own `psql`, each migration and its `_prisma_migrations` history row in **one transaction**, using the same SHA-256 checksum real Prisma records — so the history stays compatible with `prisma migrate deploy`. With `-ReferenceRows <CI prisma-migrations-rows.csv>` it first refuses any checksum that differs from what CI recorded; `-DryRun` changes nothing. It stops on half-finished, unknown or edited migrations.
 4. After any schema change, run `npx prisma generate` locally (allowed on Windows; it does not use the blocked schema engine).
 
-**Standing rule (D5)**: every migration containing custom SQL, partial indexes or other constructs Prisma 5.20 cannot express must be reviewed before it is applied. The workflow's drift check tolerates exactly the two known partial-index `DROP INDEX` statements and nothing else (in practice Prisma 5.20 has not proposed dropping them).
+**Standing rule (D5)**: every migration containing custom SQL, partial indexes or other constructs Prisma 5.20 cannot express must be reviewed before it is applied. The workflow's drift check tolerates exactly the known partial-index `DROP INDEX` statements — three since PG-F1 — and nothing else (for the first two, Prisma 5.20 has in practice not proposed dropping them; the third is listed the same way, to be confirmed by the next workflow run). A new hand-written partial index needs its exact `DROP INDEX` line added to the workflow's `ALLOWED_DRIFT` in the same change.
 
 Known CI housekeeping item (not acted on): `actions/checkout@v4` and `actions/setup-node@v4` emit a Node.js 20 deprecation warning; upgrading them is a separate, unapproved change.
 
@@ -75,14 +75,15 @@ Before any real deployment, based on what the code actually requires:
 2. A real `NEXTAUTH_SECRET` and `NEXTAUTH_URL` matching the deployed domain.
 3. A real `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` before running the seed script, or skip seeding demo/fixture data entirely in production. Note that `seed.ts` prints the platform-admin password it uses.
 4. Connection-pool settings for the target host (`connection_limit`, `pool_timeout`, possibly a pooler) — development ran on Prisma's default pool of 13 connections; production sizing is part of D3.
-5. Decisions on the open findings F1–F7 ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7)) — F1 in particular.
+5. Decisions on the open findings F2–F7 ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7)); F1 is fixed on this branch (PG-F1).
 6. Whatever the hosting platform requires for a standard Next.js 14 App Router app (Node.js runtime; no edge-specific code is used anywhere in this codebase, so no special edge-runtime configuration is needed).
 
 ## PostgreSQL considerations ✅ / ⚠️
 
 - ✅ The bulk-write routes that used to catch a unique-constraint violation (`P2002`) *inside* an open transaction and keep looping — which would break on PostgreSQL, where a failed statement aborts the whole transaction — were changed in PG-KM2 to check for duplicates before inserting (commit `60b23b5` on `main`). A duplicate from a truly simultaneous request now rolls the batch back and returns a clean `409`; PG-KM9 confirmed this path under real concurrency on the attendance route (9 of 10 simultaneous identical submissions got `409`, exactly one set of rows was written, no deadlocks — including with the student order reversed).
 - ✅ "At most one ACTIVE academic session per school" and "at most one open (ACTIVE/PENDING) affiliation per student" are now enforced by **partial unique indexes** in the database (migration `1_integrity_partial_indexes`), with clean `409` responses; PG-KM9 showed both indexes firing under real races.
-- ⚠️ Rules that are still checked only by the application — "empty-slot" rules on grade-wide (`NULL`) rows — are not safe under simultaneous requests on PostgreSQL: see F1/F2.
+- ✅ "At most one grade-wide Class Teacher assignment (Grade Coordinator) per grade per session" is enforced by the partial unique index `ClassTeacherAssignment_one_grade_wide_per_session` (migration `2_class_teacher_grade_wide_unique`, finding F1, PG-F1); a simultaneous losing request gets `409` and its whole batch rolls back.
+- ⚠️ The other rules that are still checked only by the application — "empty-slot" rules on grade-wide (`NULL`) rows — are not safe under simultaneous requests on PostgreSQL: see F2.
 - No Prisma `enum`s are used anywhere. The original reason was SQLite's lack of support; the plain-`String` convention stays by choice, with no plan to introduce enums retroactively.
 
 ## Database rollback & recovery runbook ✅

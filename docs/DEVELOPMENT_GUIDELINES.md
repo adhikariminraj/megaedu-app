@@ -27,7 +27,7 @@
 Decision D5: `prisma migrate` with a reviewed baseline; **`prisma db push` is retired** (the `db:push` script still exists in `package.json` but must not be used). Prisma's schema engine cannot run on the Windows development machine (Smart App Control), so schema-engine work happens only in GitHub Actions (decision D1.a). The sequence for any schema change:
 
 1. Edit `prisma/schema.prisma` on `pg-foundation` (additive-first, as below) and push the branch.
-2. The `Prisma migrations (PostgreSQL)` workflow prints the SQL the change needs (and fails if `schema.prisma` has changes no migration covers). Create a new `prisma/migrations/<timestamp>_<name>/migration.sql` from that SQL, **review it** — in particular that it never drops the two hand-written partial unique indexes — and commit it.
+2. The `Prisma migrations (PostgreSQL)` workflow prints the SQL the change needs (and fails if `schema.prisma` has changes no migration covers). Create a new `prisma/migrations/<timestamp>_<name>/migration.sql` from that SQL, **review it** — in particular that it never drops the hand-written partial unique indexes (three since PG-F1; listed in [DATABASE.md](DATABASE.md)) — and commit it. A new hand-written partial index also needs its exact `DROP INDEX` line added to the workflow's `ALLOWED_DRIFT`.
 3. The workflow then applies every migration with the real `prisma migrate deploy` to a temporary database, checks drift, and saves reference files (download the artifact while signed in to GitHub).
 4. Apply locally with `prisma/apply-migrations.ps1` (optionally `-ReferenceRows` pointing at the artifact's `prisma-migrations-rows.csv`, so checksums must match CI), then run `npx prisma generate`.
 
