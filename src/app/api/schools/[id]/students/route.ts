@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     where: {
       schoolId: params.id,
       approved: true,
-      ...(q ? { fullName: { contains: q } } : {}),
+      ...(q ? { fullName: { contains: q, mode: "insensitive" } } : {}),
     },
     include: { user: true, skills: { include: { addedBy: true }, orderBy: { createdAt: "desc" } } },
     orderBy: { createdAt: "desc" },

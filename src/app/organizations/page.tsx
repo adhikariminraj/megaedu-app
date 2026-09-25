@@ -24,7 +24,7 @@ export default async function OrganizationsPage({
     where: {
       verified: true,
       isActive: true,
-      ...(q ? { OR: [{ name: { contains: q } }, { description: { contains: q } }] } : {}),
+      ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }] } : {}),
       ...(academyOnly ? { academyParticipant: true } : {}),
     },
     orderBy: { name: "asc" },

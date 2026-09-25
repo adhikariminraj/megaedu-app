@@ -163,11 +163,21 @@ export async function transitionAcademicSession(
  * a bug — surfaced as a clear, retryable 503 rather than a raw 500.
  * The SQLITE_BUSY / "database is locked" match is SQLite-only; on
  * PostgreSQL, serialization failures and deadlocks also reach Prisma as
- * P2034. Anything else is rethrown, never swallowed.
+ * P2034. A P2002 means a concurrent request won the race: the partial
+ * unique index allowing one ACTIVE session per school (D8.2), or the
+ * GradeHistory unique hit by a concurrent carry-forward — the whole
+ * transaction has rolled back, so it is a clean, retryable 409.
+ * Anything else is rethrown, never swallowed.
  */
 export function academicSessionTransitionErrorResponse(err: unknown): NextResponse {
   if (err instanceof AcademicSessionTransitionError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
+  }
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    return NextResponse.json(
+      { error: "This school's session was just changed by another request — please refresh and try again." },
+      { status: 409 }
+    );
   }
   if (
     (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2034") ||

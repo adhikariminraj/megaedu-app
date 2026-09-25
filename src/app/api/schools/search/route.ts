@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
     where: {
       verified: true,
       isActive: true,
-      ...(q ? { name: { contains: q } } : {}),
+      ...(q ? { name: { contains: q, mode: "insensitive" } } : {}),
     },
     select: { id: true, name: true, location: true },
     orderBy: { name: "asc" },
