@@ -131,9 +131,11 @@ async function main() {
   check("Zero orphaned GradeHistory rows", orphanedGH.length === 0);
 
   // --- Duplicate check: no two GradeHistory rows for the same student+session ---
-  const dupCheck = await prisma.$queryRawUnsafe<{ studentId: string; academicSessionId: string; c: number }[]>(
-    `SELECT studentId, academicSessionId, COUNT(*) as c FROM GradeHistory GROUP BY studentId, academicSessionId HAVING c > 1`
-  );
+  const dupCheck = await prisma.gradeHistory.groupBy({
+    by: ["studentId", "academicSessionId"],
+    _count: { _all: true },
+    having: { studentId: { _count: { gt: 1 } } },
+  });
   check("No duplicate GradeHistory rows (studentId+session)", dupCheck.length === 0);
 
   // --- Teacher assignment overlap rule respected ---------------------------
