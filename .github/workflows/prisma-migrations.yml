@@ -51,7 +51,6 @@ jobs:
     env:
       DATABASE_URL: postgresql://ci:ci-temporary-only@localhost:5432/ci_validate?schema=public
       SHADOW_DATABASE_URL: postgresql://ci:ci-temporary-only@localhost:5432/ci_shadow?schema=public
-      PG_CONTAINER: ${{ job.services.postgres.id }}
       # Partial unique indexes added by hand-written migrations. Prisma 5.20
       # cannot model them, so its diffs propose dropping them; only these
       # exact statements are tolerated.
@@ -59,6 +58,10 @@ jobs:
         DROP INDEX "AcademicSession_one_active_per_school";
         DROP INDEX "StudentSchoolAffiliation_one_open_per_student";
     steps:
+      # The `job` context is only available inside steps, not in job-level env.
+      - name: Locate the PostgreSQL service container
+        run: echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
