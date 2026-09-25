@@ -1,7 +1,7 @@
 # Deployment
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-25 for the database sections (PostgreSQL foundation, kilometers PG-KM1–PG-KM10, branch `pg-foundation`); all other sections as of 2026-09-01. This document describes only what actually exists — no staging or production infrastructure has been set up, and nothing below should be read as implying otherwise.
+> Last verified: 2026-09-26 for the database sections (PostgreSQL foundation PG-KM1–PG-KM10, the F1 fix PG-F1 and the disaster-recovery kilometer PG-DR, branch `pg-foundation`); all other sections as of 2026-09-01. This document describes only what actually exists — no staging or production infrastructure has been set up, and nothing below should be read as implying otherwise.
 
 > **Branch note**: the PostgreSQL foundation described here lives on the `pg-foundation` branch, which is **not yet merged** into `main` (merging is a separate, pending decision). `main` still runs on SQLite.
 
@@ -88,7 +88,7 @@ Before any real deployment, based on what the code actually requires:
 
 ## Database rollback & recovery runbook ✅
 
-All procedures below were **rehearsed in PG-KM10** unless marked otherwise. Commands that need the PostgreSQL password read it from a hidden prompt (or `PGPASSWORD` set only in that process) — never from a committed file. PostgreSQL tools live in `C:\Program Files\PostgreSQL\18\bin`.
+All procedures below were **rehearsed in PG-KM10** unless marked otherwise (RB6 in PG-DR). Commands that need the PostgreSQL password read it from a hidden prompt (or `PGPASSWORD` set only in that process) — never from a committed file. PostgreSQL tools live in `C:\Program Files\PostgreSQL\18\bin`.
 
 ### RB1 — Restore PostgreSQL from a backup ✅ rehearsed
 Backups are `pg_dump -Fc` files (e.g. `C:\MEGA_DB_Backup\PG-KM9\megaedu_dev-before-PG-KM9.dump`, SHA-256 `33a9074a…5f81`). Rehearsed by restoring into a **temporary** database, never over the live one:
@@ -134,3 +134,33 @@ While `pg-foundation` is unmerged, rolling back means simply not merging: `main`
 
 ### RB5 — Reverse copy PostgreSQL → SQLite 🔭 not rehearsed — open decision
 Rolling back to SQLite (RB3) uses `dev.db` as it was; anything written only to PostgreSQL after the switch would not be carried back. Whether to accept that loss for development data or to build and rehearse a reverse copy (mirroring the PG-KM6 method into a copy of the SQLite snapshot) is an **open decision**. So is the length of the SQLite rollback window (decision D13): `dev.db` and the PG-KM1/PG-KM6 SQLite backups are preserved until SQLite retirement is separately approved.
+
+### RB6 — Recover on a new computer (disaster recovery) ✅ rehearsed from the external copy (PG-DR)
+**Where things are on the development machine**: PostgreSQL's data directory (`C:\Program Files\PostgreSQL\18\data`) and the evidence/backup folder `C:\MEGA_DB_Backup` share one SSD (C:); the repository and `prisma\dev.db` are on a second internal disk (E:). Recovery sets therefore live on a **separate physical disk**, the external USB drive: `H:\MEGA_DB_DR\<date>\`. Each set holds a fresh `pg_dump` of `megaedu_dev`, all of `C:\MEGA_DB_Backup` except `node_modules` (earlier dumps, evidence and the verification tools), a copy of `dev.db`, uncommitted documents, and a **`MANIFEST.json`/`MANIFEST.md`** recording every file's SHA-256, the content fingerprint, the migrations, the PostgreSQL version and the git commit. **Not in the set**: `.env`/`.env.local` (their values are kept in the owner's password manager), `node_modules`, PostgreSQL program files.
+
+1. Install Git, Node.js 24 and **PostgreSQL 18** (EDB installer; a dump made by version 18 needs version 18 or newer to restore). Set `listen_addresses = 'localhost'` in `postgresql.conf` and restart the service (the set contains the old `postgresql.conf`/`pg_hba.conf` for reference).
+2. `git clone https://github.com/adhikariminraj/megaedu-app.git`, `git switch pg-foundation`, `npm ci`.
+3. Recreate `.env` from `.env.example` and `.env.local` (one `DATABASE_URL` line) using the values from the password manager. A new `NEXTAUTH_SECRET` only signs everyone out.
+4. Copy the newest set from the external disk (or from the owner's off-site copy) and check the SHA-256 of at least the dump (`Get-FileHash`) against `MANIFEST.json`.
+5. Create the database and restore:
+   ```powershell
+   psql -h localhost -U postgres -c "CREATE DATABASE megaedu_dev ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+   pg_restore -h localhost -U postgres -d megaedu_dev --no-owner --exit-on-error <the dump>
+   ```
+   The dump already contains the schema, all indexes and the migration history.
+6. `powershell -NoProfile -ExecutionPolicy Bypass -File prisma\apply-migrations.ps1 -Database megaedu_dev` — applies only migrations newer than the dump (otherwise it reports 0 pending) — then `npx prisma generate`.
+7. Verify: the content fingerprint must equal the manifest's (`MEGA_DB_Backup\PG-DR\pgdr-db.js check-state` in the set also checks migrations, partial indexes and roles), the integrity suite (`MEGA_DB_Backup\PG-F1\pgf1-pgkm7-verify-db.js`), and `db:verify:demo` (18 of 18; `DATABASE_URL` set for that process only — see the README).
+8. `npm run dev` and a short smoke check.
+
+**Rehearsed (PG-DR, 2026-09-26)** from set `H:\MEGA_DB_DR\2026-09-26_0010` (305 files, 40 MB, commit `a1fc587`): all files re-verified on H:, the set copied to a local work folder as on a new computer and verified again, the dump restored **directly from H:** into a temporary database — fingerprint `38e3ad86…` (3,085 rows), 3 migrations, the 3 partial unique indexes, integrity suite 19/19, `db:verify:demo` 18 of 18, applier dry run "3 applied, 0 pending"; the temporary database was dropped and `megaedu_dev` was never written. Steps 1–3 and 8 were not rehearsed on a real second computer.
+
+**If no dump survives** but `dev.db` does: the PG-KM6 method (migrations, then copy the SQLite rows) was proven in PG-KM6, but its copy tool needs adapting before it can be reused (fixed source path, expects the 2 migrations of that time, reads SQLite through a Prisma client the `pg-foundation` checkout no longer generates) — deferred decision. `dev.db` also holds only the data from before the PostgreSQL move.
+
+## Development database backup routine ✅ (manual)
+
+- **When**: after every kilometer that changes the schema or the data, and at least weekly — run `C:\MEGA_DB_Backup\PG-DR\pgdr.ps1 backup` (hidden password prompt): read-only pre-flight, fresh `pg_dump`, recovery set with manifest, copy to a **new** dated folder on the external disk, every file re-verified there. From time to time run `pgdr.ps1 rehearsal` to prove the newest set restores.
+- **Known limitation**: the tool's pre-flight currently expects the exact post-F1 state (fingerprint `38e3ad86…`, 3 migrations, 3 partial indexes); once a later kilometer changes the data or schema, its expected values must be updated before the next backup, or it stops.
+- **Retention**: keep every dated set (about 40 MB each); nothing is deleted automatically.
+- **Off-site**: the owner copies the newest set to cloud storage by hand. The dumps contain only fictional demo data, but they include password hashes of demo accounts, so keep that storage private.
+- **Secrets** (`.env`, `.env.local`) live in the owner's password manager, never in a set.
+- Automatic scheduling (e.g. Windows Task Scheduler) is a separate decision that has not been made.

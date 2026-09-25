@@ -6,6 +6,12 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Added — development database disaster recovery (PG-DR, 2026-09-26)
+Documentation only in the repository; the tools and backups live outside it. Branch `pg-foundation`.
+- **Added — recovery set on a separate physical disk**: PostgreSQL's data and every earlier backup shared one SSD (C:). A new set, `H:\MEGA_DB_DR\2026-09-26_0010` on the external USB disk, holds a fresh post-F1 `pg_dump`, the evidence and verification tools, a copy of `dev.db`, uncommitted documents, and a SHA-256 manifest of all 305 files (40 MB). Secrets stay in the owner's password manager.
+- **Verified**: every file re-read on H: against the manifest; the dump restored **directly from H:** into a temporary database matched the live database exactly (fingerprint `38e3ad86…`, 3 migrations, 3 partial indexes, integrity suite 19/19, `db:verify:demo` 18 of 18, applier dry run clean); `megaedu_dev` was never written.
+- **Docs**: `DEPLOYMENT.md` gains runbook **RB6 — Recover on a new computer** and a manual backup routine; `TESTING.md` notes the rehearsal. The SQLite fallback (PG-KM6 copy tool) needs adapting before reuse — deferred.
+
 ### Fixed — F1: duplicate Grade Coordinator assignments under simultaneous requests (PG-F1, 2026-09-25)
 Branch `pg-foundation` only, not merged — `main` (SQLite) is unchanged.
 - **Fixed**: migration `2_class_teacher_grade_wide_unique` adds the partial unique index `ClassTeacherAssignment_one_grade_wide_per_session` on `("schoolGradeId", "academicSessionId") WHERE "sectionId" IS NULL` — at most one grade-wide `ClassTeacherAssignment` (Grade Coordinator) per grade per session. Approved as an explicit exception to decision D7. No application code change: the create route already maps `P2002` to `409`, so a request that loses a simultaneous race now gets `409` and its whole batch rolls back (before, it created a duplicate row).
