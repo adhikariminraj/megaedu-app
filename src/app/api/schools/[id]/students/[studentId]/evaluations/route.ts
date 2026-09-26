@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   requireSchoolAdmin,
@@ -144,10 +145,17 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Same NULL ≠ NULL unique-index gap already found and fixed twice
-  // elsewhere in this schema (TeacherAcademicAssignment,
-  // ClassTeacherAssignment) — @@unique alone won't catch a second
-  // general (gradeSubjectId: null) evaluation, so pre-check explicitly.
+  // One evaluation per teacher/student/session/scope. The @@unique alone
+  // won't catch a second general (gradeSubjectId: null) evaluation
+  // (NULL ≠ NULL), so it is pre-checked here for the friendly 409; a
+  // simultaneous duplicate is caught by the database — the @@unique for a
+  // subject evaluation, the partial unique index
+  // StudentEvaluation_one_general_per_student_teacher_session for a general
+  // one (finding F2, rule A3) — and returns the same 409.
+  const alreadyExists = NextResponse.json(
+    { error: "This teacher already has an evaluation for this student, this session, in this scope. Edit it instead." },
+    { status: 409 }
+  );
   const existing = await prisma.studentEvaluation.findFirst({
     where: {
       studentId: params.studentId,
@@ -156,25 +164,24 @@ export async function POST(
       gradeSubjectId: body.gradeSubjectId || null,
     },
   });
-  if (existing) {
-    return NextResponse.json(
-      { error: "This teacher already has an evaluation for this student, this session, in this scope. Edit it instead." },
-      { status: 409 }
-    );
+  if (existing) return alreadyExists;
+
+  try {
+    const evaluation = await prisma.studentEvaluation.create({
+      data: {
+        studentId: params.studentId,
+        teacherId,
+        academicSessionId: activeSession.id,
+        schoolGradeId: placement.schoolGradeId,
+        sectionId: placement.sectionId,
+        gradeSubjectId: body.gradeSubjectId || null,
+        remarks: body.remarks.trim(),
+        createdByUserId: actingUserId,
+      },
+    });
+    return NextResponse.json({ ok: true, evaluation });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return alreadyExists;
+    throw err;
   }
-
-  const evaluation = await prisma.studentEvaluation.create({
-    data: {
-      studentId: params.studentId,
-      teacherId,
-      academicSessionId: activeSession.id,
-      schoolGradeId: placement.schoolGradeId,
-      sectionId: placement.sectionId,
-      gradeSubjectId: body.gradeSubjectId || null,
-      remarks: body.remarks.trim(),
-      createdByUserId: actingUserId,
-    },
-  });
-
-  return NextResponse.json({ ok: true, evaluation });
 }

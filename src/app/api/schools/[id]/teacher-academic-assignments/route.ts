@@ -19,8 +19,8 @@ type AssignmentInput = {
  * offer). sectionId null means grade-wide (every section); a non-null
  * value means one specific section.
  *
- * Overlap rule (server-side, not a DB constraint — see schema comment
- * on TeacherAcademicAssignment for why): the SAME teacher may never
+ * Overlap rule (checked here; a unique index cannot express it — see the
+ * schema comment on TeacherAcademicAssignment): the SAME teacher may never
  * hold both a grade-wide AND a section-specific row for the same
  * (teacherId, academicSessionId, schoolGradeId, subjectId) tuple.
  * Requesting a grade-wide assignment is rejected if ANY row already
@@ -35,9 +35,17 @@ type AssignmentInput = {
  * the SAME batch, not just what was already in the database before the
  * request started. The same check also skips an exact duplicate, so a
  * duplicate is never caught mid-transaction (on PostgreSQL one failed
- * statement aborts the whole transaction). A P2002 can now only mean a
- * concurrent request created the same row first — the batch rolls back
- * with a 409.
+ * statement aborts the whole transaction).
+ *
+ * The transaction runs at SERIALIZABLE isolation (finding F2, rule A1;
+ * the separate justification decision D8.8 requires): the overlap rule
+ * spans different rows, so two simultaneous requests could each pass the
+ * check above and then insert a grade-wide and a section row. At
+ * SERIALIZABLE, PostgreSQL aborts one of them instead (Prisma P2034). A
+ * second grade-wide row is also blocked by the partial unique index
+ * TeacherAcademicAssignment_one_grade_wide_per_teacher_subject (P2002).
+ * Either way the batch rolls back and the route returns 409; the admin
+ * refreshes and retries.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
@@ -138,9 +146,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       return { created, skipped };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && (err.code === "P2002" || err.code === "P2034")) {
       return NextResponse.json(
         { error: "These assignments were just changed by someone else — please refresh and try again." },
         { status: 409 }

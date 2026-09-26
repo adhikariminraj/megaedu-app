@@ -835,10 +835,13 @@ model GradeSubject {
 // sectionId null means grade-wide (every section); non-null means one
 // specific section. A teacher may never hold both a grade-wide AND a
 // section-specific row for the same (teacherId, academicSessionId,
-// schoolGradeId, subjectId) tuple at once — enforced in the route, not
-// the DB, because SQL unique indexes treat NULL as distinct from NULL
-// so a plain @@unique cannot catch two grade-wide rows colliding (same
-// class of app-level rule as the one-ACTIVE-session-per-school check).
+// schoolGradeId, subjectId) tuple at once — a rule across rows that no
+// index can express, enforced in the route inside a SERIALIZABLE
+// transaction. Two grade-wide rows for one tuple are also blocked by the
+// partial unique index TeacherAcademicAssignment_one_grade_wide_per_teacher_subject
+// (migration 4_f2_a1_to_a4_unique, finding F2/A1), because the @@unique
+// below treats NULL sectionIds as distinct and Prisma cannot express a
+// partial index here.
 // Multiple DIFFERENT teachers CAN hold overlapping assignments for the
 // same subject/grade/section — no hierarchy, no primary/assistant
 // concept. gradeSubjectId is the source of truth that this subject is
@@ -972,11 +975,13 @@ model AttendanceAudit {
 // move when units are created or completed, and can be entered before
 // any TeachingUnit row exists. Optional: no row means no plan is set,
 // and progress views fall back to raw counts with no percentage-of-
-// plan. Write path is find-or-update-else-create (app-level, not a
-// bare insert) since at most one plan should exist per
-// (gradeSubjectId, sectionId) — the same low-concurrency reasoning as
-// the one-ACTIVE-session-per-school rule, since a plain @@unique can't
-// reliably catch two sectionId: null rows colliding.
+// plan. Write path is find-or-update-else-create (not a bare insert):
+// at most one plan exists per (gradeSubjectId, sectionId). The @@unique
+// below cannot catch two sectionId: null rows colliding (NULLs are
+// distinct), so a grade-wide plan is protected by the partial unique
+// index TeachingPlan_one_grade_wide_per_grade_subject (migration
+// 4_f2_a1_to_a4_unique, finding F2/A2); a save that loses a simultaneous
+// create updates the winner's row.
 model TeachingPlan {
   id                String          @id @default(cuid())
   gradeSubjectId    String
@@ -1480,11 +1485,14 @@ model StudentEvaluation {
 
   // NOTE: this constraint reliably catches an exact duplicate
   // subject-specific slot, but — the same NULL≠NULL unique-index gap
-  // already found and fixed twice elsewhere in this schema
-  // (TeacherAcademicAssignment, ClassTeacherAssignment) — does NOT by
-  // itself catch a second general (gradeSubjectId: null) evaluation
-  // from the same teacher/student/session. The create route pre-checks
-  // that case explicitly, inside the same transaction, from the start.
+  // found elsewhere in this schema (TeacherAcademicAssignment,
+  // ClassTeacherAssignment) — does NOT by itself catch a second general
+  // (gradeSubjectId: null) evaluation from the same teacher/student/
+  // session. The create route pre-checks that case (the pre-check runs
+  // without a transaction; an earlier version of this comment said
+  // otherwise), and since migration 4_f2_a1_to_a4_unique the partial unique
+  // index StudentEvaluation_one_general_per_student_teacher_session
+  // enforces it (finding F2/A3), which Prisma cannot express here.
   @@unique([studentId, teacherId, academicSessionId, gradeSubjectId])
   @@index([studentId])
 }
@@ -1646,8 +1654,11 @@ model AssessmentComponent {
   // ClassTeacherAssignment, StudentEvaluation) — does NOT by itself
   // catch a second identically-named component with periodId: null
   // (framework-level, no period) under the same framework. The create
-  // route pre-checks that case explicitly before creating, from the
-  // start — see src/lib/assessmentFramework.ts.
+  // and rename routes pre-check that case (see
+  // src/lib/assessmentFramework.ts), and since migration
+  // 4_f2_a1_to_a4_unique the partial unique index
+  // AssessmentComponent_unique_name_framework_level enforces it (finding
+  // F2/A4), which Prisma cannot express here.
   results AssessmentComponentResult[]
 
   @@unique([frameworkId, periodId, name])

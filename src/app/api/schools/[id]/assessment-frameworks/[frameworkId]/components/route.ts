@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { ENTRY_MODES, componentCollisionExists } from "@/lib/assessmentFramework";
 
 /**
  * Adds one AssessmentComponent to an existing framework, optionally
- * nested under one of its periods. Duplicate-name protection is an
- * explicit pre-check (componentCollisionExists), not just the DB
- * constraint — see the NULL≠NULL note on AssessmentComponent in
- * schema.prisma and src/lib/assessmentFramework.ts.
+ * nested under one of its periods. A duplicate name is caught by an
+ * explicit pre-check (componentCollisionExists) and returns 409; a
+ * simultaneous duplicate is caught by the database — the @@unique inside
+ * a period, the partial unique index
+ * AssessmentComponent_unique_name_framework_level at framework level
+ * (finding F2, rule A4) — and returns the same 409.
  */
 export async function POST(
   req: NextRequest,
@@ -48,6 +51,10 @@ export async function POST(
     resolvedPeriodId = periodId;
   }
 
+  const nameTaken = NextResponse.json(
+    { error: "A component with that name already exists in this scope." },
+    { status: 409 }
+  );
   if (
     await componentCollisionExists({
       frameworkId: params.frameworkId,
@@ -55,25 +62,27 @@ export async function POST(
       name: trimmedName,
     })
   ) {
-    return NextResponse.json(
-      { error: "A component with that name already exists in this scope." },
-      { status: 409 }
-    );
+    return nameTaken;
   }
 
   const count = await prisma.assessmentComponent.count({
     where: { frameworkId: params.frameworkId, periodId: resolvedPeriodId },
   });
 
-  const component = await prisma.assessmentComponent.create({
-    data: {
-      frameworkId: params.frameworkId,
-      periodId: resolvedPeriodId,
-      name: trimmedName,
-      maxMarks,
-      entryMode: entryMode || "MARKS",
-      order: count,
-    },
-  });
-  return NextResponse.json({ ok: true, component });
+  try {
+    const component = await prisma.assessmentComponent.create({
+      data: {
+        frameworkId: params.frameworkId,
+        periodId: resolvedPeriodId,
+        name: trimmedName,
+        maxMarks,
+        entryMode: entryMode || "MARKS",
+        order: count,
+      },
+    });
+    return NextResponse.json({ ok: true, component });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return nameTaken;
+    throw err;
+  }
 }

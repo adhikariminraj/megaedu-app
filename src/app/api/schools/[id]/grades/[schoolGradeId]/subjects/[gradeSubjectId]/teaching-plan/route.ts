@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
 
 /**
  * Sets or updates the planned-total/display-label teaching plan for one
  * (gradeSubject, sectionId) scope. Find-or-update-else-create, not a
- * bare insert — at most one plan should exist per (gradeSubjectId,
- * sectionId), and a plain @@unique can't reliably catch two
- * sectionId: null rows colliding (same NULL-in-unique-index caveat as
- * elsewhere in this schema). sectionId null means the grade-wide plan.
+ * bare insert — at most one plan exists per (gradeSubjectId, sectionId).
+ * The model's @@unique cannot catch two sectionId: null rows colliding
+ * (NULLs are distinct), so a grade-wide plan is protected by a partial
+ * unique index instead; see the create below. sectionId null means the
+ * grade-wide plan.
  */
 export async function POST(
   req: NextRequest,
@@ -57,27 +59,39 @@ export async function POST(
   const userId = adminUserId || teacherUserId;
   if (!userId) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const existing = await prisma.teachingPlan.findFirst({
-    where: { gradeSubjectId: params.gradeSubjectId, sectionId: targetSectionId },
-  });
+  const scope = { gradeSubjectId: params.gradeSubjectId, sectionId: targetSectionId };
+  const updatePlan = (current: { id: string; unitLabel: string }) =>
+    prisma.teachingPlan.update({
+      where: { id: current.id },
+      data: { plannedTotal, unitLabel: unitLabel?.trim() || current.unitLabel },
+    });
 
-  const plan = existing
-    ? await prisma.teachingPlan.update({
-        where: { id: existing.id },
-        data: { plannedTotal, unitLabel: unitLabel?.trim() || existing.unitLabel },
-      })
-    : await prisma.teachingPlan.create({
-        data: {
-          gradeSubjectId: params.gradeSubjectId,
-          academicSessionId: gradeSubject.academicSessionId,
-          schoolGradeId: params.schoolGradeId,
-          sectionId: targetSectionId,
-          subjectId: gradeSubject.subjectId,
-          plannedTotal,
-          unitLabel: unitLabel?.trim() || "Unit",
-          createdByUserId: userId,
-        },
-      });
+  const existing = await prisma.teachingPlan.findFirst({ where: scope });
+  if (existing) return NextResponse.json({ ok: true, plan: await updatePlan(existing) });
 
-  return NextResponse.json({ ok: true, plan });
+  try {
+    const plan = await prisma.teachingPlan.create({
+      data: {
+        ...scope,
+        academicSessionId: gradeSubject.academicSessionId,
+        schoolGradeId: params.schoolGradeId,
+        subjectId: gradeSubject.subjectId,
+        plannedTotal,
+        unitLabel: unitLabel?.trim() || "Unit",
+        createdByUserId: userId,
+      },
+    });
+    return NextResponse.json({ ok: true, plan });
+  } catch (err) {
+    // A simultaneous request created this scope's plan first: the model's
+    // @@unique catches a section plan, the partial unique index
+    // TeachingPlan_one_grade_wide_per_grade_subject a grade-wide one
+    // (finding F2, rule A2). Setting a plan updates it, so update that row
+    // instead; no ordering between simultaneous saves is defined.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const created = await prisma.teachingPlan.findFirst({ where: scope });
+      if (created) return NextResponse.json({ ok: true, plan: await updatePlan(created) });
+    }
+    throw err;
+  }
 }

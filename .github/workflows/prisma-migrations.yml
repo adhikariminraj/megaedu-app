@@ -60,6 +60,10 @@ jobs:
         DROP INDEX "ClassTeacherAssignment_one_grade_wide_per_session";
         DROP INDEX "CoScholasticResult_one_annual_per_student_area_session";
         DROP INDEX "AssessmentFrameworkAssignment_one_default_per_grade_session";
+        DROP INDEX "TeacherAcademicAssignment_one_grade_wide_per_teacher_subject";
+        DROP INDEX "TeachingPlan_one_grade_wide_per_grade_subject";
+        DROP INDEX "StudentEvaluation_one_general_per_student_teacher_session";
+        DROP INDEX "AssessmentComponent_unique_name_framework_level";
     steps:
       # The `job` context is only available inside steps, not in job-level env.
       - name: Locate the PostgreSQL service container
