@@ -134,7 +134,7 @@ export async function transitionAcademicSession(
     if (currentActive.id !== input.expectedPriorSessionId) {
       throw new AcademicSessionTransitionError(
         409,
-        "This school's active session has changed since this action was requested — please refresh and try again."
+        "This school's active session was just changed by someone else — please refresh and try again."
       );
     }
 
@@ -175,7 +175,7 @@ export function academicSessionTransitionErrorResponse(err: unknown): NextRespon
   }
   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
     return NextResponse.json(
-      { error: "This school's session was just changed by another request — please refresh and try again." },
+      { error: "This school's session was just changed by someone else — please refresh and try again." },
       { status: 409 }
     );
   }

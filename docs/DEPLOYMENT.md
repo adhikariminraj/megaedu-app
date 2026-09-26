@@ -30,7 +30,7 @@ What has been **proven** on PostgreSQL (evidence under `C:\MEGA_DB_Backup\PG-KM1
 | Concurrency: 0 deadlocks, no pool timeouts, the two partial unique indexes turn real races into clean `409`s; completion save limit 5 is safe | PG-KM9 |
 | Backup restore, rebuild from migrations + seeds, and local SQLite ↔ PostgreSQL switching | PG-KM10 (see [runbook](#database-rollback--recovery-runbook-)) |
 
-Known findings from this work (F1–F8) are listed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8). F1 is fixed on this branch by migration `2_class_teacher_grade_wide_unique` (PG-F1, 2026-09-25); F2 is fixed by migrations `3_f2_annual_and_default_unique` (rules A6 and A5) and `4_f2_a1_to_a4_unique` (rules A1–A4), both 2026-09-26; F8 is fixed by migration `5_f8_offering_restrict` (2026-09-26); F3 is fixed in code (2026-09-26, no migration); F4–F7 remain open.
+Known findings from this work (F1–F8) are listed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8). F1 is fixed on this branch by migration `2_class_teacher_grade_wide_unique` (PG-F1, 2026-09-25); F2 is fixed by migrations `3_f2_annual_and_default_unique` (rules A6 and A5) and `4_f2_a1_to_a4_unique` (rules A1–A4), both 2026-09-26; F8 is fixed by migration `5_f8_offering_restrict` (2026-09-26); F3 is fixed in code (2026-09-26, no migration); F4 and F7 are fixed and F5 and F6 closed as informational (2026-09-26) — all eight findings are resolved.
 
 ## Schema changes (migrations) ✅
 
@@ -75,7 +75,7 @@ Before any real deployment, based on what the code actually requires:
 2. A real `NEXTAUTH_SECRET` and `NEXTAUTH_URL` matching the deployed domain.
 3. A real `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` before running the seed script, or skip seeding demo/fixture data entirely in production. Note that `seed.ts` prints the platform-admin password it uses.
 4. Connection-pool settings for the target host (`connection_limit`, `pool_timeout`, possibly a pooler) — development ran on Prisma's default pool of 13 connections; production sizing is part of D3.
-5. Decisions on the open findings F4–F7 ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8)); F1, F2, F3 and F8 are fixed on this branch.
+5. The PostgreSQL findings F1–F8 are all resolved on this branch ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8)).
 6. Whatever the hosting platform requires for a standard Next.js 14 App Router app (Node.js runtime; no edge-specific code is used anywhere in this codebase, so no special edge-runtime configuration is needed).
 
 ## PostgreSQL considerations ✅ / ⚠️
@@ -108,13 +108,13 @@ psql -h localhost -U postgres -d postgres -c "DROP DATABASE megaedu_restore_rehe
 
 Result: the restored database reproduced fingerprint `38e3ad86…` exactly, passed every PG-KM7 check, and passed `db:verify:demo` with 18 of 18 checks. **Restoring over `megaedu_dev` itself** (e.g. `pg_restore --clean --if-exists --single-transaction -d megaedu_dev <dump>`) was *not* rehearsed and must only be done with explicit approval.
 
-### RB2 — Rebuild PostgreSQL from migrations and seeds ✅ rehearsed (with F7)
+### RB2 — Rebuild PostgreSQL from migrations and seeds ✅ rehearsed
 1. Create an empty database (UTF-8, `C` collation, `TEMPLATE template0`).
 2. Apply the migrations: `powershell -File prisma\apply-migrations.ps1 -Database <name> -ReferenceRows <CI prisma-migrations-rows.csv>` (checksums must match CI).
 3. Seed, with `DATABASE_URL` pointing at the new database: `npx tsx prisma/seed.ts`, then `prisma/seed-demo.ts`, then `prisma/seed-general-calendar.ts`. Set `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` explicitly for that process — `seed.ts` prints the admin password.
 4. Verify with `npx tsx prisma/verify-demo-data.ts`.
 
-Result: both migrations applied, all three seeds ran successfully on PostgreSQL, and `db:verify:demo` passed **16 of 18 checks** (2 of 18 failed). The two failures are **F7** (open; not a PostgreSQL defect): a fresh `seed-demo.ts` intentionally leaves 2 Class 9 students unassigned, while `verify-demo-data.ts` checks the later state of the current dataset (1 unassigned — see [DEMO_DATA.md](DEMO_DATA.md#verifying-the-demo-data)). The PostgreSQL rebuild itself succeeded. A seeded database has new random IDs, so the PG-KM1 fingerprint does not apply to it. To rebuild with the *current* data instead, use RB1 (restore) or the PG-KM6 method (migrations + copy from the preserved SQLite snapshot, rehearsed in PG-KM6).
+Result: both migrations applied, all three seeds ran successfully on PostgreSQL, and `db:verify:demo` passed **16 of 18 checks** (2 of 18 failed). The two failures were **F7** (since fixed — see below; not a PostgreSQL defect): a fresh `seed-demo.ts` intentionally leaves 2 Class 9 students unassigned, while `verify-demo-data.ts` checks the later state of the current dataset (1 unassigned — see [DEMO_DATA.md](DEMO_DATA.md#verifying-the-demo-data)). The PostgreSQL rebuild itself succeeded. A seeded database has new random IDs, so the PG-KM1 fingerprint does not apply to it. To rebuild with the *current* data instead, use RB1 (restore) or the PG-KM6 method (migrations + copy from the preserved SQLite snapshot, rehearsed in PG-KM6). **Rehearsed again after the F7 fix (PG-MP1, 2026-09-26)**, with all six migrations: a fresh seed passes **18 of 18** (Class 9: A 9, B 9, C 8, D 8, 1 unassigned; one audited section change); the same rebuild with the unchanged seed first reproduced 16 of 18.
 
 ### RB3 — Switch the local app between SQLite and PostgreSQL ✅ rehearsed
 **Back to SQLite:**
@@ -134,8 +134,14 @@ Result: the PG-KM10 read-only smoke script (a separate check list, not `db:verif
 ### RB4 — Repository rollback (documented, not executed)
 While `pg-foundation` is unmerged, rolling back means simply not merging: `main` is unchanged (SQLite). After a future merge, roll back with `git revert -m 1 <merge commit>` (a new commit; history is not rewritten), then regenerate the Prisma client for SQLite and follow RB3.
 
-### RB5 — Reverse copy PostgreSQL → SQLite 🔭 not rehearsed — open decision
-Rolling back to SQLite (RB3) uses `dev.db` as it was; anything written only to PostgreSQL after the switch would not be carried back. Whether to accept that loss for development data or to build and rehearse a reverse copy (mirroring the PG-KM6 method into a copy of the SQLite snapshot) is an **open decision**. So is the length of the SQLite rollback window (decision D13): `dev.db` and the PG-KM1/PG-KM6 SQLite backups are preserved until SQLite retirement is separately approved.
+### RB5 — Reverse copy PostgreSQL → SQLite — decided: not built (D13)
+Rolling back to SQLite (RB3) uses `dev.db` as it was; anything written only to PostgreSQL after the switch would not be carried back. **Decision (D13, 2026-09-26): no reverse copy is built** — this is development data only, and that loss is accepted.
+
+**SQLite rollback window and `dev.db` retirement (D13, decided 2026-09-26):**
+1. Until `pg-foundation` is merged into `main`, `dev.db` (not tracked by git) stays exactly as it is and RB3 remains the supported rollback.
+2. After the merge, the rollback window ends at the **latest** of: post-merge verification passed; a post-merge recovery set taken and restored from the external disk; **14 days** of normal development on PostgreSQL with no rollback needed. During the window, rollback means reverting the merge commit and following RB3.
+3. At the end of the window, and only with explicit approval, SQLite is retired as a recovery path: RB3 is marked retired, the verification tools' `dev.db` guard checks are updated, and `dev.db` plus the PG-KM1/PG-KM6 SQLite backups under `C:\MEGA_DB_Backup` move to an archive folder on the external disk. Nothing on the external disk is deleted.
+4. Before the working-tree copy is removed: its SHA-256 is recorded, identical copies exist in at least two verified recovery sets, and the post-merge recovery set has been rehearsed.
 
 ### RB6 — Recover on a new computer (disaster recovery) ✅ rehearsed from the external copy (PG-DR)
 **Where things are on the development machine**: PostgreSQL's data directory (`C:\Program Files\PostgreSQL\18\data`) and the evidence/backup folder `C:\MEGA_DB_Backup` share one SSD (C:); the repository and `prisma\dev.db` are on a second internal disk (E:). Recovery sets therefore live on a **separate physical disk**, the external USB drive: `H:\MEGA_DB_DR\<date>\`. Each set holds a fresh `pg_dump` of `megaedu_dev`, all of `C:\MEGA_DB_Backup` except `node_modules` (earlier dumps, evidence and the verification tools), a copy of `dev.db`, uncommitted documents, and a **`MANIFEST.json`/`MANIFEST.md`** recording every file's SHA-256, the content fingerprint, the migrations, the PostgreSQL version and the git commit. **Not in the set**: `.env`/`.env.local` (their values are kept in the owner's password manager), `node_modules`, PostgreSQL program files.

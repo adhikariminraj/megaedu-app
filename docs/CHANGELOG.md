@@ -6,6 +6,13 @@ All notable changes to MEGA.EDU are recorded here, in [Keep a Changelog](https:/
 
 ## Unreleased
 
+### Fixed — merge preparation MP-1: F4 message wording, F7 fresh-seed mismatch; F5/F6 closed; D13 decided (2026-09-26)
+Branch `pg-foundation` only, not merged — `main` (SQLite) is unchanged.
+- **F4**: four concurrency messages with technical wording now follow the house pattern "… was just … by someone else — please refresh and try again." (`academicSession.ts` ×2, `markSheet.ts` ×2); no behavior changed. The pattern and its deliberate exceptions are recorded in `DEVELOPMENT_GUIDELINES.md`.
+- **F7**: `seed-demo.ts` now ends by reproducing the audited reassignment the real demo data contains (Kalpana Thapa, no section → Section B) through `reassignSection()`, without disturbing the seeded random-number sequence and only while she is unassigned. A rebuild from seeds passes 18 of 18 instead of 16 of 18 (reproduced first, evidence `C:\MEGA_DB_Backup\PG-MP1`); the verifier's old random-number comment was replaced. `megaedu_dev` was not changed: integrity suite 25/25, `db:verify:demo` 18 of 18, smoke checks 19/19.
+- **F5, F6** closed as informational. With these, all eight PostgreSQL findings are resolved.
+- **D13** decided and documented (`DEPLOYMENT.md`, RB5): no reverse copy to SQLite; after the merge the SQLite rollback window ends at the latest of post-merge verification, a rehearsed post-merge recovery set, and 14 days; then, with approval, `dev.db` and the SQLite backups are archived on the external disk.
+
 ### Fixed — F3: a bulk write chosen as a deadlock victim answered a raw 500 (2026-09-26)
 Branch `pg-foundation` only, not merged — `main` (SQLite) is unchanged.
 - **Fixed**: new helper `isTransactionConflict()` (`src/lib/dbErrors.ts`) recognises a transaction PostgreSQL aborted as a deadlock victim or for a serialization failure. The seven bulk routes (attendance, class-teacher assignments, grade placements, grade sections, grade subjects, school subjects, teacher-grade assignments) and the teacher-academic-assignments route answer it with their existing `409` ("… please refresh and try again"); the batch has rolled back whole. No schema change.

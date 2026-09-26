@@ -33,7 +33,7 @@ npm run db:seed:calendar
 npm run db:verify:demo
 ```
 
-with `DATABASE_URL` pointing at `<new_db>` for the four `npm` commands — supplied to that process, because the scripts do not read `.env.local` (see the README's environment section). This is runbook RB2 in [DEPLOYMENT.md](DEPLOYMENT.md#database-rollback--recovery-runbook-), rehearsed in PG-KM10 with all three seed steps (`db:seed`, `db:seed:demo`, `db:seed:calendar`). Expect `db:verify:demo` to pass **16 of 18 checks** on a freshly seeded database (2 of 18 fail) — see the F7 note under [Verifying the demo data](#verifying-the-demo-data).
+with `DATABASE_URL` pointing at `<new_db>` for the four `npm` commands — supplied to that process, because the scripts do not read `.env.local` (see the README's environment section). This is runbook RB2 in [DEPLOYMENT.md](DEPLOYMENT.md#database-rollback--recovery-runbook-), rehearsed in PG-KM10 with all three seed steps (`db:seed`, `db:seed:demo`, `db:seed:calendar`). Expect `db:verify:demo` to pass **18 of 18 checks** on a freshly seeded database (since the F7 fix; before it, 16 of 18 — see [Verifying the demo data](#verifying-the-demo-data)).
 
 `seed-demo.ts` is **idempotent and self-sufficient** — it re-derives every account, grade, subject, and assignment it needs from `seed.ts`'s bootstrap alone (it does not assume any other data already exists), and every write is either an upsert on the model's own natural unique key or guarded by a deterministic, stable id. Running it against an already-seeded database, or a completely fresh one, produces byte-identical results — verified directly (row counts diffed as identical across repeated runs, in both scenarios).
 
@@ -140,25 +140,19 @@ Checks, against the live database and the **real production calculation function
 
 Exits non-zero if any check fails.
 
-### Known mismatch on a freshly seeded database (finding F7) ⚠️
+### A freshly seeded database matches the current dataset (finding F7, fixed) ✅
 
-`verify-demo-data.ts` checks the **current** development dataset, not what a fresh `seed-demo.ts` run produces:
+Until 2026-09-26 a fresh `seed-demo.ts` run left **two** Class 9 students without a section, while the current dataset has **one**: an audited reassignment (recorded 2026-09-07, found by a read-only audit query in PG-KM10) had moved Kalpana Thapa from no section to Section B. `verify-demo-data.ts` checks the current state, so a rebuild from seeds passed only 16 of 18 checks.
+
+Since the F7 fix, `seed-demo.ts` ends by reproducing that reassignment through the same audited path (`reassignSection()`): the first student placed without a section moves to Section B, which also creates the matching `GradeHistoryAudit` row. The step runs after all other demo data is generated and draws nothing from the seeded random-number sequence, so everything else a fresh seed produces is unchanged; and it runs only while the student is still unassigned, so re-running the seed adds no second audit row.
 
 | | Class 9 sections | Unassigned | `db:verify:demo` |
 |---|---|---|---|
-| Fresh `seed-demo.ts` run (two unassigned students by design) | A 9, B 8, C 8, D 8 | **2** | 16 of 18 checks — fails "Sections A/B have 9 students, C/D have 8" and "1 student remains Unassigned" |
-| Current dataset (`dev.db`, and `megaedu_dev` copied from it) | A 9, B 9, C 8, D 8 | **1** | 18 of 18 checks |
+| Fresh seed before the fix | A 9, B 8, C 8, D 8 | 2 (Kalpana Thapa, Sujata Rai) | 16 of 18 |
+| Fresh seed after the fix (PG-MP1 rebuild) | A 9, B 9, C 8, D 8 | 1 (Sujata Rai) | **18 of 18** |
+| Current dataset (`dev.db`, and `megaedu_dev` copied from it) | A 9, B 9, C 8, D 8 | 1 | 18 of 18 |
 
-What the evidence shows:
-
-- `seed-demo.ts` intentionally produces two Class 9 students with no section.
-- The current dataset contains one unassigned Class 9 student.
-- A read-only audit query (PG-KM10, `GradeHistoryAudit`) found a later, explicit reassignment of Kalpana Thapa from no section to Section B through the app's audited reassignment path (recorded 2026-09-07).
-- `verify-demo-data.ts` checks that later/current state, not the freshly seeded one.
-
-The audit trail records a later explicit reassignment that explains the observed current state, while the verifier retains a historical comment attributing the difference to RNG non-determinism. The two explanations are not reconciled in this change.
-
-F7 therefore remains a demo-data/verification consistency finding — open, low severity, and **not a PostgreSQL defect**: the PostgreSQL rebuild itself succeeds. The same mismatch is expected on SQLite, because the mismatch is between the seed output and the verification expectations, not PostgreSQL behavior (an inference — RB2 was rehearsed on PostgreSQL only). Recorded in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8). Documentation-only treatment for now; a code/verification fix remains undecided and unapproved, and neither script's behavior has been changed.
+The verifier's old comment, which attributed the difference to random-number non-determinism, was replaced; its checks are unchanged. Recorded as fixed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8).
 
 ---
 

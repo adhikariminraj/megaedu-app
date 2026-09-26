@@ -302,7 +302,7 @@ async function writeMarkSheetVersion(
           data: { status: "SUPERSEDED", supersededByMarkSheetId: newMarkSheet.id },
         });
         if (supersedeResult.count !== 1) {
-          throw new MarkSheetBusinessError("Another correction was already applied concurrently — please refresh and try again.");
+          throw new MarkSheetBusinessError("Another correction was just applied by someone else — please refresh and try again.");
         }
       }
 
@@ -317,7 +317,7 @@ async function writeMarkSheetVersion(
     // version number — the DB-level backstop behind the optimistic lock
     // above. Surface it the same way, not as a 500.
     if (err instanceof Error && /Unique constraint/i.test(err.message)) {
-      return { ok: false, reason: "This Mark Sheet was already issued or corrected concurrently — please refresh and try again." };
+      return { ok: false, reason: "This Mark Sheet was just issued or corrected by someone else — please refresh and try again." };
     }
     throw err;
   }
