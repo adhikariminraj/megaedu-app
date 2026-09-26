@@ -12,16 +12,25 @@
 // natural key) a stable, deterministic `id`. Re-running this script against
 // an already-seeded database is safe and makes no duplicate rows.
 //
-// Reset recipe:
-//   npx prisma db push --force-reset
+// Rebuild recipe (PostgreSQL; `prisma db push` is retired — decision D5):
+//   create a NEW empty database (UTF-8, C collation, TEMPLATE template0),
+//   apply the reviewed migrations with prisma/apply-migrations.ps1,
+//   point DATABASE_URL at it, then:
+//   npx prisma generate
 //   npm run db:seed
 //   npm run db:seed:demo
+// Never drop the live development database without a fresh pg_dump backup
+// and an explicit decision. Full procedure: docs/DEPLOYMENT.md (runbook RB2).
+// A fresh run ends with 1 Class 9 student unassigned, like the real demo data:
+// the last step below moves the first of the two students placed without a
+// section to Section B through the audited path (finding F7 — see
+// docs/DEMO_DATA.md), so `npm run db:verify:demo` passes 18 of 18 on it.
 //
 // All data is fictional. Every account uses the shared password below.
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { recordGradeDecision } from "../src/lib/gradeHistory";
+import { recordGradeDecision, reassignSection } from "../src/lib/gradeHistory";
 
 const prisma = new PrismaClient();
 
@@ -179,6 +188,7 @@ async function main() {
   // new ones.
   const sectionNamesC9 = ["A", "B", "C", "D", "E", "F"];
   const sectionsC9: Record<string, { id: string }> = {};
+  let f7StudentId: string | null = null; // the first Class 9 student placed without a section (finding F7)
   for (const name of sectionNamesC9) {
     sectionsC9[name] = await prisma.section.upsert({
       where: { schoolGradeId_name: { schoolGradeId: class9.id, name } },
@@ -247,7 +257,7 @@ async function main() {
   // present. demo2.teacher@megaedu.local ("Bimla") is NOT in seed.ts (she was
   // created by earlier manual testing); this script must be able to (re)create
   // her from a bare seed.ts baseline too, so it's fully self-sufficient on a
-  // fresh `db push --force-reset`.
+  // freshly created, freshly migrated database.
   const demoTeacherUser = await prisma.user.findUniqueOrThrow({ where: { email: "demo.teacher@megaedu.local" } });
   const demoTeacher = await prisma.teacher.findUniqueOrThrow({ where: { userId: demoTeacherUser.id } });
 
@@ -601,6 +611,7 @@ async function main() {
     const ability = { math: clamp(rng() * 0.6 + 0.3, 0.3, 0.9), science: clamp(rng() * 0.6 + 0.3, 0.3, 0.9) };
     c9Students.push({ ...ns, ability });
     await placeCurrentSession(ns.student.id, class9.id, null);
+    if (i === 0) f7StudentId = ns.student.id;
   }
 
   // Fold in the well-known Demo Student (Section D) — given a REPEATED
@@ -1667,6 +1678,22 @@ async function main() {
     }
   }
   console.log(`Co-Scholastic demo data ready: 4 areas, annual grades for the userless Mark Sheet demo student and Demo Student.`);
+
+  // Finding F7: in the real demo data the first of the two students placed
+  // above without a section was later moved to Section B by an audited
+  // reassignment. Reproduce it through the same audited path, here at the
+  // very end so the deterministic rng() sequence above is unchanged, and
+  // only while the student is still unassigned (a re-run adds no second
+  // audit row).
+  if (f7StudentId) {
+    const placement = await prisma.gradeHistory.findUnique({
+      where: { studentId_academicSessionId: { studentId: f7StudentId, academicSessionId: activeSession.id } },
+    });
+    if (placement && placement.sectionId === null) {
+      await reassignSection({ gradeHistoryId: placement.id, newSectionId: sectionsC9["B"].id, changedByUserId: schoolAdminUser.id });
+      console.log("Audited section change ready: the first unassigned Class 9 student moved to Section B (finding F7).");
+    }
+  }
 
   console.log("\nDemo data seeding complete.");
 }

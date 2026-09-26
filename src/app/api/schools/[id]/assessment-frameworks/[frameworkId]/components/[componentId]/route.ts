@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { ENTRY_MODES, componentCollisionExists } from "@/lib/assessmentFramework";
@@ -9,7 +10,11 @@ import { ENTRY_MODES, componentCollisionExists } from "@/lib/assessmentFramework
  * LOCKED — changing either after real marks have been entered against
  * it would silently corrupt every previously-computed aggregate (a
  * risk flagged when Phase 3D-1 shipped, now enforced). Renaming stays
- * free at any time — a name is cosmetic, not structural.
+ * free at any time — a name is cosmetic, not structural. A rename onto a
+ * name taken by a simultaneous request is caught by the database (the
+ * @@unique inside a period, the partial unique index
+ * AssessmentComponent_unique_name_framework_level at framework level —
+ * finding F2, rule A4) and returns the pre-check's 409.
  */
 export async function PATCH(
   req: NextRequest,
@@ -75,8 +80,15 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  const updated = await prisma.assessmentComponent.update({ where: { id: params.componentId }, data });
-  return NextResponse.json({ ok: true, component: updated });
+  try {
+    const updated = await prisma.assessmentComponent.update({ where: { id: params.componentId }, data });
+    return NextResponse.json({ ok: true, component: updated });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json({ error: "A component with that name already exists in this scope." }, { status: 409 });
+    }
+    throw err;
+  }
 }
 
 /**

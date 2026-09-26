@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 import { RESULT_STATUSES } from "@/lib/assessmentResults";
 
 type ResultInput = {
@@ -113,29 +114,36 @@ export async function PATCH(
     }
 
     const isAbsent = r.status === "ABSENT";
-    await prisma.assessmentComponentResult.upsert({
-      where: { componentId_studentId: { componentId: params.componentId, studentId: r.studentId } },
-      create: {
-        componentId: params.componentId,
-        gradeSubjectId: body.gradeSubjectId,
-        assignmentId: params.assignmentId,
-        studentId: r.studentId,
-        status: r.status,
-        marksObtained: isAbsent ? null : component.entryMode === "MARKS" ? r.marksObtained ?? null : null,
-        gradeLabel: isAbsent ? null : component.entryMode === "GRADE" ? r.gradeLabel ?? null : null,
-        remarks: isAbsent ? null : r.remarks ?? null,
-        evaluatedByUserId: userId,
-        evaluatedAt: new Date(),
-      },
-      update: {
-        status: r.status,
-        marksObtained: isAbsent ? null : component.entryMode === "MARKS" ? r.marksObtained ?? null : null,
-        gradeLabel: isAbsent ? null : component.entryMode === "GRADE" ? r.gradeLabel ?? null : null,
-        remarks: isAbsent ? null : r.remarks ?? null,
-        evaluatedByUserId: userId,
-        evaluatedAt: new Date(),
-      },
-    });
+    try {
+      await prisma.assessmentComponentResult.upsert({
+        where: { componentId_studentId: { componentId: params.componentId, studentId: r.studentId } },
+        create: {
+          componentId: params.componentId,
+          gradeSubjectId: body.gradeSubjectId,
+          assignmentId: params.assignmentId,
+          studentId: r.studentId,
+          status: r.status,
+          marksObtained: isAbsent ? null : component.entryMode === "MARKS" ? r.marksObtained ?? null : null,
+          gradeLabel: isAbsent ? null : component.entryMode === "GRADE" ? r.gradeLabel ?? null : null,
+          remarks: isAbsent ? null : r.remarks ?? null,
+          evaluatedByUserId: userId,
+          evaluatedAt: new Date(),
+        },
+        update: {
+          status: r.status,
+          marksObtained: isAbsent ? null : component.entryMode === "MARKS" ? r.marksObtained ?? null : null,
+          gradeLabel: isAbsent ? null : component.entryMode === "GRADE" ? r.gradeLabel ?? null : null,
+          remarks: isAbsent ? null : r.remarks ?? null,
+          evaluatedByUserId: userId,
+          evaluatedAt: new Date(),
+        },
+      });
+    } catch (err) {
+      // Only the first result for this subject can meet a removed offering:
+      // once one exists, the offering can no longer be removed (finding F8).
+      if (isOfferingRemovedError(err)) return offeringRemovedResponse();
+      throw err;
+    }
 
     // Lazily ensure a DRAFT publication row exists for this
     // student/subject — creation itself is not a decision (same

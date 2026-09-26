@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -108,15 +109,22 @@ type UpsertCoScholasticResultInput = {
 };
 
 /**
- * The only path that creates/updates a CoScholasticResult row. For the
- * annual case (coScholasticPeriodId: null), pre-checks explicitly
- * rather than relying on upsert()'s compound-unique lookup — the same
- * documented SQLite NULL≠NULL gap already worked around elsewhere in
- * this schema (AssessmentComponent, AssessmentFrameworkAssignment,
- * StudentEvaluation): SQLite does not treat two NULLs as conflicting
- * for a unique index, so upsert()'s ON CONFLICT path cannot be trusted
- * for that branch. The period-scoped case has no such gap (the
- * constraint's columns are all non-null), so a plain upsert() is safe.
+ * The only path that creates/updates a CoScholasticResult row.
+ *
+ * Annual case (coScholasticPeriodId: null): one row per (student, area,
+ * academic session). Areas are school-wide, not session-scoped, so the
+ * lookup must include academicSessionId — without it, a later session's
+ * save would overwrite an earlier session's annual grade. upsert() cannot
+ * be used here: the unique key (studentId, areaId, coScholasticPeriodId)
+ * treats NULLs as distinct, and the rule is enforced instead by the
+ * partial unique index CoScholasticResult_one_annual_per_student_area_session
+ * (migration 3_f2_annual_and_default_unique, finding F2/A6). When a
+ * simultaneous save creates the row first, this create fails with P2002
+ * and the save updates that row instead. No ordering between simultaneous
+ * saves is defined: the row ends up holding one of the submitted values.
+ *
+ * Period-scoped case: every column of the unique key is non-null, so a
+ * plain upsert() is safe.
  */
 export async function upsertCoScholasticResult(input: UpsertCoScholasticResultInput) {
   const data = {
@@ -126,21 +134,25 @@ export async function upsertCoScholasticResult(input: UpsertCoScholasticResultIn
   };
 
   if (input.coScholasticPeriodId === null) {
-    const existing = await prisma.coScholasticResult.findFirst({
-      where: { studentId: input.studentId, areaId: input.areaId, coScholasticPeriodId: null },
-    });
+    const annualWhere = {
+      studentId: input.studentId,
+      areaId: input.areaId,
+      academicSessionId: input.academicSessionId,
+      coScholasticPeriodId: null,
+    };
+    const existing = await prisma.coScholasticResult.findFirst({ where: annualWhere });
     if (existing) {
       return prisma.coScholasticResult.update({ where: { id: existing.id }, data });
     }
-    return prisma.coScholasticResult.create({
-      data: {
-        studentId: input.studentId,
-        areaId: input.areaId,
-        academicSessionId: input.academicSessionId,
-        coScholasticPeriodId: null,
-        ...data,
-      },
-    });
+    try {
+      return await prisma.coScholasticResult.create({ data: { ...annualWhere, ...data } });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const created = await prisma.coScholasticResult.findFirst({ where: annualWhere });
+        if (created) return prisma.coScholasticResult.update({ where: { id: created.id }, data });
+      }
+      throw err;
+    }
   }
 
   return prisma.coScholasticResult.upsert({

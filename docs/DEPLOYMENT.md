@@ -1,7 +1,9 @@
 # Deployment
 
 > Status legend: **✅ Implemented** · **🟡 Designed/approved, not yet implemented** · **⚠️ Known gap/issue** · **🔭 Future/planned**
-> Last verified: 2026-09-01, against the current codebase. This document describes only what actually exists — no production infrastructure has been set up, and nothing below should be read as implying otherwise.
+> Last verified: 2026-09-26 for the database sections (PostgreSQL foundation PG-KM1–PG-KM10, the F1 fix PG-F1, the disaster-recovery kilometer PG-DR, the F2 fix (rules A1–A6) and the F8 fix, branch `pg-foundation`); all other sections as of 2026-09-01. This document describes only what actually exists — no staging or production infrastructure has been set up, and nothing below should be read as implying otherwise.
+
+> **Branch note**: the PostgreSQL foundation described here lives on the `pg-foundation` branch, which is **not yet merged** into `main` (merging is a separate, pending decision). `main` still runs on SQLite.
 
 ## Local development ✅
 
@@ -10,15 +12,38 @@ npm install
 npm run dev      # next dev — starts on http://localhost:3000
 ```
 
-Other `package.json` scripts: `npm run build` (Next.js production build), `npm run start` (serve a production build), `npm run lint` (ESLint), `npm run db:push` (`prisma db push` — applies schema changes directly, no migration files), `npm run db:seed` (`tsx prisma/seed.ts` — idempotent demo data), `npm run db:studio` (Prisma Studio, a local DB browser).
+Other `package.json` scripts: `npm run build` (Next.js production build), `npm run start` (serve a production build), `npm run lint` (ESLint), `npm run db:seed` (`tsx prisma/seed.ts` — idempotent bootstrap data), `npm run db:seed:demo` / `npm run db:seed:calendar` (demo environment, see [DEMO_DATA.md](DEMO_DATA.md)), `npm run db:verify:demo` (demo-data consistency check), `npm run db:studio` (Prisma Studio, a local DB browser). `npm run db:push` (`prisma db push`) still exists in `package.json` but is **retired** for this project (decision D5) — do not use it; schema changes go through reviewed migrations (see [Schema changes](#schema-changes-migrations-)). Removing the script itself is a pending, separately approved change.
 
-## Database ✅ (dev) / 🔭 (production)
+## Database ✅ (development, PostgreSQL) / 🔭 (staging, production)
 
-Development uses SQLite, a single file (`prisma/dev.db`), configured via `DATABASE_URL="file:./dev.db"`. `schema.prisma`'s own header comment and `.env.example` both mark this as dev-only:
+Development uses **PostgreSQL 18** (local Windows service, listening on `localhost` only), database **`megaedu_dev`** (UTF-8, `C` collation — chosen so name ordering matches the former SQLite behavior). Prisma 5.20, `provider = "postgresql"`. For the app, the connection string lives in **`.env.local`** (git-ignored), which Next.js loads in addition to `.env` and which overrides `DATABASE_URL` only; `.env` itself is left unchanged. Prisma's CLI and the `tsx` database scripts (`db:seed*`, `db:verify:demo`, `db:studio`) do not read `.env.local` — Prisma loads only the root `.env` — so every rehearsal below supplies `DATABASE_URL` to that process only.
 
-> "Local dev default (SQLite file). For production, point this at a Postgres connection string (e.g. from Neon: https://neon.tech) and change `provider = "sqlite"` to `provider = "postgresql"` in `prisma/schema.prisma`."
+What has been **proven** on PostgreSQL (evidence under `C:\MEGA_DB_Backup\PG-KM1` … `PG-KM10` on the development machine, outside the repository):
 
-⚠️ This switch has never been made or tested. See the SQLite/Postgres transaction-behavior note in [KNOWN_GAPS.md](KNOWN_GAPS.md) and [PRODUCT_RULES.md](PRODUCT_RULES.md) — some bulk-write routes rely on a SQLite-specific behavior (a caught statement error doesn't poison the rest of a transaction) that does **not** hold on Postgres and would need rework before that switch.
+| Proven | Kilometer |
+|---|---|
+| Prisma 5.20 works against PostgreSQL 18.6 (compatibility test in a temporary database: 20 of 21 checks; the remaining one is Prisma rounding a 17-significant-digit float on write, which happens identically on SQLite and affects none of the existing data) | pre-PG-KM3 |
+| Schema from the reviewed migrations is identical to the one real `prisma migrate deploy` builds in CI | PG-KM5 |
+| All 3,085 SQLite rows copied with identical content (fingerprint `38e3ad866b225f698a3de46a4e5362d96dc0f00a9b86176396847af81f3569ad` reproduced) | PG-KM6 |
+| Integrity: 202 validated foreign keys, 0 orphans, 149 primary/unique keys with 0 duplicates, both partial unique indexes present; `db:verify:demo` passes | PG-KM7 |
+| The application works against PostgreSQL for the six demo roles tested (school admin ×2, teacher, student, parent, organization admin — platform admin not tested); case-insensitive search preserved; controlled writes behave correctly | PG-KM8 |
+| Concurrency: 0 deadlocks, no pool timeouts, the two partial unique indexes turn real races into clean `409`s; completion save limit 5 is safe | PG-KM9 |
+| Backup restore, rebuild from migrations + seeds, and local SQLite ↔ PostgreSQL switching | PG-KM10 (see [runbook](#database-rollback--recovery-runbook-)) |
+
+Known findings from this work (F1–F8) are listed in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8). F1 is fixed on this branch by migration `2_class_teacher_grade_wide_unique` (PG-F1, 2026-09-25); F2 is fixed by migrations `3_f2_annual_and_default_unique` (rules A6 and A5) and `4_f2_a1_to_a4_unique` (rules A1–A4), both 2026-09-26; F8 is fixed by migration `5_f8_offering_restrict` (2026-09-26); F3 is fixed in code (2026-09-26, no migration); F4 and F7 are fixed and F5 and F6 closed as informational (2026-09-26) — all eight findings are resolved.
+
+## Schema changes (migrations) ✅
+
+`prisma migrate` with a reviewed baseline replaces `db push` (decision D5). Because Windows Smart App Control blocks Prisma's schema engine on the development machine, **schema-engine operations run only in GitHub Actions** (decision D1.a), never locally:
+
+1. **`.github/workflows/prisma-migrations.yml`** runs on pushes to `pg-foundation` that change `prisma/**`, the workflow file itself (`.github/workflows/prisma-migrations.yml`), `package.json` or `package-lock.json`, and can also be started manually (`workflow_dispatch`). On a Linux runner with a temporary PostgreSQL 18 service container — it never connects to a developer machine and uses no secrets — it prints the SQL any schema change still needs, applies all migrations with the real `prisma migrate deploy`, checks for drift against `schema.prisma`, and saves reference files (schema dump, `_prisma_migrations` rows, structure counts) as a downloadable artifact. Artifacts can only be downloaded by a signed-in GitHub user.
+2. **Migrations** live in `prisma/migrations/` (`0_init` = the unmodified CI-generated baseline; `1_integrity_partial_indexes` = the two reviewed partial unique indexes; `2_class_teacher_grade_wide_unique` = the reviewed F1 partial unique index, PG-F1; `3_f2_annual_and_default_unique` = the two reviewed F2 partial unique indexes, rules A6 and A5; `4_f2_a1_to_a4_unique` = the four reviewed F2 partial unique indexes, rules A1–A4; `5_f8_offering_restrict` = the CI-generated F8 migration that makes every foreign key to `GradeSubject` `RESTRICT`). `.gitattributes` keeps them LF-only so their checksums are identical everywhere.
+3. **Locally**, `prisma/apply-migrations.ps1` applies pending migrations to the local database with PostgreSQL's own `psql`, each migration and its `_prisma_migrations` history row in **one transaction**, using the same SHA-256 checksum real Prisma records — so the history stays compatible with `prisma migrate deploy`. With `-ReferenceRows <CI prisma-migrations-rows.csv>` it first refuses any checksum that differs from what CI recorded; `-DryRun` changes nothing. It stops on half-finished, unknown or edited migrations.
+4. After any schema change, run `npx prisma generate` locally (allowed on Windows; it does not use the blocked schema engine).
+
+**Standing rule (D5)**: every migration containing custom SQL, partial indexes or other constructs Prisma 5.20 cannot express must be reviewed before it is applied. The workflow's drift check tolerates exactly the known partial-index `DROP INDEX` statements — nine since the F2 fix's rules A1–A4 — and nothing else (the workflow's drift check has passed with all nine: run 36222312586 at commit `48d5ef0`, 2026-09-26). A new hand-written partial index needs its exact `DROP INDEX` line added to the workflow's `ALLOWED_DRIFT` in the same change. Migration `5_f8_offering_restrict` needs none: Prisma expresses `onDelete: Restrict`, so it was generated by the workflow itself (from a deliberately schema-only push, whose run failed as designed) and reviewed before use; the workflow then passed with it in place (run 36236334554 at commit `aaee844`, 2026-09-26: all six migrations applied, no drift beyond the nine tolerated lines).
+
+Known CI housekeeping item (not acted on): `actions/checkout@v4` and `actions/setup-node@v4` emit a Node.js 20 deprecation warning; upgrading them is a separate, unapproved change.
 
 ## Environment variables ✅
 
@@ -26,7 +51,7 @@ From `.env.example` — the complete, real list; nothing else is read anywhere i
 
 | Variable | Purpose | Dev default |
 |---|---|---|
-| `DATABASE_URL` | Prisma connection string | `file:./dev.db` |
+| `DATABASE_URL` | Prisma connection string | `.env.example`: `postgresql://postgres:YOUR_PASSWORD@localhost:5432/megaedu_dev?schema=public` (placeholder — the real value goes in the git-ignored `.env.local`; never commit a password) |
 | `NEXTAUTH_SECRET` | JWT signing secret for NextAuth | placeholder, **must be replaced** for any real deployment (`openssl rand -base64 32`) |
 | `NEXTAUTH_URL` | Canonical app URL NextAuth uses for callbacks | `http://localhost:3000` |
 | `SEED_ADMIN_EMAIL` | Platform Admin account created by `db:seed` | `admin@megaedu.local` |
@@ -40,21 +65,110 @@ School logos and user profile photos (`src/lib/uploads.ts`) are saved to the loc
 
 ## Production deployment 🔭
 
-**Nothing has been deployed.** No hosting platform, no CI/CD pipeline, no Dockerfile, no `next.config.js` production overrides beyond Next.js defaults exist in this repository. This is genuinely unstarted work, not an oversight in documentation.
+**Nothing has been deployed.** No hosting platform, no deployment pipeline, no Dockerfile, no `next.config.js` production overrides beyond Next.js defaults exist in this repository. The only CI is the database-migrations workflow described above, which validates migrations against a temporary database and deploys nothing. Staging/production hosting — provider, region/data residency, cost, backups and point-in-time recovery, connection pooling, developer access — is an open decision (D3), as is the exact production PostgreSQL major version (15 or newer, decision D6).
 
 ## Known deployment requirements (inferred from the codebase, not yet acted on) 🔭
 
 Before any real deployment, based on what the code actually requires:
 
-1. A Postgres database (per the schema comment above), with `schema.prisma`'s `provider` switched and `npx prisma db push` (or a proper migration) run against it.
+1. A PostgreSQL database (15 or newer), with the reviewed migrations applied by `prisma migrate deploy` (never `db push`), plus a data plan for that environment.
 2. A real `NEXTAUTH_SECRET` and `NEXTAUTH_URL` matching the deployed domain.
-3. A real `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` before running the seed script, or skip seeding demo/fixture data entirely in production.
-4. Review of the bulk-write transaction pattern noted above before relying on it under Postgres.
-5. Whatever the hosting platform requires for a standard Next.js 14 App Router app (Node.js runtime; no edge-specific code is used anywhere in this codebase, so no special edge-runtime configuration is needed).
+3. A real `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` before running the seed script, or skip seeding demo/fixture data entirely in production. Note that `seed.ts` prints the platform-admin password it uses.
+4. Connection-pool settings for the target host (`connection_limit`, `pool_timeout`, possibly a pooler) — development ran on Prisma's default pool of 13 connections; production sizing is part of D3.
+5. The PostgreSQL findings F1–F8 are all resolved on this branch ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8)).
+6. Whatever the hosting platform requires for a standard Next.js 14 App Router app (Node.js runtime; no edge-specific code is used anywhere in this codebase, so no special edge-runtime configuration is needed).
 
-## PostgreSQL considerations ⚠️
+## PostgreSQL considerations ✅ / ⚠️
 
-Specifically flagging what's known to need attention, not a general "be careful" note:
+- ✅ The bulk-write routes that used to catch a unique-constraint violation (`P2002`) *inside* an open transaction and keep looping — which would break on PostgreSQL, where a failed statement aborts the whole transaction — were changed in PG-KM2 to check for duplicates before inserting (commit `60b23b5` on `main`). A duplicate from a truly simultaneous request now rolls the batch back and returns a clean `409`; PG-KM9 confirmed this path under real concurrency on the attendance route (9 of 10 simultaneous identical submissions got `409`, exactly one set of rows was written, no deadlocks — including with the student order reversed). Since the F3 fix, a batch that PostgreSQL aborts as a deadlock victim or for a serialization failure also gets that `409` instead of a raw `500` (`isTransactionConflict()`, `src/lib/dbErrors.ts`; a deadlock is unmapped by Prisma 5.20, not `P2034`). Not yet covered: the academic-session routes map only `P2034` (to `503`), and a transaction waiting past Prisma's 5-second interactive-transaction timeout fails with an unmapped `P2028` — both recorded under F3 in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8).
+- ✅ "At most one ACTIVE academic session per school" and "at most one open (ACTIVE/PENDING) affiliation per student" are now enforced by **partial unique indexes** in the database (migration `1_integrity_partial_indexes`), with clean `409` responses; PG-KM9 showed both indexes firing under real races.
+- ✅ "At most one grade-wide Class Teacher assignment (Grade Coordinator) per grade per session" is enforced by the partial unique index `ClassTeacherAssignment_one_grade_wide_per_session` (migration `2_class_teacher_grade_wide_unique`, finding F1, PG-F1); a simultaneous losing request gets `409` and its whole batch rolls back.
+- ✅ "At most one annual co-scholastic grade per student, area and academic session" and "at most one grade-default assessment framework per session and grade" are enforced by the partial unique indexes `CoScholasticResult_one_annual_per_student_area_session` and `AssessmentFrameworkAssignment_one_default_per_grade_session` (migration `3_f2_annual_and_default_unique`, finding F2 rules A6 and A5). When simultaneous annual saves collide, the save whose insert is rejected updates the row the other save created, so the row ends up holding one of the submitted values (no ordering between simultaneous saves is defined); a simultaneous second grade-default assignment gets `409`. Rehearsed on a restored copy, then applied to the development database and verified through the app (PG-F2FIX; see [TESTING.md](TESTING.md)).
+- ✅ The remaining F2 rules are enforced in the database too (migration `4_f2_a1_to_a4_unique`, rules A1–A4): at most one grade-wide subject assignment per teacher, subject, grade and session; at most one grade-wide teaching plan per grade subject; at most one general evaluation per student, teacher and session; component names unique at framework level. The rule that a teacher never holds both a grade-wide and a section-specific assignment for the same subject spans different rows, so the assignment route's transaction runs at `SERIALIZABLE` isolation instead (the separate justification decision D8.8 requires). Colliding simultaneous requests get `409` — except teaching plans, where the save whose insert is rejected updates the plan the other created (no ordering between simultaneous saves is defined). Rehearsed on a restored copy, then applied to the development database and verified through the app (PG-F2FIX2; see [TESTING.md](TESTING.md)). With F1 and F2 fixed, every "empty-slot" rule on grade-wide (`NULL`) rows that the F2 investigation found is now enforced by the database.
+- ✅ A subject offering can be removed only while nothing is recorded against it: every foreign key to `GradeSubject` is `RESTRICT` (migration `5_f8_offering_restrict`, finding F8), the removal route answers `409` with the list of dependants (and for a closed session's offering), and write routes that meet a just-removed offering answer `409` instead of a raw `500`. Before, a removal could silently delete homework, unit-test marks and an audit log through cascades. Rehearsed on a restored copy, then applied to the development database and verified through the app (PG-F8FIX; see [TESTING.md](TESTING.md)).
+- No Prisma `enum`s are used anywhere. The original reason was SQLite's lack of support; the plain-`String` convention stays by choice, with no plan to introduce enums retroactively.
 
-- The `grade-placements` and `teacher-assignments` bulk-write routes catch a unique-constraint violation (`P2002`) *inside* an open transaction and continue looping. This works on SQLite (verified directly) but would misbehave on Postgres, where a failed statement aborts the whole transaction until rollback. See [PRODUCT_RULES.md](PRODUCT_RULES.md) for the full explanation and the routes affected.
-- No Prisma `enum`s are used anywhere specifically because SQLite doesn't support them — this constraint disappears on Postgres, but there's no plan to introduce enums retroactively; the plain-`String` convention is intended to stay regardless of database.
+## Database rollback & recovery runbook ✅
+
+All procedures below were **rehearsed in PG-KM10** unless marked otherwise (RB6 in PG-DR). Commands that need the PostgreSQL password read it from a hidden prompt (or `PGPASSWORD` set only in that process) — never from a committed file. PostgreSQL tools live in `C:\Program Files\PostgreSQL\18\bin`.
+
+### RB1 — Restore PostgreSQL from a backup ✅ rehearsed
+Backups are `pg_dump -Fc` files (e.g. `C:\MEGA_DB_Backup\PG-KM9\megaedu_dev-before-PG-KM9.dump`, SHA-256 `33a9074a…5f81`). Rehearsed by restoring into a **temporary** database, never over the live one:
+
+```powershell
+# 1. verify the backup file's SHA-256 matches the recorded value (Get-FileHash)
+# 2. create an empty target with the same encoding/collation
+psql -h localhost -U postgres -d postgres -c "CREATE DATABASE megaedu_restore_rehearsal ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+# 3. restore
+pg_restore -h localhost -U postgres -d megaedu_restore_rehearsal --no-owner --exit-on-error <backup.dump>
+# 4. verify: content fingerprint, the PG-KM7 integrity suite, db:verify:demo (DATABASE_URL set for that process only)
+# 5. drop the temporary database when done
+psql -h localhost -U postgres -d postgres -c "DROP DATABASE megaedu_restore_rehearsal WITH (FORCE)"
+```
+
+Result: the restored database reproduced fingerprint `38e3ad86…` exactly, passed every PG-KM7 check, and passed `db:verify:demo` with 18 of 18 checks. **Restoring over `megaedu_dev` itself** (e.g. `pg_restore --clean --if-exists --single-transaction -d megaedu_dev <dump>`) was *not* rehearsed and must only be done with explicit approval.
+
+### RB2 — Rebuild PostgreSQL from migrations and seeds ✅ rehearsed
+1. Create an empty database (UTF-8, `C` collation, `TEMPLATE template0`).
+2. Apply the migrations: `powershell -File prisma\apply-migrations.ps1 -Database <name> -ReferenceRows <CI prisma-migrations-rows.csv>` (checksums must match CI).
+3. Seed, with `DATABASE_URL` pointing at the new database: `npx tsx prisma/seed.ts`, then `prisma/seed-demo.ts`, then `prisma/seed-general-calendar.ts`. Set `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` explicitly for that process — `seed.ts` prints the admin password.
+4. Verify with `npx tsx prisma/verify-demo-data.ts`.
+
+Result: both migrations applied, all three seeds ran successfully on PostgreSQL, and `db:verify:demo` passed **16 of 18 checks** (2 of 18 failed). The two failures were **F7** (since fixed — see below; not a PostgreSQL defect): a fresh `seed-demo.ts` intentionally leaves 2 Class 9 students unassigned, while `verify-demo-data.ts` checks the later state of the current dataset (1 unassigned — see [DEMO_DATA.md](DEMO_DATA.md#verifying-the-demo-data)). The PostgreSQL rebuild itself succeeded. A seeded database has new random IDs, so the PG-KM1 fingerprint does not apply to it. To rebuild with the *current* data instead, use RB1 (restore) or the PG-KM6 method (migrations + copy from the preserved SQLite snapshot, rehearsed in PG-KM6). **Rehearsed again after the F7 fix (PG-MP1, 2026-09-26)**, with all six migrations: a fresh seed passes **18 of 18** (Class 9: A 9, B 9, C 8, D 8, 1 unassigned; one audited section change); the same rebuild with the unchanged seed first reproduced 16 of 18.
+
+### RB3 — Switch the local app between SQLite and PostgreSQL ✅ rehearsed
+**Back to SQLite:**
+1. Stop the dev server.
+2. Park the PostgreSQL connection file: `Rename-Item .env.local .env.local.parked` (contents untouched).
+3. `git switch main`, then `npx prisma generate` (the client must report `sqlite`).
+4. `npm run dev` — Next.js now loads `.env` only (`DATABASE_URL="file:./dev.db"`).
+
+**Forward to PostgreSQL:**
+1. Stop the dev server.
+2. `git switch pg-foundation`, then `npx prisma generate` (the client must report `postgresql`).
+3. `Rename-Item .env.local.parked .env.local`.
+4. `npm run dev` — Next.js loads `.env.local` and `.env`.
+
+Result: the PG-KM10 read-only smoke script (a separate check list, not `db:verify:demo`) passed 19 of its 19 checks in both directions (public pages, certificate verification, search, dashboards for four roles); `db:verify:demo` passed on SQLite with 18 of 18 checks; `dev.db` stayed byte-identical; the PostgreSQL fingerprint stayed `38e3ad86…`. ⚠️ `.gitignore` ignores `.env*.local` but **not** `.env.local.parked`, so while parked the file shows as untracked — never stage it. A parking name matching the ignore pattern (e.g. `.env.parked.local`, which Next.js does not load) would avoid this; that variant was not rehearsed.
+
+### RB4 — Repository rollback (documented, not executed)
+While `pg-foundation` is unmerged, rolling back means simply not merging: `main` is unchanged (SQLite). After a future merge, roll back with `git revert -m 1 <merge commit>` (a new commit; history is not rewritten), then regenerate the Prisma client for SQLite and follow RB3.
+
+### RB5 — Reverse copy PostgreSQL → SQLite — decided: not built (D13)
+Rolling back to SQLite (RB3) uses `dev.db` as it was; anything written only to PostgreSQL after the switch would not be carried back. **Decision (D13, 2026-09-26): no reverse copy is built** — this is development data only, and that loss is accepted.
+
+**SQLite rollback window and `dev.db` retirement (D13, decided 2026-09-26):**
+1. Until `pg-foundation` is merged into `main`, `dev.db` (not tracked by git) stays exactly as it is and RB3 remains the supported rollback.
+2. After the merge, the rollback window ends at the **latest** of: post-merge verification passed; a post-merge recovery set taken and restored from the external disk; **14 days** of normal development on PostgreSQL with no rollback needed. During the window, rollback means reverting the merge commit and following RB3.
+3. At the end of the window, and only with explicit approval, SQLite is retired as a recovery path: RB3 is marked retired, the verification tools' `dev.db` guard checks are updated, and `dev.db` plus the PG-KM1/PG-KM6 SQLite backups under `C:\MEGA_DB_Backup` move to an archive folder on the external disk. Nothing on the external disk is deleted.
+4. Before the working-tree copy is removed: its SHA-256 is recorded, identical copies exist in at least two verified recovery sets, and the post-merge recovery set has been rehearsed.
+
+### RB6 — Recover on a new computer (disaster recovery) ✅ rehearsed from the external copy (PG-DR)
+**Where things are on the development machine**: PostgreSQL's data directory (`C:\Program Files\PostgreSQL\18\data`) and the evidence/backup folder `C:\MEGA_DB_Backup` share one SSD (C:); the repository and `prisma\dev.db` are on a second internal disk (E:). Recovery sets therefore live on a **separate physical disk**, the external USB drive: `H:\MEGA_DB_DR\<date>\`. Each set holds a fresh `pg_dump` of `megaedu_dev`, all of `C:\MEGA_DB_Backup` except `node_modules` (earlier dumps, evidence and the verification tools), a copy of `dev.db`, uncommitted documents, and a **`MANIFEST.json`/`MANIFEST.md`** recording every file's SHA-256, the content fingerprint, the migrations, the PostgreSQL version and the git commit. **Not in the set**: `.env`/`.env.local` (their values are kept in the owner's password manager), `node_modules`, PostgreSQL program files.
+
+1. Install Git, Node.js 24 and **PostgreSQL 18** (EDB installer; a dump made by version 18 needs version 18 or newer to restore). Set `listen_addresses = 'localhost'` in `postgresql.conf` and restart the service (the set contains the old `postgresql.conf`/`pg_hba.conf` for reference).
+2. `git clone https://github.com/adhikariminraj/megaedu-app.git`, `git switch pg-foundation`, `npm ci`.
+3. Recreate `.env` from `.env.example` and `.env.local` (one `DATABASE_URL` line) using the values from the password manager. A new `NEXTAUTH_SECRET` only signs everyone out.
+4. Copy the newest set from the external disk (or from the owner's off-site copy) and check the SHA-256 of at least the dump (`Get-FileHash`) against `MANIFEST.json`.
+5. Create the database and restore:
+   ```powershell
+   psql -h localhost -U postgres -c "CREATE DATABASE megaedu_dev ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+   pg_restore -h localhost -U postgres -d megaedu_dev --no-owner --exit-on-error <the dump>
+   ```
+   The dump already contains the schema, all indexes and the migration history.
+6. `powershell -NoProfile -ExecutionPolicy Bypass -File prisma\apply-migrations.ps1 -Database megaedu_dev` — applies only migrations newer than the dump (otherwise it reports 0 pending) — then `npx prisma generate`.
+7. Verify: the content fingerprint must equal the manifest's (`MEGA_DB_Backup\PG-DR\pgdr-db.js check-state` in the set also checks migrations, partial indexes and roles), the integrity suite (`MEGA_DB_Backup\PG-F8FIX\pgf8fix-pgkm7-verify-db.js` for sets taken after the F8 fix, `MEGA_DB_Backup\PG-F2FIX2\pgf2fix2-pgkm7-verify-db.js` for sets between the F2 and F8 fixes; older sets hold the suite matching their own migrations), and `db:verify:demo` (18 of 18; `DATABASE_URL` set for that process only — see the README).
+8. `npm run dev` and a short smoke check.
+
+**Rehearsed (PG-DR, 2026-09-26)** from set `H:\MEGA_DB_DR\2026-09-26_0010` (305 files, 40 MB, commit `a1fc587`): all files re-verified on H:, the set copied to a local work folder as on a new computer and verified again, the dump restored **directly from H:** into a temporary database — fingerprint `38e3ad86…` (3,085 rows), 3 migrations, the 3 partial unique indexes, integrity suite 19/19, `db:verify:demo` 18 of 18, applier dry run "3 applied, 0 pending"; the temporary database was dropped and `megaedu_dev` was never written. Steps 1–3 and 8 were not rehearsed on a real second computer. **Rehearsed again after the F2 fix (2026-09-26)** from set `H:\MEGA_DB_DR\2026-09-26_1156` (393 files, 43 MB, commit `48d5ef0`), the same way: fingerprint `38e3ad86…` (3,085 rows), 5 migrations, the 9 partial unique indexes, integrity suite 25/25, `db:verify:demo` 18 of 18, applier dry run "5 applied, 0 pending"; the temporary database was dropped and `megaedu_dev` was never written. **Rehearsed again after the F8 fix (2026-09-26)** from set `H:\MEGA_DB_DR\2026-09-26_1624` (457 files, 44 MB, commit `aaee844`), the same way: fingerprint `38e3ad86…` (3,085 rows), 6 migrations, the 9 partial unique indexes, every foreign key to `GradeSubject` `RESTRICT` (integrity suite 25/25, including ON DELETE 78 CASCADE / 78 RESTRICT / 46 SET NULL), `db:verify:demo` 18 of 18, applier dry run "6 applied, 0 pending"; the temporary database was dropped and `megaedu_dev` was never written.
+
+**If no dump survives** but `dev.db` does: the PG-KM6 method (migrations, then copy the SQLite rows) was proven in PG-KM6, but its copy tool needs adapting before it can be reused (fixed source path, expects the 2 migrations of that time, reads SQLite through a Prisma client the `pg-foundation` checkout no longer generates) — deferred decision. `dev.db` also holds only the data from before the PostgreSQL move.
+
+## Development database backup routine ✅ (manual)
+
+- **When**: after every kilometer that changes the schema or the data, and at least weekly — run `C:\MEGA_DB_Backup\PG-DR\pgdr.ps1 backup` (hidden password prompt): read-only pre-flight, fresh `pg_dump`, recovery set with manifest, copy to a **new** dated folder on the external disk, every file re-verified there. From time to time run `pgdr.ps1 rehearsal` to prove the newest set restores.
+- **Known limitation**: the tool's pre-flight currently expects the exact post-F1 state (fingerprint `38e3ad86…`, 3 migrations, 3 partial indexes); once a later kilometer changes the data or schema, its expected values must be updated before the next backup, or it stops.
+- **Retention**: keep every dated set (about 40 MB each); nothing is deleted automatically.
+- **Off-site**: the owner copies the newest set to cloud storage by hand. The dumps contain only fictional demo data, but they include password hashes of demo accounts, so keep that storage private.
+- **Secrets** (`.env`, `.env.local`) live in the owner's password manager, never in a set.
+- Automatic scheduling (e.g. Windows Task Scheduler) is a separate decision that has not been made.

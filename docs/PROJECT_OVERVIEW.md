@@ -42,7 +42,7 @@ The platform exists to give every school, teacher, and student in the network a 
 ## Technology stack
 
 - **Framework**: Next.js 14 (App Router), React 18, TypeScript.
-- **Database**: Prisma ORM 5.20, SQLite in development, PostgreSQL intended for production (not yet configured — see [DEPLOYMENT.md](DEPLOYMENT.md)).
+- **Database**: Prisma ORM 5.20 on PostgreSQL — local PostgreSQL in development on branch `pg-foundation` (not yet merged; `main` still uses SQLite), schema managed by reviewed migrations. No staging/production database is configured yet (hosting decision open — see [DEPLOYMENT.md](DEPLOYMENT.md)).
 - **Auth**: NextAuth 4, email/password (Credentials provider), JWT sessions.
 - **Styling**: Tailwind CSS.
 - **Validation**: `zod` on registration routes.
@@ -89,7 +89,7 @@ flowchart TB
         Lib["src/lib — auth, authorize,<br/>certificates, gradeHistory,<br/>gradeMatching, gradeRollover, notify"]
     end
 
-    DB[("Prisma + SQLite (dev)<br/>/ PostgreSQL (prod, planned)")]
+    DB[("Prisma + PostgreSQL (dev)<br/>staging/prod: not yet decided")]
 
     UI -->|"navigation, form POSTs"| Pages
     UI -->|"fetch()"| API

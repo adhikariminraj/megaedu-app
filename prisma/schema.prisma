@@ -9,7 +9,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite" // change to "postgresql" for production
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -800,11 +800,13 @@ model Subject {
 // GradeSubject rows until the School Admin explicitly configures them.
 // This is what keeps a past session's curriculum permanently
 // reconstructable even after the school later changes its subject
-// list. A real DELETE route is appropriate here (unlike Subject or
-// Section) — nothing permanent references a GradeSubject row directly
-// (TeacherAcademicAssignment references it, but is itself non-historical,
-// freely-editable current-state data, not an audited record), so
-// removing one mid-session just corrects that session's offering.
+// list. A real DELETE route exists (unlike Subject or Section), but only
+// an EMPTY offering can be removed: later phases attached permanent data
+// to it (units and unit-test marks, homework and its audit log, teaching
+// plans, evaluations, meetings, framework overrides, results), so every
+// foreign key to GradeSubject is RESTRICT and the removal route refuses
+// with 409, listing what depends on it (finding F8). Removal of a CLOSED
+// session's offering is refused too.
 model GradeSubject {
   id                String          @id @default(cuid())
   schoolGradeId     String
@@ -835,10 +837,13 @@ model GradeSubject {
 // sectionId null means grade-wide (every section); non-null means one
 // specific section. A teacher may never hold both a grade-wide AND a
 // section-specific row for the same (teacherId, academicSessionId,
-// schoolGradeId, subjectId) tuple at once — enforced in the route, not
-// the DB, because SQL unique indexes treat NULL as distinct from NULL
-// so a plain @@unique cannot catch two grade-wide rows colliding (same
-// class of app-level rule as the one-ACTIVE-session-per-school check).
+// schoolGradeId, subjectId) tuple at once — a rule across rows that no
+// index can express, enforced in the route inside a SERIALIZABLE
+// transaction. Two grade-wide rows for one tuple are also blocked by the
+// partial unique index TeacherAcademicAssignment_one_grade_wide_per_teacher_subject
+// (migration 4_f2_a1_to_a4_unique, finding F2/A1), because the @@unique
+// below treats NULL sectionIds as distinct and Prisma cannot express a
+// partial index here.
 // Multiple DIFFERENT teachers CAN hold overlapping assignments for the
 // same subject/grade/section — no hierarchy, no primary/assistant
 // concept. gradeSubjectId is the source of truth that this subject is
@@ -972,15 +977,19 @@ model AttendanceAudit {
 // move when units are created or completed, and can be entered before
 // any TeachingUnit row exists. Optional: no row means no plan is set,
 // and progress views fall back to raw counts with no percentage-of-
-// plan. Write path is find-or-update-else-create (app-level, not a
-// bare insert) since at most one plan should exist per
-// (gradeSubjectId, sectionId) — the same low-concurrency reasoning as
-// the one-ACTIVE-session-per-school rule, since a plain @@unique can't
-// reliably catch two sectionId: null rows colliding.
+// plan. Write path is find-or-update-else-create (not a bare insert):
+// at most one plan exists per (gradeSubjectId, sectionId). The @@unique
+// below cannot catch two sectionId: null rows colliding (NULLs are
+// distinct), so a grade-wide plan is protected by the partial unique
+// index TeachingPlan_one_grade_wide_per_grade_subject (migration
+// 4_f2_a1_to_a4_unique, finding F2/A2); a save that loses a simultaneous
+// create updates the winner's row.
 model TeachingPlan {
   id                String          @id @default(cuid())
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   schoolGradeId     String
@@ -1014,7 +1023,9 @@ model TeachingPlan {
 model TeachingUnit {
   id                String          @id @default(cuid())
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   schoolGradeId     String
@@ -1126,7 +1137,9 @@ model Homework {
   sectionId         String?
   section           Section?        @relation(fields: [sectionId], references: [id])
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   subjectId         String
   subject           Subject         @relation(fields: [subjectId], references: [id])
   teacherId         String
@@ -1451,7 +1464,9 @@ model StudentEvaluation {
   // "General Student Evaluation" vs "Subject Evaluation" label from
   // this field alone.
   gradeSubjectId    String?
-  gradeSubject      GradeSubject?   @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject?   @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
 
   remarks String
 
@@ -1480,11 +1495,14 @@ model StudentEvaluation {
 
   // NOTE: this constraint reliably catches an exact duplicate
   // subject-specific slot, but — the same NULL≠NULL unique-index gap
-  // already found and fixed twice elsewhere in this schema
-  // (TeacherAcademicAssignment, ClassTeacherAssignment) — does NOT by
-  // itself catch a second general (gradeSubjectId: null) evaluation
-  // from the same teacher/student/session. The create route pre-checks
-  // that case explicitly, inside the same transaction, from the start.
+  // found elsewhere in this schema (TeacherAcademicAssignment,
+  // ClassTeacherAssignment) — does NOT by itself catch a second general
+  // (gradeSubjectId: null) evaluation from the same teacher/student/
+  // session. The create route pre-checks that case (the pre-check runs
+  // without a transaction; an earlier version of this comment said
+  // otherwise), and since migration 4_f2_a1_to_a4_unique the partial unique
+  // index StudentEvaluation_one_general_per_student_teacher_session
+  // enforces it (finding F2/A3), which Prisma cannot express here.
   @@unique([studentId, teacherId, academicSessionId, gradeSubjectId])
   @@index([studentId])
 }
@@ -1523,7 +1541,9 @@ model ParentTeacherMeeting {
   teacher            Teacher            @relation(fields: [teacherId], references: [id])
   // null = general meeting; set = about one specific subject.
   gradeSubjectId     String?
-  gradeSubject       GradeSubject?      @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject       GradeSubject?      @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   scheduledAt        DateTime
   location           String?
   onlineUrl          String?
@@ -1646,8 +1666,11 @@ model AssessmentComponent {
   // ClassTeacherAssignment, StudentEvaluation) — does NOT by itself
   // catch a second identically-named component with periodId: null
   // (framework-level, no period) under the same framework. The create
-  // route pre-checks that case explicitly before creating, from the
-  // start — see src/lib/assessmentFramework.ts.
+  // and rename routes pre-check that case (see
+  // src/lib/assessmentFramework.ts), and since migration
+  // 4_f2_a1_to_a4_unique the partial unique index
+  // AssessmentComponent_unique_name_framework_level enforces it (finding
+  // F2/A4), which Prisma cannot express here.
   results AssessmentComponentResult[]
 
   @@unique([frameworkId, periodId, name])
@@ -1726,7 +1749,9 @@ model AssessmentFrameworkAssignment {
   schoolGradeId     String
   schoolGrade       SchoolGrade         @relation(fields: [schoolGradeId], references: [id])
   gradeSubjectId    String?
-  gradeSubject      GradeSubject?       @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject?       @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   frameworkId       String
   framework         AssessmentFramework @relation(fields: [frameworkId], references: [id])
   createdAt         DateTime            @default(now())
@@ -1737,8 +1762,11 @@ model AssessmentFrameworkAssignment {
   // NOTE: reliably catches a duplicate override for the SAME subject,
   // but — the identical NULL≠NULL gap as above — does NOT by itself
   // catch a second grade-default (gradeSubjectId: null) assignment for
-  // the same grade/session. Pre-checked explicitly before creating; see
-  // src/lib/assessmentFramework.ts.
+  // the same grade/session. That case is pre-checked before creating
+  // (src/lib/assessmentFramework.ts) and, since migration
+  // 3_f2_annual_and_default_unique, enforced by the partial unique index
+  // AssessmentFrameworkAssignment_one_default_per_grade_session (finding
+  // F2/A5), which Prisma cannot express here.
   @@unique([academicSessionId, schoolGradeId, gradeSubjectId])
   @@index([academicSessionId])
   @@index([schoolGradeId])
@@ -1989,6 +2017,8 @@ model MarkSheetSubject {
 
   // Informational only — see model comment. Never joined live for
   // display.
+  // No foreign key, by design (finding F8): the sheet keeps the subject name
+  // as a snapshot; an offering with issued results cannot be removed anyway.
   gradeSubjectId      String
   subjectNameSnapshot String
   order               Int
@@ -2153,11 +2183,13 @@ model CoScholasticGradeSetting {
 // AssessmentComponent.periodId already uses: null = the full-session/
 // annual entry for this area; a real id = scoped to that specific
 // CoScholasticPeriod. The NULL≠NULL gap on the unique constraint below
-// (two null-period rows for the same student+area would not collide at
-// the DB level) is the same, already-documented SQLite limitation this
-// schema already works around elsewhere (AssessmentComponent,
-// AssessmentFrameworkAssignment, StudentEvaluation) — closed by an
-// app-level pre-check before create, not a new problem.
+// (two null-period rows would not collide at the DB level) is closed by
+// the partial unique index CoScholasticResult_one_annual_per_student_area_session
+// (migration 3_f2_annual_and_default_unique, finding F2/A6), which Prisma
+// cannot express here: at most one annual row per student, area and
+// academic session. Areas are school-wide, so the annual row is also
+// identified by its session — see upsertCoScholasticResult() in
+// src/lib/coScholastic.ts.
 model CoScholasticResult {
   id                   String              @id @default(cuid())
   studentId            String

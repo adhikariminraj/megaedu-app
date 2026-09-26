@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { assignmentCollisionExists } from "@/lib/assessmentFramework";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Binds a reusable AssessmentFramework to one (AcademicSession,
  * SchoolGrade), optionally narrowed to one GradeSubject as a
  * subject-specific override. gradeSubjectId omitted/null = the grade's
- * DEFAULT assignment. Duplicate protection is an explicit pre-check
- * (assignmentCollisionExists), not just the DB constraint — see the
- * NULL≠NULL note on AssessmentFrameworkAssignment in schema.prisma.
+ * DEFAULT assignment. An already-assigned slot is caught by an explicit
+ * pre-check (assignmentCollisionExists) and returns 409; a simultaneous
+ * duplicate is caught by the database (see the note on
+ * AssessmentFrameworkAssignment in schema.prisma) and also returns 409.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const userId = await requireSchoolAdmin(params.id);
@@ -59,6 +62,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     resolvedGradeSubjectId = gradeSubjectId;
   }
 
+  const alreadyAssigned = NextResponse.json(
+    {
+      error: resolvedGradeSubjectId
+        ? "This subject already has a framework assigned for this grade/session."
+        : "This grade already has a default framework assigned for this session.",
+    },
+    { status: 409 }
+  );
   if (
     await assignmentCollisionExists({
       academicSessionId,
@@ -66,25 +77,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       gradeSubjectId: resolvedGradeSubjectId,
     })
   ) {
-    return NextResponse.json(
-      {
-        error: resolvedGradeSubjectId
-          ? "This subject already has a framework assigned for this grade/session."
-          : "This grade already has a default framework assigned for this session.",
-      },
-      { status: 409 }
-    );
+    return alreadyAssigned;
   }
 
-  const assignment = await prisma.assessmentFrameworkAssignment.create({
-    data: {
-      schoolId: params.id,
-      academicSessionId,
-      schoolGradeId,
-      gradeSubjectId: resolvedGradeSubjectId,
-      frameworkId,
-    },
-    include: { framework: true, gradeSubject: { include: { subject: true } }, schoolGrade: true },
-  });
-  return NextResponse.json({ ok: true, assignment });
+  // A P2002 here means a simultaneous request assigned the same slot first:
+  // a subject override is caught by the model's @@unique, a grade default by
+  // the partial unique index AssessmentFrameworkAssignment_one_default_per_grade_session
+  // (migration 3_f2_annual_and_default_unique, finding F2/A5).
+  try {
+    const assignment = await prisma.assessmentFrameworkAssignment.create({
+      data: {
+        schoolId: params.id,
+        academicSessionId,
+        schoolGradeId,
+        gradeSubjectId: resolvedGradeSubjectId,
+        frameworkId,
+      },
+      include: { framework: true, gradeSubject: { include: { subject: true } }, schoolGrade: true },
+    });
+    return NextResponse.json({ ok: true, assignment });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return alreadyAssigned;
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
+    throw err;
+  }
 }

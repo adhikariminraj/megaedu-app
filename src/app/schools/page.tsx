@@ -32,9 +32,9 @@ export default async function SchoolsDirectoryPage({
         ...(q
           ? {
               OR: [
-                { name: { contains: q } },
-                { location: { contains: q } },
-                { district: { contains: q } },
+                { name: { contains: q, mode: "insensitive" } },
+                { location: { contains: q, mode: "insensitive" } },
+                { district: { contains: q, mode: "insensitive" } },
               ],
             }
           : {}),

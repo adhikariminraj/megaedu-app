@@ -178,16 +178,29 @@ export async function createStudentAffiliation(
     );
   }
 
-  const affiliation = await tx.studentSchoolAffiliation.create({
-    data: {
-      studentId: params.studentId,
-      schoolId: params.schoolId,
-      status: params.status,
-      startDate: params.effectiveDate ?? new Date(),
-      startDateSource: "RECORDED",
-      endDate: null,
-    },
-  });
+  // The findFirst() above is race-safe only on SQLite. On PostgreSQL the
+  // partial unique index allowing one open affiliation per student (D8.3)
+  // is the backstop: a concurrent JOIN that got past the check fails here
+  // with P2002. It is rethrown as AffiliationError (never continued, so
+  // the aborted transaction simply rolls back) and callers return a 409.
+  let affiliation: StudentSchoolAffiliation;
+  try {
+    affiliation = await tx.studentSchoolAffiliation.create({
+      data: {
+        studentId: params.studentId,
+        schoolId: params.schoolId,
+        status: params.status,
+        startDate: params.effectiveDate ?? new Date(),
+        startDateSource: "RECORDED",
+        endDate: null,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      throw new AffiliationError("This student already has an active or pending affiliation.");
+    }
+    throw err;
+  }
 
   await syncStudentBridgeFields(tx, params.studentId);
   return affiliation;

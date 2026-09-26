@@ -5,7 +5,7 @@
 
 ## High-level shape ✅
 
-MEGA.EDU is a single Next.js 14 App Router application — no separate backend service. Pages and API routes live side by side under `src/app`, both talking to the same Prisma client (`src/lib/prisma.ts`) against one SQLite database file (`prisma/dev.db` in dev).
+MEGA.EDU is a single Next.js 14 App Router application — no separate backend service. Pages and API routes live side by side under `src/app`, both talking to the same Prisma client (`src/lib/prisma.ts`) against one database — local PostgreSQL (`megaedu_dev`) in development on branch `pg-foundation` (PG-KM1–PG-KM10; `main` still uses the SQLite file `prisma/dev.db`). No staging/production database exists yet (hosting decision D3 open).
 
 ```
 src/
@@ -62,7 +62,7 @@ flowchart TB
     end
 
     Prisma[("Prisma Client")]
-    DB[("SQLite (dev)<br/>PostgreSQL (prod, planned)")]
+    DB[("PostgreSQL (dev, branch pg-foundation)<br/>staging/prod: not yet decided")]
 
     SC -->|"prisma.* queries directly"| Pages
     CC -->|"fetch()"| API
@@ -127,7 +127,7 @@ A school and an organization are structurally independent — a `Course` belongs
 
 See [DATABASE.md](DATABASE.md) for the full model inventory. Two conventions apply project-wide:
 
-- **No Prisma `enum`s, ever** — SQLite's connector doesn't support them, even unused ones.
+- **No Prisma `enum`s, ever** — originally because SQLite's connector doesn't support them, even unused ones; kept as a convention on PostgreSQL (plain `String` plus documented values).
 - **Snapshot fields for anything that must survive a later rename** — `Certificate.*NameSnapshot` and `GradeHistoryAudit.previous*/new*` are plain values, not live FK relations. Logos are the one deliberate exception (looked up live). Full rationale in [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
 ## Migration discipline ✅
@@ -136,7 +136,7 @@ Both Phase 1 and Phase 2 followed the same additive-first sequence, enforced man
 
 1. Add new models/fields additively — nothing existing removed in the same pass.
 2. Before applying anything that could conflict with existing data, write a one-off verification script, run it, confirm no conflicts, delete the script.
-3. Apply with `npx prisma db push` (no `prisma migrate`/`migrations/` folder — appropriate for the current single-environment SQLite setup).
+3. Apply the change. Through Phase 1/Phase 2 and until the PostgreSQL move this was `npx prisma db push` (no `migrations/` folder, single-environment SQLite). Since PG-KM3 (branch `pg-foundation`) `db push` is retired (decision D5): each change becomes a reviewed migration in `prisma/migrations/`, generated and checked in GitHub Actions and applied locally with `prisma/apply-migrations.ps1` — see [DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md#schema-changes-postgresql) and [DEPLOYMENT.md](DEPLOYMENT.md#schema-changes-migrations-).
 4. Only after a change is applied and verified does any "clean up the old thing" pass happen — and some legacy fields (`Student.gradeLevel`) are intentionally never dropped.
 
 ## Testing 🔭

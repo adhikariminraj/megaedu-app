@@ -49,7 +49,7 @@ export default async function CalendarPage({
 
   const searchResults = q
     ? await prisma.school.findMany({
-        where: { verified: true, isActive: true, name: { contains: q } },
+        where: { verified: true, isActive: true, name: { contains: q, mode: "insensitive" } },
         select: { id: true, name: true, location: true },
         orderBy: { name: "asc" },
         take: 20,

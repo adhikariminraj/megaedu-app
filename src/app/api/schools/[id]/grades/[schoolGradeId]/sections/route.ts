@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isTransactionConflict } from "@/lib/dbErrors";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { normalizeSectionName } from "@/lib/sections";
 
@@ -57,7 +58,8 @@ export async function POST(
       return out;
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    // A deadlock or serialization failure (finding F3) also rolled the whole batch back: same 409, retry is safe.
+    if ((err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") || isTransactionConflict(err)) {
       return NextResponse.json(
         { error: "One of these sections was just added by someone else — please refresh and try again." },
         { status: 409 }

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, teacherHoldsSubjectAssignment, teacherHoldsClassAssignment } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 type MeetingInput = {
   studentId: string;
@@ -145,23 +146,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
   }
 
-  const created = await prisma.$transaction(
-    toCreate.map((m) =>
-      prisma.parentTeacherMeeting.create({
-        data: {
-          schoolId: params.id,
-          academicSessionId: activeSession.id,
-          studentId: m.studentId,
-          teacherId: m.teacherId,
-          gradeSubjectId: m.gradeSubjectId,
-          scheduledAt: m.scheduledAt,
-          location: m.location,
-          onlineUrl: m.onlineUrl,
-          createdByUserId: sessionUserId,
-        },
-      })
-    )
-  );
+  try {
+    const created = await prisma.$transaction(
+      toCreate.map((m) =>
+        prisma.parentTeacherMeeting.create({
+          data: {
+            schoolId: params.id,
+            academicSessionId: activeSession.id,
+            studentId: m.studentId,
+            teacherId: m.teacherId,
+            gradeSubjectId: m.gradeSubjectId,
+            scheduledAt: m.scheduledAt,
+            location: m.location,
+            onlineUrl: m.onlineUrl,
+            createdByUserId: sessionUserId,
+          },
+        })
+      )
+    );
 
-  return NextResponse.json({ ok: true, created: created.length, skipped });
+    return NextResponse.json({ ok: true, created: created.length, skipped });
+  } catch (err) {
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
+    throw err;
+  }
 }

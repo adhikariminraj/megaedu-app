@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireTeacherAssignment } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 import { CURRENT_ROSTER_STATUSES } from "@/lib/gradeHistory";
 
 const createSchema = z.object({
@@ -117,20 +118,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const teacher = await prisma.teacher.findUnique({ where: { userId } });
   if (!teacher) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const homework = await prisma.homework.create({
-    data: {
-      academicSessionId: gradeSubject.academicSessionId,
-      schoolGradeId,
-      sectionId,
-      gradeSubjectId,
-      subjectId: gradeSubject.subjectId,
-      teacherId: teacher.id,
-      title: title.trim(),
-      instructions: instructions.trim(),
-      dueDate: parsedDueDate,
-      targetStudentId,
-    },
-  });
+  try {
+    const homework = await prisma.homework.create({
+      data: {
+        academicSessionId: gradeSubject.academicSessionId,
+        schoolGradeId,
+        sectionId,
+        gradeSubjectId,
+        subjectId: gradeSubject.subjectId,
+        teacherId: teacher.id,
+        title: title.trim(),
+        instructions: instructions.trim(),
+        dueDate: parsedDueDate,
+        targetStudentId,
+      },
+    });
 
-  return NextResponse.json({ ok: true, homework });
+    return NextResponse.json({ ok: true, homework });
+  } catch (err) {
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
+    throw err;
+  }
 }

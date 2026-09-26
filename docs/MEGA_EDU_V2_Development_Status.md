@@ -143,7 +143,7 @@
 |---|---|
 | Automated test suite | ⚠️ none (manual verification discipline) |
 | Production deployment | ⚠️ none |
-| PostgreSQL readiness | ⚠️ untested; two SQLite-specific bulk routes |
+| PostgreSQL readiness | 🟡 development database on PostgreSQL (branch `pg-foundation`, not merged; verified PG-KM1–PG-KM10); bulk routes fixed (PG-KM2); findings F1–F8 resolved (F5, F6 informational) ([KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8)); staging/production undecided (updated 2026-09-26) |
 | File storage | ⚠️ local filesystem only |
 | Documentation | ✅ extensive; see Technical Documentation Appendix B for stale older docs |
 

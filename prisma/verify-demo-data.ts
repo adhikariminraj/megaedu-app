@@ -61,11 +61,9 @@ async function main() {
   }
   console.log("  Section breakdown:", JSON.stringify(bySection));
   // Sections A/B have 9 (A includes the userless Mark Sheet demo
-  // student; a pre-existing, unrelated non-determinism in this large
-  // seed script's rng() sequence across repeated runs has since shifted
-  // one previously-Unassigned student into Section B — confirmed not a
-  // data integrity issue via the orphan/duplicate checks below, which
-  // still pass), C/D have 8, 1 remains genuinely Unassigned.
+  // student; B includes the student an audited reassignment moved there
+  // from no section — seed-demo.ts reproduces that step, finding F7),
+  // C/D have 8, 1 remains genuinely Unassigned.
   check("Sections A/B have 9 students, C/D have 8", bySection["A"] === 9 && bySection["B"] === 9 && ["C", "D"].every((s) => bySection[s] === 8));
   check("1 student remains Unassigned", bySection["Unassigned"] === 1);
 

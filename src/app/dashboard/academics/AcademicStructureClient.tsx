@@ -121,7 +121,9 @@ export default function AcademicStructureClient({
     setAddSubjectPick((p) => ({ ...p, [gradeId]: "" }));
   }
 
-  async function removeOffering(gradeId: string, gradeSubjectId: string) {
+  async function removeOffering(gradeId: string, gradeSubjectId: string, subjectName: string) {
+    // Only a subject with nothing recorded against it can be removed; the route explains otherwise (finding F8).
+    if (!confirm(`Remove ${subjectName} from this grade's offering for this session?`)) return;
     await call(`/api/schools/${schoolId}/grades/${gradeId}/subjects/${gradeSubjectId}`, {
       method: "DELETE",
     });
@@ -545,7 +547,7 @@ export default function AcademicStructureClient({
                                   {o.subjectName}
                                 </Link>
                                 <button
-                                  onClick={() => removeOffering(g.id, o.id)}
+                                  onClick={() => removeOffering(g.id, o.id, o.subjectName)}
                                   className="text-mega-navy/60 hover:text-mega-navy"
                                   title="Remove from this session's offering"
                                 >

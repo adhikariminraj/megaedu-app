@@ -1,0 +1,4 @@
+# Prisma migration files must be byte-identical on every machine: the local
+# psql applier and Prisma Migrate both checksum migration.sql, and this
+# repository's Windows checkouts would otherwise convert them to CRLF.
+prisma/migrations/** text eol=lf

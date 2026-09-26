@@ -186,17 +186,17 @@ Candidate kilometers:
 Candidate kilometers:
 1. Audit.
 2. Automated test harness (authorization matrix first).
-3. Fix the two SQLite-specific bulk-write routes.
-4. PostgreSQL trial migration.
+3. Fix the two SQLite-specific bulk-write routes. — *done 2026-09-25 (PG-KM2, `60b23b5`)*
+4. PostgreSQL trial migration. — *done in development 2026-09-25 (PG-KM3–PG-KM10, branch `pg-foundation`, not merged; findings F1–F8 resolved)*
 5. Object-storage adapter in `uploads.ts`.
 6. Environment/secrets hardening.
 7. Deployment target decision.
-8. CI pipeline.
+8. CI pipeline. — *partly: a GitHub Actions workflow for Prisma migrations exists (PG-KM3); no build/test CI*
 9. Performance review of unbounded queries.
 10. Final audit.
 
-**Decision gates**: hosting platform; database provider; storage provider.
-**Protected**: `db push` discipline until an explicit migration strategy is approved; protected PDFs and docs.
+**Decision gates**: hosting platform; database provider (*PostgreSQL decided; hosting provider still open — D3*); storage provider.
+**Protected**: `db push` discipline until an explicit migration strategy is approved (*approved 2026-09-25 — decision D5: reviewed `prisma migrate` migrations, `db push` retired*); protected PDFs and docs.
 
 ## B11 — Holistic development (long-term vision)
 

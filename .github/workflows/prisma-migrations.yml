@@ -1,0 +1,176 @@
+name: Prisma migrations (PostgreSQL)
+
+# The approved remote environment for Prisma schema-engine operations
+# (database-foundation decision D1.a). It runs only on GitHub's Linux
+# runners, against a temporary PostgreSQL 18 service container that exists
+# for the duration of the job. It never connects to a developer machine or
+# to any real database, uses no secrets, and never commits or pushes.
+#
+# - Before prisma/migrations exists: prints the SQL a baseline migration
+#   needs (bootstrap mode).
+# - Afterwards: fails if schema.prisma has changes no migration covers,
+#   applies every migration with `prisma migrate deploy`, checks for drift,
+#   and saves the reference files the local psql applier must match.
+
+on:
+  push:
+    branches: [pg-foundation, main]
+    paths:
+      - "prisma/**"
+      - ".github/workflows/prisma-migrations.yml"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prisma-migrations-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          # Throwaway credentials for a container that only exists inside this job.
+          POSTGRES_PASSWORD: ci-temporary-only
+          POSTGRES_DB: ci_validate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci_validate"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://ci:ci-temporary-only@localhost:5432/ci_validate?schema=public
+      SHADOW_DATABASE_URL: postgresql://ci:ci-temporary-only@localhost:5432/ci_shadow?schema=public
+      # Partial unique indexes added by hand-written migrations. Prisma 5.20
+      # cannot model them, so its diffs propose dropping them; only these
+      # exact statements are tolerated.
+      ALLOWED_DRIFT: |
+        DROP INDEX "AcademicSession_one_active_per_school";
+        DROP INDEX "StudentSchoolAffiliation_one_open_per_student";
+        DROP INDEX "ClassTeacherAssignment_one_grade_wide_per_session";
+        DROP INDEX "CoScholasticResult_one_annual_per_student_area_session";
+        DROP INDEX "AssessmentFrameworkAssignment_one_default_per_grade_session";
+        DROP INDEX "TeacherAcademicAssignment_one_grade_wide_per_teacher_subject";
+        DROP INDEX "TeachingPlan_one_grade_wide_per_grade_subject";
+        DROP INDEX "StudentEvaluation_one_general_per_student_teacher_session";
+        DROP INDEX "AssessmentComponent_unique_name_framework_level";
+    steps:
+      # The `job` context is only available inside steps, not in job-level env.
+      - name: Locate the PostgreSQL service container
+        run: echo "PG_CONTAINER=${{ job.services.postgres.id }}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: PostgreSQL version and shadow database
+        run: |
+          docker exec "$PG_CONTAINER" psql -U ci -d ci_validate -tAc "SELECT version()"
+          docker exec "$PG_CONTAINER" psql -U ci -d ci_validate -c "CREATE DATABASE ci_shadow"
+
+      - name: Helper to strip tolerated drift
+        run: |
+          mkdir -p out
+          cat > out/significant.sh <<'EOF'
+          #!/usr/bin/env bash
+          # Prints the SQL statements in $1 that are neither comments, blank
+          # lines, nor one of the tolerated ALLOWED_DRIFT statements.
+          grep -v -E '^\s*(--.*)?$' "$1" | grep -v -x -F -f <(printf '%s\n' "$ALLOWED_DRIFT" | sed '/^$/d') || true
+          EOF
+          chmod +x out/significant.sh
+
+      - name: Pending migration SQL
+        run: |
+          if [ -d prisma/migrations ]; then
+            npx prisma migrate diff \
+              --from-migrations prisma/migrations \
+              --shadow-database-url "$SHADOW_DATABASE_URL" \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script > out/pending-migration.sql
+          else
+            npx prisma migrate diff \
+              --from-empty \
+              --to-schema-datamodel prisma/schema.prisma \
+              --script > out/pending-migration.sql
+          fi
+          echo "----- BEGIN pending-migration.sql -----"
+          cat out/pending-migration.sql
+          echo "----- END pending-migration.sql -----"
+          {
+            echo "## Pending migration SQL"
+            echo '```sql'
+            cat out/pending-migration.sql
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -d prisma/migrations ]; then
+            out/significant.sh out/pending-migration.sql > out/pending-significant.sql
+            if [ -s out/pending-significant.sql ]; then
+              echo "::error::schema.prisma has changes that no migration covers:"
+              cat out/pending-significant.sql
+              exit 1
+            fi
+          else
+            echo "::notice::Bootstrap mode: no prisma/migrations yet. The SQL above is the baseline a 0_init migration needs."
+          fi
+
+      - name: Apply migrations (prisma migrate deploy)
+        if: hashFiles('prisma/migrations/**/migration.sql') != ''
+        run: npx prisma migrate deploy
+
+      - name: Drift check against schema.prisma
+        if: hashFiles('prisma/migrations/**/migration.sql') != ''
+        run: |
+          npx prisma migrate diff \
+            --from-url "$DATABASE_URL" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --script > out/drift.sql
+          out/significant.sh out/drift.sql > out/drift-significant.sql
+          if [ -s out/drift-significant.sql ]; then
+            echo "::error::The migrated database differs from schema.prisma:"
+            cat out/drift-significant.sql
+            exit 1
+          fi
+          echo "No drift beyond the tolerated partial unique indexes."
+
+      - name: Reference files for the local psql applier
+        if: hashFiles('prisma/migrations/**/migration.sql') != ''
+        run: |
+          docker exec "$PG_CONTAINER" pg_dump -U ci --schema-only --no-owner --no-privileges ci_validate > out/reference-schema.sql
+          docker exec "$PG_CONTAINER" pg_dump -U ci --schema-only --no-owner --no-privileges -t _prisma_migrations ci_validate > out/prisma-migrations-table.sql
+          docker exec "$PG_CONTAINER" psql -U ci -d ci_validate -c "COPY (SELECT migration_name, checksum, applied_steps_count, finished_at IS NOT NULL AS finished, rolled_back_at IS NULL AS not_rolled_back, logs IS NULL AS no_logs FROM _prisma_migrations ORDER BY migration_name) TO STDOUT WITH CSV HEADER" > out/prisma-migrations-rows.csv
+          docker exec "$PG_CONTAINER" psql -U ci -d ci_validate -At -c "
+            SELECT 'tables (excluding _prisma_migrations): ' || count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' AND table_name <> '_prisma_migrations'
+            UNION ALL SELECT 'foreign keys: ' || count(*) FROM information_schema.table_constraints WHERE table_schema = 'public' AND constraint_type = 'FOREIGN KEY'
+            UNION ALL SELECT 'unique indexes (excluding primary keys): ' || count(*) FROM pg_indexes i JOIN pg_class c ON c.relname = i.indexname JOIN pg_index x ON x.indexrelid = c.oid WHERE i.schemaname = 'public' AND x.indisunique AND NOT x.indisprimary
+            UNION ALL SELECT 'partial unique indexes: ' || count(*) FROM pg_index x JOIN pg_class c ON c.oid = x.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND x.indisunique AND x.indpred IS NOT NULL
+            UNION ALL SELECT 'non-unique indexes: ' || count(*) FROM pg_index x JOIN pg_class c ON c.oid = x.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND NOT x.indisunique" > out/structure-summary.txt
+          for f in structure-summary.txt prisma-migrations-rows.csv prisma-migrations-table.sql; do
+            echo "----- BEGIN $f -----"; cat "out/$f"; echo "----- END $f -----"
+          done
+          {
+            echo "## Structure"; echo '```'; cat out/structure-summary.txt; echo '```'
+            echo "## _prisma_migrations rows"; echo '```'; cat out/prisma-migrations-rows.csv; echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prisma-migrations-${{ github.sha }}
+          path: out/
+          retention-days: 30

@@ -15,7 +15,7 @@ using it.
 ## Tech stack
 
 - **Next.js 14** (App Router, TypeScript) — frontend + API routes in one codebase
-- **Prisma** + **SQLite** for local dev (switch one line to Postgres for production)
+- **Prisma** + **PostgreSQL** (local PostgreSQL for development; schema changes via reviewed migrations — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md))
 - **NextAuth** (credentials provider) for MEGA ID — one login, multiple roles
 - **Tailwind CSS** for styling, using the mega.edu brand colors
 
@@ -49,15 +49,65 @@ Open `.env` and generate a real secret for `NEXTAUTH_SECRET`:
 openssl rand -base64 32
 ```
 
-Paste the output in as the value. Leave `DATABASE_URL` as the default
-SQLite path for now — that's fine for local development.
+Paste the output in as the value.
+
+The database connection string is read in two different ways. Both `.env`
+and `.env.local` are git-ignored — never commit a real password:
+
+- **The app (`npm run dev`)**: Next.js loads a separate **`.env.local`**
+  file in addition to `.env`, and its values take precedence. Put one line
+  in it, with your real password in place of the placeholder:
+
+  ```
+  DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/megaedu_dev?schema=public"
+  ```
+
+- **Prisma and the database scripts** (`npm run db:seed`, `db:seed:demo`,
+  `db:seed:calendar`, `db:verify:demo`, `db:studio`) do **not** read
+  `.env.local` — Prisma loads only the root `.env`. Supply `DATABASE_URL`
+  to that one process instead, as the PostgreSQL rehearsals did — for
+  example in PowerShell, with a hidden password prompt:
+
+  ```powershell
+  $pw = Read-Host "PostgreSQL password" -AsSecureString
+  $env:DATABASE_URL = "postgresql://postgres:" + [uri]::EscapeDataString([Net.NetworkCredential]::new('', $pw).Password) + "@localhost:5432/megaedu_dev?schema=public"
+  npm run db:seed
+  Remove-Item Env:DATABASE_URL
+  ```
+
+  Putting the real URL in `.env` would also work; on the development
+  machine, however, `.env` deliberately keeps the SQLite URL that `main`
+  uses (see the SQLite ↔ PostgreSQL switching runbook in
+  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)).
+
+If you type the password into a URL by hand and it contains special
+characters (`@ : / # %`), URL-encode it.
 
 ## 3. Create the database and seed demo data
 
+You need a local PostgreSQL (15 or newer; development uses 18) listening on
+`localhost`. Create an empty database with UTF-8 and `C` collation:
+
 ```bash
-npx prisma db push
+psql -h localhost -U postgres -c "CREATE DATABASE megaedu_dev ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0"
+```
+
+Apply the schema from the reviewed migrations with the local applier (it
+uses `psql`, asks for the password with a hidden prompt, and records the
+migration history in the format Prisma Migrate uses, with the same
+checksums as the CI reference), then generate the Prisma client and seed
+(with `DATABASE_URL` supplied to the seed process as shown in step 2):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File prisma\apply-migrations.ps1 -Database megaedu_dev
+npx prisma generate
 npm run db:seed
 ```
+
+Do **not** use `npx prisma db push` — it is retired for this project (see
+[docs/DEVELOPMENT_GUIDELINES.md](docs/DEVELOPMENT_GUIDELINES.md)). For the
+full demo environment and its known seed/verification caveat, see
+[docs/DEMO_DATA.md](docs/DEMO_DATA.md).
 
 This creates:
 - A **Platform Admin** account (`admin@megaedu.local` / `ChangeMe123!` unless
@@ -174,32 +224,22 @@ around without writing SQL.
 
 When you're ready to put this on the internet:
 
-1. **Database**: create a free Postgres database at [neon.tech](https://neon.tech).
-   Copy the connection string.
-2. In `prisma/schema.prisma`, change:
-   ```prisma
-   datasource db {
-     provider = "sqlite"
-     ...
-   }
-   ```
-   to:
-   ```prisma
-   datasource db {
-     provider = "postgresql"
-     ...
-   }
-   ```
-3. **Hosting**: push this project to a GitHub repo, then import it at
-   [vercel.com](https://vercel.com). Add your environment variables
-   (`DATABASE_URL` from Neon, `NEXTAUTH_SECRET`, `NEXTAUTH_URL` set to your
-   real domain) in Vercel's project settings.
-4. Vercel will run `npx prisma generate` automatically on build. After the
-   first deploy, run `npx prisma db push` once (locally, pointed at your
-   production `DATABASE_URL`) to create the tables, then run the seed
-   script the same way if you want the admin account and demo data live.
-5. Point your domain at Vercel (they walk you through this in the project's
-   Domains settings).
+Nothing has been deployed yet, and the staging/production hosting choice
+(provider, region, backups, connection pooling, access) is still an open
+decision. What is settled:
+
+1. **Database**: PostgreSQL (15 or newer). `prisma/schema.prisma` already
+   uses `provider = "postgresql"`.
+2. **Schema**: apply the reviewed migrations in `prisma/migrations/` with
+   `prisma migrate deploy` from an environment where Prisma's schema engine
+   can run — never `db push`.
+3. **Environment variables**: `DATABASE_URL`, a real `NEXTAUTH_SECRET`, and
+   `NEXTAUTH_URL` set to your real domain.
+4. Seed only deliberately (the seed creates demo accounts and prints the
+   admin password it uses).
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the full requirements and
+the database rollback/recovery runbook.
 
 ## What's next (not built yet)
 
@@ -230,6 +270,8 @@ Roughly in the order the design document recommends:
 ```
 prisma/
   schema.prisma       ← the whole data model, one file
+  migrations/          ← reviewed PostgreSQL migrations (0_init baseline, …)
+  apply-migrations.ps1 ← local psql migration applier
   seed.ts              ← demo data script
 src/
   app/
