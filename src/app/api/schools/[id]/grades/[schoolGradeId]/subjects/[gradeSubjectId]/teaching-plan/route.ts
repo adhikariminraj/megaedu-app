@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Sets or updates the planned-total/display-label teaching plan for one
@@ -92,6 +93,7 @@ export async function POST(
       const created = await prisma.teachingPlan.findFirst({ where: scope });
       if (created) return NextResponse.json({ ok: true, plan: await updatePlan(created) });
     }
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
     throw err;
   }
 }

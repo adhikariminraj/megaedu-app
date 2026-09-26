@@ -187,7 +187,7 @@ Candidate kilometers:
 1. Audit.
 2. Automated test harness (authorization matrix first).
 3. Fix the two SQLite-specific bulk-write routes. — *done 2026-09-25 (PG-KM2, `60b23b5`)*
-4. PostgreSQL trial migration. — *done in development 2026-09-25 (PG-KM3–PG-KM10, branch `pg-foundation`, not merged; F1 and F2 fixed; F3–F7 open)*
+4. PostgreSQL trial migration. — *done in development 2026-09-25 (PG-KM3–PG-KM10, branch `pg-foundation`, not merged; F1, F2 and F8 fixed; F3–F7 open)*
 5. Object-storage adapter in `uploads.ts`.
 6. Environment/secrets hardening.
 7. Deployment target decision.

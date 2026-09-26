@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 type AssignmentInput = {
   teacherId: string;
@@ -154,6 +155,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         { status: 409 }
       );
     }
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
     throw err;
   }
 

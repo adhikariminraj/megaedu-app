@@ -8,6 +8,7 @@ import {
   teacherHoldsSubjectAssignment,
   teacherHoldsClassAssignment,
 } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Creates a StudentEvaluation for the student's current placement in
@@ -182,6 +183,7 @@ export async function POST(
     return NextResponse.json({ ok: true, evaluation });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return alreadyExists;
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
     throw err;
   }
 }

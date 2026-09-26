@@ -3,7 +3,7 @@
 > **Audience**: the project owner, developers, maintainers, and anyone planning future MEGA.EDU development.
 > **Baseline**: repository commit `120316d` (2026-09-24). Written 2026-09-25 from a read-only audit of the current code, Prisma schema (83 models), routes, and existing `/docs`.
 > **Role of this document**: the principal technical reference for **MEGA.EDU V2** — the whole platform in one place, with honest status for every area. It does **not** replace the detailed subsystem documents in `/docs` (each remains the authoritative deep reference for its own area and is linked throughout), and it does not replace the historical [MEGA_EDU_Technical_Documentation.md](MEGA_EDU_Technical_Documentation.md), which is preserved as-is. Where an older document disagrees with the code, see [Appendix B](#appendix-b--documentation-reconciliation-notes).
-> **Database update (2026-09-25, PostgreSQL block PG-KM1–PG-KM10)**: only the database statements below were revised, to reflect branch `pg-foundation` (local PostgreSQL in development, not yet merged into `main`, which still uses SQLite). Everything else remains at the `120316d` baseline. Details: [DEPLOYMENT.md](DEPLOYMENT.md), [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7).
+> **Database update (2026-09-25, PostgreSQL block PG-KM1–PG-KM10)**: only the database statements below were revised, to reflect branch `pg-foundation` (local PostgreSQL in development, not yet merged into `main`, which still uses SQLite). Everything else remains at the `120316d` baseline. Details: [DEPLOYMENT.md](DEPLOYMENT.md), [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8).
 > **Companion V2 documents**: [Product User Guide](MEGA_EDU_V2_Product_User_Guide.md) · [Development Status](MEGA_EDU_V2_Development_Status.md) · [Master Roadmap](MEGA_EDU_V2_Master_Roadmap.md).
 
 ### Status legend (used in all four V2 documents)
@@ -570,7 +570,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Schools**: no in-app way to add a second School Admin; four areas still on legacy single-school resolution.
 - **Navigation**: Students and Parents have no dashboard link to Report Card / Mark Sheet.
 - **Shared services**: no Resources search or school-side posting; school `applyUrl` write validation; no website templating.
-- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1 and F2 fixed on `pg-foundation`, F3–F7 open; local-filesystem uploads.
+- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1, F2 and F8 fixed on `pg-foundation`, F3–F7 open; local-filesystem uploads.
 - **Commerce**: payments/marketplace absent.
 
 ## 34. Future architectural direction
@@ -581,7 +581,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Academy maturity** — evidence-based progress (lesson completion keyed to `CourseEnrollment`), certificate issuer expansion using the existing `issuerType` field, a real Instructor capability only after an explicit design.
 - **Payments** — entitlements keyed to `CourseEnrollment`/`User.id` and to `Organization`; the existing `Subscription`/`Payment` models to be reviewed, not assumed fit.
 - **Trust & Safety** — use `isActive` (already read everywhere) with a real, audited deactivation action.
-- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — decisions on F3–F7 (F1 and F2 fixed), merge, hosting (D3); an automated test harness.
+- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — decisions on F3–F7 (F1, F2 and F8 fixed), merge, hosting (D3); an automated test harness.
 
 ## 35. Development history and milestones
 

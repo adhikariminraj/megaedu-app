@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { assignmentCollisionExists } from "@/lib/assessmentFramework";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Binds a reusable AssessmentFramework to one (AcademicSession,
@@ -97,6 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ ok: true, assignment });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return alreadyAssigned;
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
     throw err;
   }
 }

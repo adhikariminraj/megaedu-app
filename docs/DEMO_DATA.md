@@ -158,7 +158,7 @@ What the evidence shows:
 
 The audit trail records a later explicit reassignment that explains the observed current state, while the verifier retains a historical comment attributing the difference to RNG non-determinism. The two explanations are not reconciled in this change.
 
-F7 therefore remains a demo-data/verification consistency finding — open, low severity, and **not a PostgreSQL defect**: the PostgreSQL rebuild itself succeeds. The same mismatch is expected on SQLite, because the mismatch is between the seed output and the verification expectations, not PostgreSQL behavior (an inference — RB2 was rehearsed on PostgreSQL only). Recorded in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f7). Documentation-only treatment for now; a code/verification fix remains undecided and unapproved, and neither script's behavior has been changed.
+F7 therefore remains a demo-data/verification consistency finding — open, low severity, and **not a PostgreSQL defect**: the PostgreSQL rebuild itself succeeds. The same mismatch is expected on SQLite, because the mismatch is between the seed output and the verification expectations, not PostgreSQL behavior (an inference — RB2 was rehearsed on PostgreSQL only). Recorded in [KNOWN_GAPS.md](KNOWN_GAPS.md#postgresql-findings-f1f8). Documentation-only treatment for now; a code/verification fix remains undecided and unapproved, and neither script's behavior has been changed.
 
 ---
 

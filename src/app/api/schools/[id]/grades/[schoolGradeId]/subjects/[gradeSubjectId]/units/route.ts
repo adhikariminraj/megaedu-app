@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Creates one TeachingUnit (Unit/Chapter) under a subject offering.
@@ -55,18 +56,23 @@ export async function POST(
     where: { gradeSubjectId: params.gradeSubjectId, sectionId: targetSectionId },
   });
 
-  const unit = await prisma.teachingUnit.create({
-    data: {
-      gradeSubjectId: params.gradeSubjectId,
-      academicSessionId: gradeSubject.academicSessionId,
-      schoolGradeId: params.schoolGradeId,
-      sectionId: targetSectionId,
-      subjectId: gradeSubject.subjectId,
-      title: title.trim(),
-      order: existingCount + 1,
-      createdByUserId: userId,
-    },
-  });
+  try {
+    const unit = await prisma.teachingUnit.create({
+      data: {
+        gradeSubjectId: params.gradeSubjectId,
+        academicSessionId: gradeSubject.academicSessionId,
+        schoolGradeId: params.schoolGradeId,
+        sectionId: targetSectionId,
+        subjectId: gradeSubject.subjectId,
+        title: title.trim(),
+        order: existingCount + 1,
+        createdByUserId: userId,
+      },
+    });
 
-  return NextResponse.json({ ok: true, unit });
+    return NextResponse.json({ ok: true, unit });
+  } catch (err) {
+    if (isOfferingRemovedError(err)) return offeringRemovedResponse(); // removed meanwhile (finding F8)
+    throw err;
+  }
 }

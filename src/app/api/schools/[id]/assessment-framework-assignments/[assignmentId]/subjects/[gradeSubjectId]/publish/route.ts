@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireSchoolAdmin, requireTeacherAssignment } from "@/lib/authorize";
 import { aggregateGroup } from "@/lib/assessmentResults";
+import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
 /**
  * Bulk-publishes one subject's results — DRAFT -> PUBLISHED — for
@@ -85,18 +86,25 @@ export async function POST(
       continue;
     }
 
-    await prisma.assessmentResultPublication.upsert({
-      where: { gradeSubjectId_studentId: { gradeSubjectId: params.gradeSubjectId, studentId } },
-      create: {
-        gradeSubjectId: params.gradeSubjectId,
-        studentId,
-        assignmentId: params.assignmentId,
-        status: "PUBLISHED",
-        publishedAt: new Date(),
-        publishedByUserId: userId,
-      },
-      update: { status: "PUBLISHED", publishedAt: new Date(), publishedByUserId: userId },
-    });
+    try {
+      await prisma.assessmentResultPublication.upsert({
+        where: { gradeSubjectId_studentId: { gradeSubjectId: params.gradeSubjectId, studentId } },
+        create: {
+          gradeSubjectId: params.gradeSubjectId,
+          studentId,
+          assignmentId: params.assignmentId,
+          status: "PUBLISHED",
+          publishedAt: new Date(),
+          publishedByUserId: userId,
+        },
+        update: { status: "PUBLISHED", publishedAt: new Date(), publishedByUserId: userId },
+      });
+    } catch (err) {
+      // Unreachable while results exist (they block removal of the offering),
+      // kept for consistency with the other write routes (finding F8).
+      if (isOfferingRemovedError(err)) return offeringRemovedResponse();
+      throw err;
+    }
     published++;
   }
 

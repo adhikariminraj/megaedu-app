@@ -145,6 +145,11 @@ This document collects every business rule and architectural decision that was *
 **Why**: matches the exact distinction already established for `TeacherGradeAssignment` (never audited, has a real delete route) — Phase 3A's new tables answer "what's the current teaching structure," not "what decision was made and when," so applying the audited pattern to them would be over-engineering, not more rigor (the same reasoning already stated for why Initial Setup placements aren't audited).
 **Applies to**: `Subject`, `GradeSubject`, `TeacherAcademicAssignment`.
 
+### Only an empty subject offering can be removed ✅ (finding F8, 2026-09-26)
+**Rule**: removing a subject from a grade's offering for a session (`DELETE /api/schools/[id]/grades/[schoolGradeId]/subjects/[gradeSubjectId]`) is allowed only while nothing is recorded against it — no teacher assignment, teaching plan, unit, homework, subject evaluation, subject meeting, framework override, result or publication. Otherwise the route answers `409` and lists what depends on it. A closed session's offering is never removed. The database enforces the same rule: every foreign key to `GradeSubject` is `RESTRICT` (migration `5_f8_offering_restrict`). The UI asks for confirmation first.
+**Why**: the Phase 3A design assumed nothing permanent referenced an offering; later phases attached units and unit-test marks, homework and its audit log, evaluations, meetings, framework overrides and results. A removal then deleted or reclassified that data silently through cascades and SET NULL (finding F8, reproduced on a throwaway copy).
+**Applies to**: `GradeSubject` and its nine dependants; the offering-removal route; the nine write routes that reference an offering, which answer `409` "no longer offered" if the offering was removed a moment earlier.
+
 ---
 
 ## School Academic Operations (Phase 3B)
