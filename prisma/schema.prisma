@@ -800,11 +800,13 @@ model Subject {
 // GradeSubject rows until the School Admin explicitly configures them.
 // This is what keeps a past session's curriculum permanently
 // reconstructable even after the school later changes its subject
-// list. A real DELETE route is appropriate here (unlike Subject or
-// Section) — nothing permanent references a GradeSubject row directly
-// (TeacherAcademicAssignment references it, but is itself non-historical,
-// freely-editable current-state data, not an audited record), so
-// removing one mid-session just corrects that session's offering.
+// list. A real DELETE route exists (unlike Subject or Section), but only
+// an EMPTY offering can be removed: later phases attached permanent data
+// to it (units and unit-test marks, homework and its audit log, teaching
+// plans, evaluations, meetings, framework overrides, results), so every
+// foreign key to GradeSubject is RESTRICT and the removal route refuses
+// with 409, listing what depends on it (finding F8). Removal of a CLOSED
+// session's offering is refused too.
 model GradeSubject {
   id                String          @id @default(cuid())
   schoolGradeId     String
@@ -985,7 +987,9 @@ model AttendanceAudit {
 model TeachingPlan {
   id                String          @id @default(cuid())
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   schoolGradeId     String
@@ -1019,7 +1023,9 @@ model TeachingPlan {
 model TeachingUnit {
   id                String          @id @default(cuid())
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   academicSessionId String
   academicSession   AcademicSession @relation(fields: [academicSessionId], references: [id])
   schoolGradeId     String
@@ -1131,7 +1137,9 @@ model Homework {
   sectionId         String?
   section           Section?        @relation(fields: [sectionId], references: [id])
   gradeSubjectId    String
-  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Cascade)
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject    @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   subjectId         String
   subject           Subject         @relation(fields: [subjectId], references: [id])
   teacherId         String
@@ -1456,7 +1464,9 @@ model StudentEvaluation {
   // "General Student Evaluation" vs "Subject Evaluation" label from
   // this field alone.
   gradeSubjectId    String?
-  gradeSubject      GradeSubject?   @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject?   @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
 
   remarks String
 
@@ -1531,7 +1541,9 @@ model ParentTeacherMeeting {
   teacher            Teacher            @relation(fields: [teacherId], references: [id])
   // null = general meeting; set = about one specific subject.
   gradeSubjectId     String?
-  gradeSubject       GradeSubject?      @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject       GradeSubject?      @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   scheduledAt        DateTime
   location           String?
   onlineUrl          String?
@@ -1737,7 +1749,9 @@ model AssessmentFrameworkAssignment {
   schoolGradeId     String
   schoolGrade       SchoolGrade         @relation(fields: [schoolGradeId], references: [id])
   gradeSubjectId    String?
-  gradeSubject      GradeSubject?       @relation(fields: [gradeSubjectId], references: [id])
+  // Restrict (finding F8): an offering with rows here cannot be removed —
+  // the removal route refuses with 409 and lists them; the database is the backstop.
+  gradeSubject      GradeSubject?       @relation(fields: [gradeSubjectId], references: [id], onDelete: Restrict)
   frameworkId       String
   framework         AssessmentFramework @relation(fields: [frameworkId], references: [id])
   createdAt         DateTime            @default(now())
@@ -2003,6 +2017,8 @@ model MarkSheetSubject {
 
   // Informational only — see model comment. Never joined live for
   // display.
+  // No foreign key, by design (finding F8): the sheet keeps the subject name
+  // as a snapshot; an offering with issued results cannot be removed anyway.
   gradeSubjectId      String
   subjectNameSnapshot String
   order               Int
