@@ -570,7 +570,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Schools**: no in-app way to add a second School Admin; four areas still on legacy single-school resolution.
 - **Navigation**: Students and Parents have no dashboard link to Report Card / Mark Sheet.
 - **Shared services**: no Resources search or school-side posting; school `applyUrl` write validation; no website templating.
-- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1, F2 and F8 fixed on `pg-foundation`, F3–F7 open; local-filesystem uploads.
+- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1, F2, F3 and F8 fixed on `pg-foundation`, F4–F7 open; local-filesystem uploads.
 - **Commerce**: payments/marketplace absent.
 
 ## 34. Future architectural direction
@@ -581,7 +581,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Academy maturity** — evidence-based progress (lesson completion keyed to `CourseEnrollment`), certificate issuer expansion using the existing `issuerType` field, a real Instructor capability only after an explicit design.
 - **Payments** — entitlements keyed to `CourseEnrollment`/`User.id` and to `Organization`; the existing `Subscription`/`Payment` models to be reviewed, not assumed fit.
 - **Trust & Safety** — use `isActive` (already read everywhere) with a real, audited deactivation action.
-- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — decisions on F3–F7 (F1, F2 and F8 fixed), merge, hosting (D3); an automated test harness.
+- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — decisions on F4–F7 (F1, F2, F3 and F8 fixed), merge, hosting (D3); an automated test harness.
 
 ## 35. Development history and milestones
 

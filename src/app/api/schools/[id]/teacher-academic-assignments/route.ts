@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isTransactionConflict } from "@/lib/dbErrors";
 import { requireSchoolAdmin } from "@/lib/authorize";
 import { isOfferingRemovedError, offeringRemovedResponse } from "@/lib/offering";
 
@@ -149,7 +150,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return { created, skipped };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && (err.code === "P2002" || err.code === "P2034")) {
+    // A deadlock or serialization failure (finding F3) also rolled the whole batch back: same 409, retry is safe.
+    if ((err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") || isTransactionConflict(err)) {
       return NextResponse.json(
         { error: "These assignments were just changed by someone else — please refresh and try again." },
         { status: 409 }

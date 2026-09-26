@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isTransactionConflict } from "@/lib/dbErrors";
 import { requireSchoolAdmin } from "@/lib/authorize";
 
 type PlacementInput = { studentId: string; schoolGradeId: string; sectionId?: string | null };
@@ -112,7 +113,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return { created, skipped };
     });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+    // A deadlock or serialization failure (finding F3) also rolled the whole batch back: same 409, retry is safe.
+    if ((err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") || isTransactionConflict(err)) {
       return NextResponse.json(
         { error: "Some of these students were just placed by someone else — please refresh and try again." },
         { status: 409 }
