@@ -1737,8 +1737,11 @@ model AssessmentFrameworkAssignment {
   // NOTE: reliably catches a duplicate override for the SAME subject,
   // but — the identical NULL≠NULL gap as above — does NOT by itself
   // catch a second grade-default (gradeSubjectId: null) assignment for
-  // the same grade/session. Pre-checked explicitly before creating; see
-  // src/lib/assessmentFramework.ts.
+  // the same grade/session. That case is pre-checked before creating
+  // (src/lib/assessmentFramework.ts) and, since migration
+  // 3_f2_annual_and_default_unique, enforced by the partial unique index
+  // AssessmentFrameworkAssignment_one_default_per_grade_session (finding
+  // F2/A5), which Prisma cannot express here.
   @@unique([academicSessionId, schoolGradeId, gradeSubjectId])
   @@index([academicSessionId])
   @@index([schoolGradeId])
@@ -2153,11 +2156,13 @@ model CoScholasticGradeSetting {
 // AssessmentComponent.periodId already uses: null = the full-session/
 // annual entry for this area; a real id = scoped to that specific
 // CoScholasticPeriod. The NULL≠NULL gap on the unique constraint below
-// (two null-period rows for the same student+area would not collide at
-// the DB level) is the same, already-documented SQLite limitation this
-// schema already works around elsewhere (AssessmentComponent,
-// AssessmentFrameworkAssignment, StudentEvaluation) — closed by an
-// app-level pre-check before create, not a new problem.
+// (two null-period rows would not collide at the DB level) is closed by
+// the partial unique index CoScholasticResult_one_annual_per_student_area_session
+// (migration 3_f2_annual_and_default_unique, finding F2/A6), which Prisma
+// cannot express here: at most one annual row per student, area and
+// academic session. Areas are school-wide, so the annual row is also
+// identified by its session — see upsertCoScholasticResult() in
+// src/lib/coScholastic.ts.
 model CoScholasticResult {
   id                   String              @id @default(cuid())
   studentId            String

@@ -515,7 +515,7 @@ Detail: [CALENDAR.md](CALENDAR.md).
 | Shared content | `Resource`, `Event`, `Opportunity`, `GeneralCalendarEntry`, `SchoolCalendarEntry` |
 | Commerce (unused) | `Subscription`, `Payment` |
 
-**Conventions**: no Prisma enums (plain strings with documented values); frozen `*Snapshot` fields on permanent documents (certificates, mark sheets, grade-history audit); append-only audit tables; soft-deactivate (`isActive`) instead of delete for structural/historical records; the nullable scope-discriminator idiom (`sectionId`/`gradeSubjectId`/`periodId` null = general); explicit application pre-checks for the `NULL ≠ NULL` unique-index gap (same on SQLite and PostgreSQL — NULL-distinct kept by decision D7; these pre-checks are not concurrency-safe on their own — finding F2; for `ClassTeacherAssignment`'s grade-wide slot, finding F1, a partial unique index now enforces the rule on `pg-foundation`, PG-F1); additive-first schema changes. The two bulk-write routes that relied on SQLite transaction behaviour were fixed in PG-KM2 (`60b23b5`).
+**Conventions**: no Prisma enums (plain strings with documented values); frozen `*Snapshot` fields on permanent documents (certificates, mark sheets, grade-history audit); append-only audit tables; soft-deactivate (`isActive`) instead of delete for structural/historical records; the nullable scope-discriminator idiom (`sectionId`/`gradeSubjectId`/`periodId` null = general); explicit application pre-checks for the `NULL ≠ NULL` unique-index gap (same on SQLite and PostgreSQL — NULL-distinct kept by decision D7; these pre-checks are not concurrency-safe on their own — finding F2; on `pg-foundation` partial unique indexes now enforce the rule for `ClassTeacherAssignment`'s grade-wide slot (F1), the annual `CoScholasticResult` and the grade-default `AssessmentFrameworkAssignment` (F2 rules A6, A5)); additive-first schema changes. The two bulk-write routes that relied on SQLite transaction behaviour were fixed in PG-KM2 (`60b23b5`).
 
 Detail: [DATABASE.md](DATABASE.md), [PRODUCT_RULES.md](PRODUCT_RULES.md).
 
@@ -570,7 +570,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Schools**: no in-app way to add a second School Admin; four areas still on legacy single-school resolution.
 - **Navigation**: Students and Parents have no dashboard link to Report Card / Mark Sheet.
 - **Shared services**: no Resources search or school-side posting; school `applyUrl` write validation; no website templating.
-- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1 fixed on `pg-foundation` (PG-F1), F2–F7 open; local-filesystem uploads.
+- **Engineering**: no automated tests; nothing deployed; PostgreSQL tested in development only, F1 and F2 rules A6/A5 fixed on `pg-foundation`, F2 rules A1–A4 and F3–F7 open; local-filesystem uploads.
 - **Commerce**: payments/marketplace absent.
 
 ## 34. Future architectural direction
@@ -581,7 +581,7 @@ The individually re-verified list is [KNOWN_GAPS.md](KNOWN_GAPS.md); the at-a-gl
 - **Academy maturity** — evidence-based progress (lesson completion keyed to `CourseEnrollment`), certificate issuer expansion using the existing `issuerType` field, a real Instructor capability only after an explicit design.
 - **Payments** — entitlements keyed to `CourseEnrollment`/`User.id` and to `Organization`; the existing `Subscription`/`Payment` models to be reviewed, not assumed fit.
 - **Trust & Safety** — use `isActive` (already read everywhere) with a real, audited deactivation action.
-- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — F2–F7 decisions (F1 fixed, PG-F1), merge, hosting (D3); an automated test harness.
+- **Engineering** — object storage adapter in `uploads.ts`; PostgreSQL: bulk routes fixed (PG-KM2) and development database moved (PG-KM3–PG-KM10, branch `pg-foundation`); next — decisions on F2 rules A1–A4 and F3–F7 (F1 and F2 A6/A5 fixed), merge, hosting (D3); an automated test harness.
 
 ## 35. Development history and milestones
 
