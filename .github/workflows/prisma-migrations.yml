@@ -14,7 +14,7 @@ name: Prisma migrations (PostgreSQL)
 
 on:
   push:
-    branches: [pg-foundation]
+    branches: [pg-foundation, main]
     paths:
       - "prisma/**"
       - ".github/workflows/prisma-migrations.yml"
